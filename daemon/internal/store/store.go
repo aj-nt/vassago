@@ -27,6 +27,14 @@ type MemoryEntry struct {
 	ExpiresAt   int64 // 0 = no expiry
 }
 
+// Validation constants
+const (
+	MaxContentLength = 100000 // 100KB max per memory content
+	MaxKeyLength     = 500
+	MaxCategoryLen   = 50
+	MaxIDLength      = 256
+)
+
 // Store is the SQLite-backed data store for Mnemosyne.
 type Store struct {
 	db *sql.DB
@@ -43,14 +51,17 @@ func New(dbPath string) (*Store, error) {
 
 	// Enable WAL mode for concurrent reads
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
 	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 	// Set busy timeout
 	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("set busy timeout: %w", err)
 	}
 
@@ -66,6 +77,11 @@ func New(dbPath string) (*Store, error) {
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()
+}
+
+// DB returns the underlying database connection (for testing and CLI access).
+func (s *Store) DB() *sql.DB {
+	return s.db
 }
 
 // initDB creates the schema if it doesn't exist, or applies migrations.
@@ -115,22 +131,63 @@ func (s *Store) initDB() error {
 	return nil
 }
 
+// validateMemoryInput validates common fields for AddMemory and UpdateMemory.
+func validateMemoryInput(target, category, key, content string, priority int32) error {
+	if target != "memory" && target != "user" {
+		return fmt.Errorf("invalid target %q: must be 'memory' or 'user'", target)
+	}
+	if category == "" {
+		return fmt.Errorf("category must not be empty")
+	}
+	if len(category) > MaxCategoryLen {
+		return fmt.Errorf("category too long: %d chars, max %d", len(category), MaxCategoryLen)
+	}
+	if key == "" {
+		return fmt.Errorf("key must not be empty")
+	}
+	if len(key) > MaxKeyLength {
+		return fmt.Errorf("key too long: %d chars, max %d", len(key), MaxKeyLength)
+	}
+	if len(content) > MaxContentLength {
+		return fmt.Errorf("content too long: %d chars, max %d", len(content), MaxContentLength)
+	}
+	if priority < 1 || priority > 5 {
+		return fmt.Errorf("invalid priority %d: must be 1-5", priority)
+	}
+	return nil
+}
+
 // --- Memory CRUD ---
 
 // AddMemory creates a new memory entry. If target+key already exists, it updates instead.
+// The operation is atomic — the check-then-upsert is wrapped in a transaction.
 func (s *Store) AddMemory(target, category, key, content string, priority int32, sourceAgent string, expiresAt int64) (*MemoryEntry, error) {
+	if err := validateMemoryInput(target, category, key, content, priority); err != nil {
+		return nil, fmt.Errorf("validation: %w", err)
+	}
+	if sourceAgent == "" {
+		return nil, fmt.Errorf("source_agent must not be empty")
+	}
+
 	now := time.Now().Unix()
+
+	// Transaction for atomic upsert
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
 
 	// Check if entry exists with this target+key
 	var existingID string
-	err := s.db.QueryRow("SELECT id FROM memories WHERE target = ? AND key = ?", target, key).Scan(&existingID)
+	err = tx.QueryRow("SELECT id FROM memories WHERE target = ? AND key = ?", target, key).Scan(&existingID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("check existing: %w", err)
 	}
 
 	if existingID != "" {
 		// Update existing entry
-		_, err = s.db.Exec(`
+		_, err = tx.Exec(`
 			UPDATE memories SET
 				content = ?,
 				priority = ?,
@@ -144,18 +201,24 @@ func (s *Store) AddMemory(target, category, key, content string, priority int32,
 		if err != nil {
 			return nil, fmt.Errorf("update memory: %w", err)
 		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit update: %w", err)
+		}
 		return s.GetMemoryByID(existingID)
 	}
 
 	// Create new entry
 	id := uuid.New().String()
-	_, err = s.db.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO memories (id, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, target, category, key, content, priority, sourceAgent, now, now, now, expiresAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert memory: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit insert: %w", err)
 	}
 	return s.GetMemoryByID(id)
 }
@@ -178,7 +241,7 @@ func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 		return nil, fmt.Errorf("get memory: %w", err)
 	}
 
-	// Update accessed_at
+	// Update accessed_at (side effect of read — consider making this explicit)
 	s.db.Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", time.Now().Unix(), id)
 	return entry, nil
 }
@@ -194,7 +257,22 @@ func (s *Store) RemoveMemory(id string) (bool, error) {
 }
 
 // ListMemories returns memories matching the given filters.
+// Results are ordered by priority DESC, updated_at DESC.
+// Use limit to paginate; 0 means use default (1000).
 func (s *Store) ListMemories(target string, category string, minPriority int32) ([]*MemoryEntry, error) {
+	limit := 1000
+	return s.listMemories(target, category, minPriority, limit)
+}
+
+// ListMemoriesPaginated returns memories with explicit pagination.
+func (s *Store) ListMemoriesPaginated(target string, category string, minPriority int32, limit int, offset int) ([]*MemoryEntry, error) {
+	if limit <= 0 || limit > 10000 {
+		limit = 1000
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	query := `
 		SELECT id, target, category, key, content, priority, source_agent,
 		       created_at, updated_at, accessed_at, expires_at
@@ -213,7 +291,8 @@ func (s *Store) ListMemories(target string, category string, minPriority int32) 
 		query += " AND priority >= ?"
 		args = append(args, minPriority)
 	}
-	query += " ORDER BY priority DESC, updated_at DESC"
+	query += " ORDER BY priority DESC, updated_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -221,6 +300,41 @@ func (s *Store) ListMemories(target string, category string, minPriority int32) 
 	}
 	defer rows.Close()
 
+	return scanMemories(rows)
+}
+
+func (s *Store) listMemories(target string, category string, minPriority int32, limit int) ([]*MemoryEntry, error) {
+	query := `
+		SELECT id, target, category, key, content, priority, source_agent,
+		       created_at, updated_at, accessed_at, expires_at
+		FROM memories WHERE 1=1`
+	args := []any{}
+
+	if target != "" {
+		query += " AND target = ?"
+		args = append(args, target)
+	}
+	if category != "" {
+		query += " AND category = ?"
+		args = append(args, category)
+	}
+	if minPriority > 0 {
+		query += " AND priority >= ?"
+		args = append(args, minPriority)
+	}
+	query += " ORDER BY priority DESC, updated_at DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list memories: %w", err)
+	}
+	defer rows.Close()
+
+	return scanMemories(rows)
+}
+
+func scanMemories(rows *sql.Rows) ([]*MemoryEntry, error) {
 	var entries []*MemoryEntry
 	for rows.Next() {
 		e := &MemoryEntry{}
@@ -238,10 +352,13 @@ func (s *Store) ListMemories(target string, category string, minPriority int32) 
 
 // Search performs a full-text search using FTS5.
 // Multi-word queries use OR semantics by default.
-// Special tokens (colons, etc.) are quoted to prevent FTS5 column filter errors.
+// Special tokens (colons, dots) are quoted to prevent FTS5 column filter errors.
 func (s *Store) Search(query string, target string, limit int) ([]*MemoryEntry, error) {
 	if limit <= 0 {
 		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 
 	// Sanitize the FTS5 query
@@ -269,22 +386,12 @@ func (s *Store) Search(query string, target string, limit int) ([]*MemoryEntry, 
 	}
 	defer rows.Close()
 
-	var entries []*MemoryEntry
-	for rows.Next() {
-		e := &MemoryEntry{}
-		if err := rows.Scan(&e.ID, &e.Target, &e.Category, &e.Key, &e.Content,
-			&e.Priority, &e.SourceAgent, &e.CreatedAt, &e.UpdatedAt,
-			&e.AccessedAt, &e.ExpiresAt); err != nil {
-			return nil, fmt.Errorf("scan search result: %w", err)
-		}
-		entries = append(entries, e)
-	}
-	return entries, nil
+	return scanMemories(rows)
 }
 
 // sanitizeFTS5 cleans a user query for safe use in FTS5 MATCH.
 // Preserves OR, AND, NOT, NEAR operators.
-// Quotes tokens containing colons to prevent column filter errors.
+// Quotes tokens containing colons or dots to prevent FTS5 column filter errors.
 // Multi-word queries with no explicit operators use OR (not AND) semantics.
 func (s *Store) sanitizeFTS5(query string) string {
 	words := strings.Fields(query)
@@ -304,14 +411,8 @@ func (s *Store) sanitizeFTS5(query string) string {
 			continue
 		}
 
-		// Quote tokens with special FTS5 chars (colon = column filter)
-		if strings.Contains(word, ":") {
-			result = append(result, `"`+word+`"`)
-			continue
-		}
-
-		// Tokens with dots (config.yaml) — quote to prevent tokenization
-		if strings.Contains(word, ".") {
+		// Quote tokens with special FTS5 chars (colon = column filter, dot = tokenization)
+		if strings.Contains(word, ":") || strings.Contains(word, ".") {
 			result = append(result, `"`+word+`"`)
 			continue
 		}
