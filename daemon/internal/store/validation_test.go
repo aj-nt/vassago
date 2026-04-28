@@ -28,7 +28,7 @@ func TestAddMemory_validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := s.AddMemory(tt.target, tt.category, tt.key, tt.content, tt.priority, tt.agent, 0)
+			_, err := addMemory(s, tt.target, tt.category, tt.key, tt.content, tt.priority, tt.agent, 0)
 			if err == nil {
 				t.Errorf("expected error containing %q, got nil", tt.wantErr)
 			} else if !contains(err.Error(), tt.wantErr) {
@@ -47,7 +47,7 @@ func TestAddMemory_contentTooLong(t *testing.T) {
 		longContent[i] = 'x'
 	}
 
-	_, err := s.AddMemory("memory", "env", "bigkey", string(longContent), 3, "agent", 0)
+	_, err := addMemory(s, "memory", "env", "bigkey", string(longContent), 3, "agent", 0)
 	if err == nil {
 		t.Error("expected error for content too long")
 	}
@@ -61,7 +61,7 @@ func TestListMemories_pagination(t *testing.T) {
 
 	// Create 5 memories
 	for i := 0; i < 5; i++ {
-		_, err := s.AddMemory("memory", "environment", "key_pagination_"+string(rune('a'+i)), "content", 3, "agent-001", 0)
+		_, err := addMemory(s, "memory", "environment", "key_pagination_"+string(rune('a'+i)), "content", 3, "agent-001", 0)
 		if err != nil {
 			t.Fatalf("add memory: %v", err)
 		}
@@ -96,13 +96,13 @@ func TestAddMemory_transactionAtomicity(t *testing.T) {
 	s := testStore(t)
 
 	// Add initial
-	entry1, err := s.AddMemory("memory", "environment", "atomic_key", "first", 3, "agent-001", 0)
+	entry1, err := addMemory(s, "memory", "environment", "atomic_key", "first", 3, "agent-001", 0)
 	if err != nil {
 		t.Fatalf("first add: %v", err)
 	}
 
 	// Upsert same target+key
-	entry2, err := s.AddMemory("memory", "environment", "atomic_key", "second", 4, "agent-002", 0)
+	entry2, err := addMemory(s, "memory", "environment", "atomic_key", "second", 4, "agent-002", 0)
 	if err != nil {
 		t.Fatalf("second add: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestSearch_limitBounds(t *testing.T) {
 	s := testStore(t)
 
 	// Test with limit > 1000 should be clamped
-	s.AddMemory("memory", "environment", "k1", "searchable content here", 3, "agent-001", 0)
+	addMemory(s, "memory", "environment", "k1", "searchable content here", 3, "agent-001", 0)
 
 	_, err := s.Search("content", "", 5000) // Should be clamped to 1000
 	if err != nil {

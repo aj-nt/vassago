@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 )
 
 // ListenUnix creates a Unix domain socket listener.
@@ -46,15 +47,5 @@ func ListenTCP(addr string) (net.Listener, error) {
 
 // dirOfFile returns the directory portion of a file path.
 func dirOfFile(path string) string {
-	dir := ""
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			dir = path[:i]
-			break
-		}
-	}
-	if dir == "" {
-		dir = "."
-	}
-	return dir
+	return filepath.Dir(path)
 }

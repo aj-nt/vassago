@@ -9,8 +9,6 @@ import (
 
 	// Pure-Go SQLite driver — no CGo required
 	_ "modernc.org/sqlite"
-
-	"github.com/google/uuid"
 )
 
 // MemoryEntry represents a single memory record.
@@ -161,72 +159,7 @@ func validateMemoryInput(target, category, key, content string, priority int32) 
 
 // --- Memory CRUD ---
 
-// AddMemory creates a new memory entry. If target+key already exists, it updates instead.
-// The operation is atomic — the check-then-upsert is wrapped in a transaction.
-func (s *Store) AddMemory(target, category, key, content string, priority int32, sourceAgent string, expiresAt int64) (*MemoryEntry, error) {
-	if err := validateMemoryInput(target, category, key, content, priority); err != nil {
-		return nil, fmt.Errorf("validation: %w", err)
-	}
-	if sourceAgent == "" {
-		return nil, fmt.Errorf("source_agent must not be empty")
-	}
-
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-
-	now := time.Now().Unix()
-
-	// Transaction for atomic upsert
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// Check if entry exists with this target+key
-	var existingID string
-	err = tx.QueryRow("SELECT id FROM memories WHERE target = ? AND key = ?", target, key).Scan(&existingID)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("check existing: %w", err)
-	}
-
-	if existingID != "" {
-		// Update existing entry
-		_, err = tx.Exec(`
-			UPDATE memories SET
-				content = ?,
-				priority = ?,
-				category = ?,
-				source_agent = ?,
-				updated_at = ?,
-				expires_at = ?
-			WHERE id = ?`,
-			content, priority, category, sourceAgent, now, expiresAt, existingID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("update memory: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, fmt.Errorf("commit update: %w", err)
-		}
-		return s.GetMemoryByID(existingID)
-	}
-
-	// Create new entry
-	id := uuid.New().String()
-	_, err = tx.Exec(`
-		INSERT INTO memories (id, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, target, category, key, content, priority, sourceAgent, now, now, now, expiresAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("insert memory: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit insert: %w", err)
-	}
-	return s.GetMemoryByID(id)
-}
+// AddMemory is in add_memory.go (uses AddMemoryParams struct for readability).
 
 // GetMemoryByID retrieves a memory by its ID.
 func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {

@@ -26,6 +26,45 @@ These rules apply across all phases:
 - Cheat it: boundary timestamps, expiry gaming, priority overflow
 - **If it breaks, add a test, fix the code, re-run both QA gates**
 
+**3. Refactoring Pass** — Fowler discipline at end of every phase
+- Based on *Refactoring: Improving the Design of Existing Code* (Martin Fowler, 2nd ed.)
+- Runs **after** QA + Red Team gates pass, **before** declaring the phase complete
+- No feature work during refactoring — only structure improves, behavior stays the same
+- Every refactoring is one of Fowler's named catalog transformations
+- Test suite must stay green after **each** transformation (run `make test-race` between steps)
+- Commit after each transformation or small coherent batch (never batch a refactoring with a feature)
+
+**Refactoring catalog we use** (most commonly needed):
+
+| Fowler Refactoring | When to Apply |
+|---|---|
+| Extract Function | A function does more than one thing, or is longer than ~40 lines |
+| Extract Variable / Replace Magic with Named Constant | A complex expression needs a name for clarity |
+| Rename Variable / Rename Function | A name doesn't reveal intent |
+| Replace Temp with Query | A temporary variable holds a computed value that could be a function call |
+| Introduce Parameter Object | A function takes 4+ parameters, especially if some travel together |
+| Replace Conditional with Polymorphism | A switch/if-chain on type keeps growing |
+| Move Function | A function is called more by another module than its own |
+| Combine Functions into Class | Data and functions that operate on it are scattered |
+| Encapsulate Record | A data structure is accessed directly in multiple places |
+| Split Loop | A loop does two different things — split into two loops |
+| Replace Loop with Pipeline | A loop builds a collection via append — use chains of transforms |
+| Decompose Conditional | A conditional has complex logic in its condition — extract into named functions |
+| Consolidate Duplicate Conditional Fragments | Same code in all branches — move it out |
+| Remove Assignments to Parameters | A parameter is reassigned inside a function — use a local variable |
+
+**Process per phase:**
+1. QA Pass → Red Team Pass → both green
+2. Read the code added in this phase with fresh eyes
+3. Identify smells: long functions, duplicated logic, unclear names, scattered responsibilities
+4. Pick the highest-impact refactorings (max 5-8 per phase)
+5. Apply one at a time, run `make test-race` after each
+6. Commit with message: `refactor: <Fowler name> — <what and why>`
+7. Refactoring pass is complete when no more smells above the threshold remain
+
+**Threshold:** Refactor when code is harder to understand than to rewrite.
+Don't refactor code that's about to be replaced in the next phase.
+
 ---
 
 ## Host Assignment
