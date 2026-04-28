@@ -35,10 +35,15 @@ func (s *Service) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.
 		return nil, status.Error(codes.InvalidArgument, "source_agent is required")
 	}
 
-	entry, err := s.store.AddMemory(
-		req.Target, req.Category, req.Key, req.Content,
-		req.Priority, req.SourceAgent, req.ExpiresAt,
-	)
+	entry, err := s.store.AddMemory(store.AddMemoryParams{
+		Target:      req.Target,
+		Category:    req.Category,
+		Key:         req.Key,
+		Content:     req.Content,
+		Priority:    req.Priority,
+		SourceAgent: req.SourceAgent,
+		ExpiresAt:   req.ExpiresAt,
+	})
 	if err != nil {
 		slog.Error("AddMemory failed", "error", err, "target", req.Target, "key", req.Key)
 		return nil, status.Errorf(codes.Internal, "add memory: %v", err)
@@ -92,10 +97,15 @@ func (s *Service) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest)
 	}
 
 	// Upsert by target+key (overwrites existing)
-	entry, err := s.store.AddMemory(
-		target, category, existing.Key, content,
-		priority, existing.SourceAgent, expiresAt,
-	)
+	entry, err := s.store.AddMemory(store.AddMemoryParams{
+		Target:      target,
+		Category:    category,
+		Key:         existing.Key,
+		Content:     content,
+		Priority:    priority,
+		SourceAgent: existing.SourceAgent,
+		ExpiresAt:   expiresAt,
+	})
 	if err != nil {
 		slog.Error("UpdateMemory failed", "error", err, "id", req.Id)
 		return nil, status.Errorf(codes.Internal, "update memory: %v", err)
