@@ -1,0 +1,53 @@
+name: QA Gate
+
+# Runs on pull requests to main — the gate that must pass before merge.
+# Based on the Mnemosyne development process:
+# 1. QA Pass — does it do what it says?
+# 2. Red Team — what would break it? (manual, not automated)
+# 3. Refactoring — Fowler discipline at end of phase (manual, not automated)
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  qa-pass:
+    name: QA Pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # All tests must pass with race detector
+      - name: Run tests with race detector
+        run: go test -race -timeout 120s -count=1 ./...
+
+      # No panics on malformed input (covered by integration tests)
+      # gRPC returns proper status codes (covered by service_test.go)
+      # Edge cases covered (empty input, max limits, concurrent access)
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Check build
+        run: go build ./...
+
+      # Verify proto is up to date (no stale generated code)
+      - name: Verify proto generation
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative -I proto proto/mnemosyne.proto
+          git diff --exit-code proto/
+
+      # Check for common Go issues
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
