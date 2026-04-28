@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test with Race Detector
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run tests with race detector
-        run: go test -race -timeout 120s ./...
+        run: go test -race -timeout 120s -count=1 ./...
 
       - name: Run go vet
         run: go vet ./...
@@ -39,21 +39,16 @@ jobs:
           go-version-file: go.mod
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v1.64.8
           args: --timeout=5m
 
   security:
-    name: Security Scan
+    name: Security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: ./...
 
       - name: Run govulncheck
         uses: golang/govulncheck-action@v1

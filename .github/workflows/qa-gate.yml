@@ -1,11 +1,5 @@
 name: QA Gate
 
-# Runs on pull requests to main — the gate that must pass before merge.
-# Based on the Mnemosyne development process:
-# 1. QA Pass — does it do what it says?
-# 2. Red Team — what would break it? (manual, not automated)
-# 3. Refactoring — Fowler discipline at end of phase (manual, not automated)
-
 on:
   pull_request:
     branches: [main]
@@ -26,17 +20,14 @@ jobs:
       - name: Run tests with race detector
         run: go test -race -timeout 120s -count=1 ./...
 
-      # No panics on malformed input (covered by integration tests)
-      # gRPC returns proper status codes (covered by service_test.go)
-      # Edge cases covered (empty input, max limits, concurrent access)
-
+      # Static analysis
       - name: Run go vet
         run: go vet ./...
 
       - name: Check build
         run: go build ./...
 
-      # Verify proto is up to date (no stale generated code)
+      # Verify proto is up to date
       - name: Verify proto generation
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -45,9 +36,9 @@ jobs:
           protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative -I proto proto/mnemosyne.proto
           git diff --exit-code proto/
 
-      # Check for common Go issues
+      # Lint
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v1.64.8
           args: --timeout=5m
