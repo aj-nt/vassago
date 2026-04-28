@@ -40,14 +40,17 @@ func (s *Store) CreateSession(agentID, source, title string) (*Session, error) {
 		source = "cli"
 	}
 
-	id := uuid.New().String()
-	now := time.Now().Unix()
-
-	// Ensure agent exists
+	// Ensure agent exists (has its own lock)
 	_, err := s.EnsureAgent(agentID, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("ensure agent: %w", err)
 	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	id := uuid.New().String()
+	now := time.Now().Unix()
 
 	_, err = s.db.Exec(`
 		INSERT INTO sessions (id, agent_id, source, title, created_at, last_active_at, message_count)
@@ -75,6 +78,9 @@ func (s *Store) AddMessages(sessionID string, messages []Message) error {
 	if len(messages) == 0 {
 		return nil
 	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -110,6 +116,9 @@ func (s *Store) AddMessages(sessionID string, messages []Message) error {
 
 // EndSession marks a session as ended.
 func (s *Store) EndSession(sessionID string) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	result, err := s.db.Exec(`
 		UPDATE sessions SET ended_at = ? WHERE id = ? AND ended_at = 0`,
 		time.Now().Unix(), sessionID,
@@ -150,6 +159,9 @@ func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, error) {
 	if len(agentID) > MaxIDLength {
 		return nil, fmt.Errorf("agent_id too long: %d chars, max %d", len(agentID), MaxIDLength)
 	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	now := time.Now().Unix()
 

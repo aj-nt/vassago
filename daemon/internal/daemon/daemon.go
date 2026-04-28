@@ -9,21 +9,24 @@ import (
 	"path/filepath"
 	"syscall"
 
+	pb "github.com/aj-nt/mnemosyne/proto"
+	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	"google.golang.org/grpc"
 )
 
 // Config holds the daemon configuration.
 // One file. One source of truth. No deep merge. No fallback chains.
 type Config struct {
-	Daemon  DaemonConfig  `yaml:"daemon"`
-	Store   StoreConfig   `yaml:"database"`
+	Daemon   DaemonConfig  `yaml:"daemon"`
+	Store    StoreConfig   `yaml:"database"`
 	HotBlock HotBlockConfig `yaml:"hot_block"`
 }
 
 type DaemonConfig struct {
-	Socket string      `yaml:"socket"`  // Unix socket path
-	TCP    string      `yaml:"tcp"`     // TCP listen address (host:port)
-	TLS    TLSConfig   `yaml:"tls"`
+	Socket string    `yaml:"socket"`  // Unix socket path
+	TCP    string    `yaml:"tcp"`     // TCP listen address (host:port)
+	TLS    TLSConfig `yaml:"tls"`
 }
 
 type TLSConfig struct {
@@ -38,10 +41,10 @@ type StoreConfig struct {
 }
 
 type HotBlockConfig struct {
-	MemoryCharLimit   int32 `yaml:"memory_char_limit"`
-	UserCharLimit     int32 `yaml:"user_char_limit"`
-	MinPriority       int32 `yaml:"min_priority"`
-	ObservationTTLDays int  `yaml:"observation_ttl_days"`
+	MemoryCharLimit    int32 `yaml:"memory_char_limit"`
+	UserCharLimit      int32 `yaml:"user_char_limit"`
+	MinPriority        int32 `yaml:"min_priority"`
+	ObservationTTLDays int   `yaml:"observation_ttl_days"`
 }
 
 // DefaultConfig returns sensible defaults.
@@ -72,6 +75,7 @@ func DefaultConfig() *Config {
 type Daemon struct {
 	config *Config
 	store  *store.Store
+	server *grpc.Server
 }
 
 // New creates a new daemon instance.
@@ -88,19 +92,26 @@ func New(cfg *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
+	// Create gRPC server with interceptors
+	unaryInt, streamInt := daemongrpc.Interceptors()
+	server := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(daemongrpc.RecoveryInterceptor, unaryInt),
+		grpc.StreamInterceptor(streamInt),
+	)
+
+	// Register service
+	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st))
+
 	return &Daemon{
 		config: cfg,
 		store:  st,
+		server: server,
 	}, nil
 }
 
 // Run starts the daemon and blocks until shutdown.
 // Sets up gRPC server, listeners, and handles graceful shutdown.
 func (d *Daemon) Run() error {
-	// TODO: Create gRPC server with interceptors
-	// TODO: Register Mnemosyne service
-
-	// Start listeners
 	var listeners []net.Listener
 
 	// Unix socket listener
@@ -117,7 +128,7 @@ func (d *Daemon) Run() error {
 		if err != nil {
 			return fmt.Errorf("listen on unix socket: %w", err)
 		}
-		// Set socket permissions
+		// Set socket permissions — owner only
 		os.Chmod(d.config.Daemon.Socket, 0600)
 		listeners = append(listeners, l)
 		slog.Info("listening on unix socket", "path", d.config.Daemon.Socket)
@@ -127,24 +138,44 @@ func (d *Daemon) Run() error {
 	if d.config.Daemon.TCP != "" {
 		l, err := net.Listen("tcp", d.config.Daemon.TCP)
 		if err != nil {
+			// Clean up unix socket on error
+			for _, ul := range listeners {
+				ul.Close()
+			}
 			return fmt.Errorf("listen on TCP: %w", err)
 		}
 		listeners = append(listeners, l)
 		slog.Info("listening on TCP", "address", d.config.Daemon.TCP)
 	}
 
+	// Serve gRPC on all listeners
+	errCh := make(chan error, len(listeners))
+	for _, l := range listeners {
+		go func(lis net.Listener) {
+			if err := d.server.Serve(lis); err != nil {
+				errCh <- fmt.Errorf("serve on %s: %w", lis.Addr().String(), err)
+			}
+		}(l)
+	}
+
+	slog.Info("mnemosyne daemon started", "db", d.config.Store.Path)
+
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	slog.Info("mnemosyne daemon started", "db", d.config.Store.Path)
-	<-sigCh
-	slog.Info("shutting down...")
+	select {
+	case sig := <-sigCh:
+		slog.Info("received signal, shutting down", "signal", sig)
+	case err := <-errCh:
+		slog.Error("listener error", "error", err)
+	}
+
+	// Graceful stop — finish in-flight requests
+	slog.Info("stopping gRPC server...")
+	d.server.GracefulStop()
 
 	// Cleanup
-	for _, l := range listeners {
-		l.Close()
-	}
 	if d.config.Daemon.Socket != "" {
 		os.Remove(d.config.Daemon.Socket)
 	}
@@ -157,4 +188,9 @@ func (d *Daemon) Run() error {
 // Store returns the underlying store (for testing and CLI access).
 func (d *Daemon) Store() *store.Store {
 	return d.store
+}
+
+// Server returns the gRPC server (for testing).
+func (d *Daemon) Server() *grpc.Server {
+	return d.server
 }
