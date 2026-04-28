@@ -6,24 +6,38 @@
 
 ## 1. Problem Statement
 
-Hermes' memory subsystem has fundamental architectural flaws that cannot be fixed by
-patching. Two sessions of debugging revealed cascading issues rooted in a broken
-foundation:
+Hermes is a capable and feature-rich agent framework that we've used extensively.
+Our experience with it taught us what a memory subsystem needs to do — and where
+the architecture reaches its limits under new requirements it wasn't designed for.
 
-1. **Three conflicting sources of truth** for configuration (config.py defaults,
-   run_agent.py fallbacks, memory_tool.py constants) — all different values.
-2. **Deep merge fills in defaults you can't remove** — deleting keys from config.yaml
-   silently re-applies DEFAULT_CONFIG values.
-3. **Flat files vs. SQLite confusion** — `_load_from_disk` doesn't load from disk.
-   `_save_to_disk` doesn't save to disk. The naming lies about what the code does.
-4. **Hot block frozen at init** — the priority-sorted snapshot is computed once at
-   startup and never updated, even when memories change mid-session.
-5. **Single-agent assumption** — the database is a private file on one agent's
-   filesystem. No mechanism for multiple agents to share memory or be aware of each
-   other.
-6. **Priority 4 quirk entries consume 84% of memory budget** — self-referential
-   metadata about how memory works displaces actual useful content.
-7. **Observation entries never expire** — `expires_at` is set but never checked.
+Mnemosyne exists because we need capabilities that don't fit cleanly into Hermes'
+existing architecture:
+
+1. **Multi-agent memory sharing** — Hermes assumes a single agent owns the
+   database. We need multiple agents to read and write the same memories and
+   be aware of each other's changes in real-time.
+
+2. **Hot block that adapts** — Hermes computes the memory context once at
+   startup and freezes it for the session. We need it to update when other
+   agents write, and to be configurable per-agent (a dev agent and a personal
+   agent need different working context from the same data).
+
+3. **Observation lifecycle** — Hermes sets expiry timestamps on observation
+   entries but never enforces them. Over time, stale observations accumulate
+   and consume space in the hot block.
+
+4. **Configuration clarity** — Hermes has three places that define memory
+   limits (config defaults, runtime fallbacks, tool constants) with different
+   values, and a deep-merge that re-applies removed defaults. The system works,
+   but the configuration path is hard to reason about when debugging.
+
+5. **Memory budget pressure** — High-priority metadata about the memory system
+   itself can consume most of the hot block budget, leaving less room for the
+   actual content the agent needs in its working context.
+
+These are growth constraints, not bugs. Hermes reliably serves a single agent.
+Mnemosyne addresses the next scale: multiple agents, shared memory, and
+per-agent context — requirements that call for a different architectural model.
 
 ## 2. Design Principles
 
@@ -680,19 +694,16 @@ logging:
    and filtering ("what did the dev agent learn?") but does not restrict access.
    Future: ACL system for restricting write access per-agent if needed.
 
-## 14. Lessons from Hermes — What We're Fixing
+## 14. From Hermes — What We Learned, What We're Building Differently
 
-| Hermes Bug | Mnemosyne Solution |
-|---|---|
-| Three config sources, all different | One config file, one loader, one constant |
-| Deep merge fills in removed defaults | No deep merge. If it's not in the file, use the code constant |
-| `load_from_disk` doesn't load from disk | No flat files. SQLite only. |
-| `save_to_disk` doesn't save to disk | Export is a separate command, not a side effect |
-| Hot block frozen at init | On-demand computation + pub/sub invalidation |
-| Single-agent assumption | Multi-agent by design, pub/sub for telepathy |
-| Priority 4 quirks eat 84% of budget | Per-agent hot block config, category boost/suppress |
-| Observations never expire | Daemon enforces TTL on startup + periodic sweep |
-| FTS5 `*` query returns 0 | `ListMemories` RPC for "give me everything" |
-| Schema migration silently fails | Schema version checked; ALTER errors halt startup |
-| `_sync_to_files` band-aid | No files to sync |
-| No tests | TDD from day one |
+| What Hermes Does | What We Learned | How Mnemosyne Approaches It |
+|---|---|---|
+| Three config sources for memory limits | Multiple sources makes debugging hard | One config file, one loader, one code constant |
+| Deep merge re-applies removed defaults | Removing a config key should work | No deep merge. Absent keys use the code constant |
+| Hot block computed once at startup | Agents work long sessions; context goes stale | On-demand computation + pub/sub invalidation |
+| Single agent owns the database | Multiple agents need shared state | Multi-agent by design, pub/sub for telepathy |
+| Priority system doesn't distinguish metadata from content | System metadata can starve useful content | Per-agent hot block config, category boost/suppress |
+| Observations have expires_at but never checked | Stale data accumulates silently | Daemon enforces TTL on startup + periodic sweep |
+| FTS5 `*` query returns zero results | Wildcard search should just work | `ListMemories` RPC for "show everything" |
+| Schema migration can silently fail | ALTER errors should halt startup | Schema version checked; ALTER errors halt startup |
+| No tests for memory subsystem | Untested code breeds bugs | TDD from day one |
