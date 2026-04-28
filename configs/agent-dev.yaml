@@ -1,0 +1,29 @@
+# Mnemosyne Agent — Development Configuration
+
+agent:
+  id: "00000000-0000-0000-0000-000000000001"
+  name: "dev-agent"
+  role: "development"
+
+daemon:
+  address: "localhost:50051"
+  # For Unix socket: address: "unix://~/.mnemosyne/mnemosyne.sock"
+
+provider:
+  name: "openai"
+  api_base: "http://localhost:11434/v1"  # Ollama
+  model: "gemma3:4b"
+  api_key: ""                             # Empty for local
+
+streaming:
+  enabled: true
+  timeout_seconds: 120
+
+hot_block:
+  boost_categories:
+    - "project"
+    - "environment"
+  suppress_categories:
+    - "observation"
+
+interface: cli

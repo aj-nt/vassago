@@ -1,0 +1,235 @@
+syntax = "proto3";
+
+package mnemosyne;
+
+option go_package = "github.com/aj-nt/mnemosyne/proto";
+
+// Mnemosyne — Shared Memory Daemon for AI Agents
+// gRPC service definition
+
+service Mnemosyne {
+  // Memory CRUD
+  rpc AddMemory(AddMemoryRequest) returns (AddMemoryResponse);
+  rpc GetMemory(GetMemoryRequest) returns (MemoryEntry);
+  rpc UpdateMemory(UpdateMemoryRequest) returns (MemoryEntry);
+  rpc RemoveMemory(RemoveMemoryRequest) returns (RemoveMemoryResponse);
+  rpc ListMemories(ListMemoriesRequest) returns (MemoryList);
+
+  // Search
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // Hot block — per-agent computed context
+  rpc GetHotBlock(HotBlockRequest) returns (HotBlockResponse);
+
+  // Session lifecycle
+  rpc CreateSession(CreateSessionRequest) returns (Session);
+  rpc AddMessages(AddMessagesRequest) returns (Session);
+  rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+  rpc GetSession(GetSessionRequest) returns (Session);
+
+  // Consolidation
+  rpc Consolidate(ConsolidateRequest) returns (ConsolidateResponse);
+  rpc GetConsolidationCandidates(GetConsolidationCandidatesRequest) returns (ConsolidationCandidatesResponse);
+
+  // Pub/sub — agent subscribes to memory changes
+  rpc Subscribe(SubscribeRequest) returns (stream UpdateEvent);
+}
+
+// --- Messages ---
+
+message MemoryEntry {
+  string id = 1;
+  string target = 2;         // "memory" or "user"
+  string category = 3;       // environment, quirk, project, observation, user
+  string key = 4;            // upsert key
+  string content = 5;
+  int32 priority = 6;         // 1-5, higher = more important
+  string source_agent = 7;   // UUID of the agent that wrote this
+  int64 created_at = 8;      // Unix timestamp
+  int64 updated_at = 9;
+  int64 accessed_at = 10;
+  int64 expires_at = 11;     // 0 = no expiry
+}
+
+message AddMemoryRequest {
+  string target = 1;
+  string category = 2;
+  string key = 3;
+  string content = 4;
+  int32 priority = 5;
+  string source_agent = 6;
+  int64 expires_at = 7;      // 0 = no expiry
+}
+
+message AddMemoryResponse {
+  MemoryEntry entry = 1;
+}
+
+message GetMemoryRequest {
+  string id = 1;
+}
+
+message UpdateMemoryRequest {
+  string id = 1;
+  optional string content = 2;
+  optional int32 priority = 3;
+  optional string category = 4;
+  optional int64 expires_at = 5;
+}
+
+message RemoveMemoryRequest {
+  string id = 1;
+}
+
+message RemoveMemoryResponse {
+  bool deleted = 1;
+}
+
+message ListMemoriesRequest {
+  string target = 1;         // "memory", "user", or "" for both
+  optional string category = 2;
+  optional string source_agent = 3;
+  optional int32 min_priority = 4;
+}
+
+message MemoryList {
+  repeated MemoryEntry entries = 1;
+}
+
+message SearchRequest {
+  string query = 1;
+  string target = 2;         // "memory", "user", or "" for both
+  optional int32 limit = 3;
+}
+
+message SearchResponse {
+  repeated MemoryEntry entries = 1;
+}
+
+// --- Hot Block ---
+
+message HotBlockConfig {
+  repeated string boost_categories = 1;
+  repeated string suppress_categories = 2;
+  int32 boost_priority = 3;         // priority >= this gets boosted
+}
+
+message HotBlockRequest {
+  string target = 1;               // "memory" or "user"
+  HotBlockConfig config = 2;
+  string agent_id = 3;
+  int32 char_limit = 4;
+}
+
+message HotBlockResponse {
+  string content = 1;              // Formatted text for prompt injection
+  int32 char_count = 2;
+  int32 entry_count = 3;
+  int64 computed_at = 4;           // Timestamp of computation
+}
+
+// --- Sessions ---
+
+message Session {
+  string id = 1;
+  string agent_id = 2;
+  string source = 3;               // "cli", "telegram", "cron", etc.
+  string title = 4;
+  int64 created_at = 5;
+  int64 last_active_at = 6;
+  int32 message_count = 7;
+}
+
+message Message {
+  string role = 1;                 // "user", "assistant", "system", "tool"
+  string content = 2;
+  string tool_call_id = 3;
+  string tool_name = 4;
+  int64 timestamp = 5;
+}
+
+message CreateSessionRequest {
+  string agent_id = 1;
+  string source = 2;
+  string title = 3;
+}
+
+message AddMessagesRequest {
+  string session_id = 1;
+  repeated Message messages = 2;
+}
+
+message EndSessionRequest {
+  string session_id = 1;
+}
+
+message EndSessionResponse {
+  bool ended = 1;
+}
+
+message GetSessionRequest {
+  string session_id = 1;
+  optional bool include_messages = 2;
+}
+
+// --- Consolidation ---
+
+enum ConsolidateScope {
+  CONSOLIDATE_SCOPE_UNSPECIFIED = 0;
+  CONSOLIDATE_SCOPE_ALL = 1;
+  CONSOLIDATE_SCOPE_OBSERVATIONS = 2;
+  CONSOLIDATE_SCOPE_CATEGORY = 3;
+  CONSOLIDATE_SCOPE_EXPIRED = 4;
+}
+
+message ConsolidateRequest {
+  ConsolidateScope scope = 1;
+  optional string category = 2;      // Required when scope = CATEGORY
+  optional int32 batch_size = 3;      // Max candidates to return
+}
+
+message ConsolidateResponse {
+  int32 removed = 1;
+  int32 merged = 2;
+  string summary = 3;                 // Human-readable summary of what was done
+}
+
+message GetConsolidationCandidatesRequest {
+  ConsolidateScope scope = 1;
+  optional string category = 2;
+  optional int32 batch_size = 3;
+}
+
+message ConsolidationCandidate {
+  MemoryEntry entry = 1;
+  string reason = 2;                  // Why this entry is a candidate
+}
+
+message ConsolidationCandidatesResponse {
+  repeated ConsolidationCandidate candidates = 1;
+}
+
+// --- Pub/Sub ---
+
+message SubscribeRequest {
+  string agent_id = 1;
+  repeated string targets = 2;        // "memory", "user"
+  repeated string categories = 3;     // Empty = all categories
+  repeated string key_prefixes = 4;   // Empty = all keys
+}
+
+message UpdateEvent {
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+    ADDED = 1;
+    UPDATED = 2;
+    REMOVED = 3;
+    HOT_BLOCK_CHANGED = 4;
+  }
+  EventType event_type = 1;
+  string target = 2;
+  optional MemoryEntry entry = 3;     // Present for ADDED/UPDATED
+  optional string removed_id = 4;      // Present for REMOVED
+  string hot_block_target = 5;        // Present for HOT_BLOCK_CHANGED
+  int64 timestamp = 6;
+}

@@ -1,0 +1,29 @@
+# Mnemosyne Configuration
+# One file. One source of truth. No deep merge. No fallback chains.
+
+daemon:
+  socket: ~/.mnemosyne/mnemosyne.sock   # Unix socket (local)
+  tcp: localhost:50051                   # TCP listener (LAN/internet)
+  tls:
+    cert: ""                             # Empty = no TLS
+    key: ""
+
+database:
+  path: ~/.mnemosyne/mnemosyne.db
+  wal_mode: true                         # WAL for concurrent reads
+  busy_timeout: 5000                     # ms to wait on lock
+
+hot_block:
+  memory_char_limit: 4000                # ~1140 tokens at 3.5 chars/token
+  user_char_limit: 2000                  # ~570 tokens at 3.5 chars/token
+  min_priority: 2                        # Include priority >= 2
+  observation_ttl_days: 30               # Auto-expire observations
+
+consolidation:
+  max_idle_days: 60                      # Evict memories not accessed in N days
+  max_idle_priority_1: 365               # P1 entries: generous TTL
+  max_idle_priority_2: 180               # P2 entries: moderate TTL
+
+logging:
+  level: info
+  format: json
