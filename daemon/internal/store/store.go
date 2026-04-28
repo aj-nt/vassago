@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	// Pure-Go SQLite driver — no CGo required
@@ -37,7 +38,8 @@ const (
 
 // Store is the SQLite-backed data store for Mnemosyne.
 type Store struct {
-	db *sql.DB
+	db    *sql.DB
+	writeMu sync.Mutex // Serializes write operations for SQLite BUSY avoidance
 }
 
 // New creates a new Store and initializes the database.
@@ -169,6 +171,9 @@ func (s *Store) AddMemory(target, category, key, content string, priority int32,
 		return nil, fmt.Errorf("source_agent must not be empty")
 	}
 
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	now := time.Now().Unix()
 
 	// Transaction for atomic upsert
@@ -248,6 +253,9 @@ func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 
 // RemoveMemory deletes a memory by ID.
 func (s *Store) RemoveMemory(id string) (bool, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	result, err := s.db.Exec("DELETE FROM memories WHERE id = ?", id)
 	if err != nil {
 		return false, fmt.Errorf("remove memory: %w", err)
