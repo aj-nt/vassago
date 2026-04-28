@@ -80,7 +80,6 @@ func TestSearch_emptyQuery(t *testing.T) {
 }
 
 func TestSanitizeFTS5(t *testing.T) {
-	s := &Store{} // No DB needed for sanitization
 
 	tests := []struct {
 		input string
@@ -97,7 +96,7 @@ func TestSanitizeFTS5(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := s.sanitizeFTS5(tt.input)
+		got := sanitizeFTS5(tt.input)
 		if !contains(got, tt.want) {
 			t.Errorf("sanitizeFTS5(%q) = %q, want substring %q", tt.input, got, tt.want)
 		}
