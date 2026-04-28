@@ -107,27 +107,32 @@ as soon as the daemon schema is stable (after Phase 1).
 foundation everything else depends on.
 
 ### 1.1 Project Scaffold
-- [ ] `go mod init github.com/aj-nt/mnemosyne`
-- [ ] Directory structure (monorepo: daemon/ and agent/ subdirs)
-- [ ] `proto/mnemosyne.proto` — full service definition (memory CRUD + hot block + session lifecycle)
-- [ ] Generate Go code from proto (`buf generate` or `protoc`)
-- [ ] `Makefile` — build, test, lint, generate targets
+- [x] `go mod init github.com/aj-nt/mnemosyne`
+- [x] Directory structure (monorepo: daemon/ and agent/ subdirs)
+- [x] `proto/mnemosyne.proto` — full service definition (memory CRUD + hot block + session lifecycle)
+- [x] Generate Go code from proto (`protoc`)
+- [x] `Makefile` — build, test, lint, generate targets
 - [ ] CI: `go test -race ./...` on push
 
 ### 1.2 Store Layer
-- [ ] `daemon/internal/store/schema.go` — CREATE TABLE statements, version tracking
-- [ ] `daemon/internal/store/store.go` — Open/Close, WAL mode, busy timeout
-- [ ] `daemon/internal/store/memories.go` — Add, Replace, Remove, Get, List
-- [ ] `daemon/internal/store/search.go` — FTS5 query sanitization, search
-- [ ] `daemon/internal/store/hotblock.go` — Compute hot block from parameters
-- [ ] `daemon/internal/store/sessions.go` — CreateSession, AddMessages, GetSession
-- [ ] Unit tests for every method (TDD: write test first)
+- [x] `daemon/internal/store/schema.go` — CREATE TABLE statements, version tracking
+- [x] `daemon/internal/store/store.go` — Open/Close, WAL mode, busy timeout, validation
+- [x] `daemon/internal/store/add_memory.go` — AddMemory (upsert by target+key, transaction, AddMemoryParams struct)
+- [x] `daemon/internal/store/search.go` — FTS5 query sanitization, search, sanitizeFTS5
+- [x] `daemon/internal/store/hotblock.go` — Compute hot block from parameters
+- [x] `daemon/internal/store/sessions.go` — CreateSession, AddMessages, GetSession, EnsureAgent
+- [x] `daemon/internal/store/test_helpers.go` — Test helper for AddMemoryParams
+- [x] Unit tests for every method (64 tests passing with -race)
+- [x] Integration tests (daemon round-trip, malformed requests, concurrent writes)
+- [x] Refactoring pass complete (Fowler: Introduce Parameter Object, Extract Function, Consolidate Duplicate, Replace Temp with Query)
 
 ### 1.3 gRPC Service
-- [ ] `daemon/internal/grpc/service.go` — Implement Mnemosyne service
-- [ ] `daemon/internal/grpc/session.go` — Session lifecycle RPCs
-- [ ] `daemon/internal/daemon/listener.go` — Unix socket + TCP listeners
-- [ ] `daemon/cmd/mnemosyne-daemon/main.go` — Start daemon, serve gRPC
+- [x] `daemon/internal/grpc/service.go` — Implement Mnemosyne service
+- [x] `daemon/internal/grpc/interceptors.go` — Logging + panic recovery interceptors
+- [x] `daemon/internal/daemon/listener.go` — Unix socket + TCP listeners
+- [x] `daemon/internal/daemon/daemon.go` — Start daemon, serve gRPC, config
+- [x] `daemon/cmd/mnemosyne-daemon/main.go` — CLI entry point
+- [x] `daemon/cmd/mnemosyne-daemon/integration_test.go` — Full gRPC round-trip tests
 
 **Deliverable:** `mnemosyne-daemon` starts, accepts gRPC connections, performs
 CRUD on memories, computes hot blocks, manages sessions.
