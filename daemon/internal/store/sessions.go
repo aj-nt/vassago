@@ -33,6 +33,13 @@ type Message struct {
 
 // CreateSession starts a new session.
 func (s *Store) CreateSession(agentID, source, title string) (*Session, error) {
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id must not be empty")
+	}
+	if source == "" {
+		source = "cli"
+	}
+
 	id := uuid.New().String()
 	now := time.Now().Unix()
 
@@ -62,8 +69,13 @@ func (s *Store) CreateSession(agentID, source, title string) (*Session, error) {
 	}, nil
 }
 
-// AddMessages appends messages to a session.
+// AddMessages appends messages to a session within a transaction.
+// Also updates the session's last_active_at and message_count atomically.
 func (s *Store) AddMessages(sessionID string, messages []Message) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -81,7 +93,7 @@ func (s *Store) AddMessages(sessionID string, messages []Message) error {
 		}
 	}
 
-	// Update session's last_active_at and message_count
+	// Update session's last_active_at and message_count within the same transaction
 	_, err = tx.Exec(`
 		UPDATE sessions SET
 			last_active_at = ?,
@@ -132,9 +144,15 @@ func (s *Store) GetSession(sessionID string) (*Session, error) {
 
 // EnsureAgent creates an agent record if it doesn't exist.
 func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, error) {
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id must not be empty")
+	}
+	if len(agentID) > MaxIDLength {
+		return nil, fmt.Errorf("agent_id too long: %d chars, max %d", len(agentID), MaxIDLength)
+	}
+
 	now := time.Now().Unix()
 
-	// Try to insert; if it exists, update last_seen_at
 	_, err := s.db.Exec(`
 		INSERT INTO agents (id, name, role, created_at, last_seen_at)
 		VALUES (?, ?, ?, ?, ?)
