@@ -67,6 +67,53 @@ Don't refactor code that's about to be replaced in the next phase.
 
 ---
 
+## Git Workflow
+
+### Branch Structure
+
+```
+main (protected)     ← CI must be green + AJ approves merge
+  ↑
+  PR (automated + manual gate)
+  ↑
+phase-N/feature      ← work happens here, push often, CI runs on every push
+```
+
+### Phase Development Flow
+
+1. **Create branch**: `git checkout -b phase-2/agent-core`
+2. **Work on the branch** — commit and push frequently, CI runs automatically
+3. **No PR needed for daily pushes** — CI is a safety net, not a gate for every commit
+4. **When the phase is code-complete:**
+   - Run Manual QA Pass: `make test-race`
+   - Run Manual Red Team Pass (try to break it, see criteria above)
+   - Run Refactoring Pass (Fowler discipline, max 5-8 transformations)
+5. **Create PR to `main`** — CI must be green before review
+6. **AJ approves** — merge to main
+7. **Pull to other machines** — `git pull` on Studio, verify tests pass
+
+### CI Workflows (automated on every push)
+
+| Workflow | Trigger | Checks |
+|---|---|---|
+| `ci.yml` | Push to `main` or `dogfood`, any PR | Test (race), vet, build, lint, security scan |
+| `qa-gate.yml` | PR to `main` | All CI + proto freshness + golangci-lint |
+
+### Branch Protection (configure in GitHub Settings)
+
+**`main` branch:**
+- Require PR before merging
+- Require 1 approval (AJ)
+- Require status checks: test, lint, security (from ci.yml)
+- Require linear history (no merge commits)
+
+### Hotfixes
+
+Critical fixes to `main` can bypass the PR process, but must still pass CI.
+Tag the commit: `hotfix: <description>`
+
+---
+
 ## Host Assignment
 
 | Host | Role | Mnemosyne Daemon | Agent |
