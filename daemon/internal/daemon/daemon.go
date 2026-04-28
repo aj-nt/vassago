@@ -116,36 +116,24 @@ func (d *Daemon) Run() error {
 
 	// Unix socket listener
 	if d.config.Daemon.Socket != "" {
-		// Remove stale socket
-		os.Remove(d.config.Daemon.Socket)
-
-		sockDir := filepath.Dir(d.config.Daemon.Socket)
-		if err := os.MkdirAll(sockDir, 0700); err != nil {
-			return fmt.Errorf("create socket directory: %w", err)
-		}
-
-		l, err := net.Listen("unix", d.config.Daemon.Socket)
+		l, err := ListenUnix(d.config.Daemon.Socket)
 		if err != nil {
-			return fmt.Errorf("listen on unix socket: %w", err)
+			return fmt.Errorf("unix socket: %w", err)
 		}
-		// Set socket permissions — owner only
-		os.Chmod(d.config.Daemon.Socket, 0600)
 		listeners = append(listeners, l)
-		slog.Info("listening on unix socket", "path", d.config.Daemon.Socket)
 	}
 
 	// TCP listener
 	if d.config.Daemon.TCP != "" {
-		l, err := net.Listen("tcp", d.config.Daemon.TCP)
+		l, err := ListenTCP(d.config.Daemon.TCP)
 		if err != nil {
 			// Clean up unix socket on error
 			for _, ul := range listeners {
 				ul.Close()
 			}
-			return fmt.Errorf("listen on TCP: %w", err)
+			return fmt.Errorf("TCP: %w", err)
 		}
 		listeners = append(listeners, l)
-		slog.Info("listening on TCP", "address", d.config.Daemon.TCP)
 	}
 
 	// Serve gRPC on all listeners
