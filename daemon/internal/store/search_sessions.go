@@ -55,3 +55,33 @@ func sanitizeLike(query string) string {
 	}
 	return string(result)
 }
+
+// ListRecentSessions returns the most recently active sessions.
+func (s *Store) ListRecentSessions(limit int) ([]*Session, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	rows, err := s.db.Query(`
+		SELECT id, agent_id, source, title, created_at, last_active_at, message_count
+		FROM sessions
+		ORDER BY last_active_at DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list recent sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []*Session
+	for rows.Next() {
+		sess, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, sess)
+	}
+	return sessions, nil
+}
