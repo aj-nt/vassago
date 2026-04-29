@@ -66,7 +66,7 @@ func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.To
 	a.Stage1 = pipeline.NewRequestPrepStage(cfg.Personality)
 	a.Stage2 = pipeline.NewProviderCallStage(registry)
 	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
-	a.Stage4 = pipeline.NewToolDispatchStage(toolReg)
+	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
 	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
 
 	return a
