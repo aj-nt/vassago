@@ -50,6 +50,12 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		}
 	}
 
+	// Anti-repetition directive — this is critical for multi-turn conversations
+	// where tool results from prior turns get compacted into summaries.
+	// Without this, models tend to re-assert information from old tool outputs.
+	parts = append(parts, "")
+	parts = append(parts, "Do NOT repeat information you've already stated in earlier messages. If you already told the user their name, preferences, or any other fact, do not re-state it unless they ask again. Each response should add new information or address only the current question.")
+
 	// Memory section
 	if ctx.HotBlockContent != "" {
 		parts = append(parts, "[Memory — what you know about the user and environment]")
