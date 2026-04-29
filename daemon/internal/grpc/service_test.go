@@ -335,13 +335,34 @@ func TestService_UpdateMemory(t *testing.T) {
 	}
 }
 
-func TestService_Consolidate_notImplemented(t *testing.T) {
+func TestService_Consolidate_expired(t *testing.T) {
 	s := testStoreSvc(t)
 	svc := NewService(s, nil)
 	ctx := context.Background()
 
-	_, err := svc.Consolidate(ctx, &pb.ConsolidateRequest{})
-	if err == nil {
-		t.Error("expected Unimplemented error")
+	// Add an expired memory
+	if _, err := svc.AddMemory(ctx, &pb.AddMemoryRequest{ //nolint:errcheck
+		Target:      "memory",
+		Category:    "environment",
+		Key:         "expired-entry",
+		Content:     "old content",
+		Priority:    3,
+		SourceAgent: "test",
+		ExpiresAt:   1000, // Past
+	}); err != nil {
+		t.Fatalf("AddMemory: %v", err)
+	}
+
+	resp, err := svc.Consolidate(ctx, &pb.ConsolidateRequest{
+		Scope: pb.ConsolidateScope_CONSOLIDATE_SCOPE_EXPIRED,
+	})
+	if err != nil {
+		t.Fatalf("Consolidate: %v", err)
+	}
+	if resp.Removed != 1 {
+		t.Errorf("expected 1 removed, got %d", resp.Removed)
+	}
+	if resp.Summary == "" {
+		t.Error("expected non-empty summary")
 	}
 }

@@ -13,6 +13,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// protoToConsolidateScope converts a proto ConsolidateScope enum to the store type.
+func protoToConsolidateScope(scope pb.ConsolidateScope) store.ConsolidationScope {
+	switch scope {
+	case pb.ConsolidateScope_CONSOLIDATE_SCOPE_ALL:
+		return store.ConsolidateScopeAll
+	case pb.ConsolidateScope_CONSOLIDATE_SCOPE_OBSERVATIONS:
+		return store.ConsolidateScopeObservations
+	case pb.ConsolidateScope_CONSOLIDATE_SCOPE_CATEGORY:
+		return store.ConsolidateScopeCategory
+	case pb.ConsolidateScope_CONSOLIDATE_SCOPE_EXPIRED:
+		return store.ConsolidateScopeExpired
+	default:
+		return store.ConsolidateScopeAll
+	}
+}
+
 // Service implements the Mnemosyne gRPC service.
 type Service struct {
 	pb.UnimplementedMnemosyneServer
@@ -302,19 +318,86 @@ func (s *Service) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*p
 	return sessionToProto(sess), nil
 }
 
-// --- Consolidation (stub — Phase 4) ---
+// --- Consolidation ---
 
 func (s *Service) Consolidate(ctx context.Context, req *pb.ConsolidateRequest) (*pb.ConsolidateResponse, error) {
-	// TODO: Phase 4 — implement consolidation logic
-	return nil, status.Error(codes.Unimplemented, "consolidation not yet implemented")
+	var batchSize int
+	if req.BatchSize != nil {
+		batchSize = int(*req.BatchSize)
+	}
+
+	scope := protoToConsolidateScope(req.Scope)
+	var category string
+	if req.Category != nil {
+		category = *req.Category
+	}
+	result, err := s.store.Consolidate(scope, category, batchSize)
+	if err != nil {
+		slog.Error("Consolidate failed", "error", err, "scope", req.Scope)
+		return nil, status.Errorf(codes.Internal, "consolidate: %v", err)
+	}
+
+	return &pb.ConsolidateResponse{
+		Removed: int32(result.Removed),
+		Merged:  int32(result.Merged),
+		Summary: result.Summary,
+	}, nil
 }
 
 func (s *Service) GetConsolidationCandidates(ctx context.Context, req *pb.GetConsolidationCandidatesRequest) (*pb.ConsolidationCandidatesResponse, error) {
-	// TODO: Phase 4 — implement candidate listing
-	return nil, status.Error(codes.Unimplemented, "consolidation candidates not yet implemented")
+	var batchSize int
+	if req.BatchSize != nil {
+		batchSize = int(*req.BatchSize)
+	}
+
+	scope := protoToConsolidateScope(req.Scope)
+	var category string
+	if req.Category != nil {
+		category = *req.Category
+	}
+	candidates, err := s.store.GetConsolidationCandidates(scope, category, batchSize)
+	if err != nil {
+		slog.Error("GetConsolidationCandidates failed", "error", err, "scope", req.Scope)
+		return nil, status.Errorf(codes.Internal, "consolidation candidates: %v", err)
+	}
+
+	pbCandidates := make([]*pb.ConsolidationCandidate, len(candidates))
+	for i, c := range candidates {
+		pbCandidates[i] = &pb.ConsolidationCandidate{
+			Entry:  memoryEntryToProto(c.Entry),
+			Reason: c.Reason,
+		}
+	}
+
+	return &pb.ConsolidationCandidatesResponse{Candidates: pbCandidates}, nil
 }
 
-// --- Pub/Sub (stub — Phase 3) ---
+// SearchSessions searches session titles matching the query.
+func (s *Service) SearchSessions(ctx context.Context, req *pb.SearchSessionsRequest) (*pb.SearchSessionsResponse, error) {
+	if req.Query == "" {
+		return nil, status.Error(codes.InvalidArgument, "query is required")
+	}
+
+	var limit int
+	if req.Limit != nil {
+		limit = int(*req.Limit)
+	}
+
+	sessions, err := s.store.SearchSessions(req.Query, limit)
+	if err != nil {
+		slog.Error("SearchSessions failed", "error", err, "query", req.Query)
+		return nil, status.Errorf(codes.Internal, "search sessions: %v", err)
+	}
+
+	pbSessions := make([]*pb.Session, len(sessions))
+	for i, sess := range sessions {
+		pbSessions[i] = sessionToProto(sess)
+	}
+
+	return &pb.SearchSessionsResponse{Sessions: pbSessions}, nil
+}
+
+// --- Pub/Sub ---
 
 
 // --- Conversion helpers ---
