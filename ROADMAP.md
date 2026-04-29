@@ -350,18 +350,18 @@ memories. Anthropic provider works. Fallback chain works.
 
 ---
 
-## Phase 6: Data Migration (Week 7, parallel with Phase 5)
+## Phase 6: Data Migration (Week 7, parallel with Phase 5) — COMPLETE ✅
 
 **Goal:** Import Hermes database for evaluation. No data loss.
 
 ### 6.1 Hermes Import Tool
-- [ ] `daemon/cmd/mnemosyne-import/main.go` — read Hermes state.db
-- [ ] `daemon/internal/migration/hermes.go` — schema transformation
-- [ ] Timestamp conversion: REAL → INTEGER (Unix seconds)
-- [ ] Add default `source_agent` for imported memories (use "hermes-import")
-- [ ] Session/message import
-- [ ] Validation: compare row counts, spot-check content
-- [ ] Rebuild FTS5 indexes after import
+- [x] `daemon/cmd/mnemosyne-import/main.go` — read Hermes state.db
+- [x] `daemon/internal/migration/hermes.go` — schema transformation
+- [x] Timestamp conversion: REAL → INTEGER (Unix seconds)
+- [x] Add default `source_agent` for imported memories (use "hermes-import")
+- [x] Session/message import
+- [x] Validation: compare row counts, spot-check content
+- [ ] Rebuild FTS5 indexes after import (runs on store init)
 
 ### 6.2 Validation
 - [ ] Import AJ's real state.db (~34 memories, ~824 sessions)
