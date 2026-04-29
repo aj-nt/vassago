@@ -21,8 +21,8 @@ mnemosyne:
   address: "localhost:50051"
 
 hot_block:
-  memory_char_limit: 4000
-  user_char_limit: 2000
+  memory_char_limit: 8000
+  user_char_limit: 3000
   min_priority: 2
   boost_categories:
     - project
