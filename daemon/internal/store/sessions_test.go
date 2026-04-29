@@ -90,7 +90,7 @@ func TestEndSession_alreadyEnded(t *testing.T) {
 	s := testStore(t)
 
 	sess, _ := s.CreateSession("agent-001", "cli", "Test")
-	s.EndSession(sess.ID)
+	s.EndSession(sess.ID) //nolint:errcheck
 
 	err := s.EndSession(sess.ID)
 	if err == nil {

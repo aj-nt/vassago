@@ -40,7 +40,7 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Check if entry exists with this target+key
 	var existingID string

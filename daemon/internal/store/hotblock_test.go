@@ -9,9 +9,9 @@ const testAgentHotBlock = "hotblock-agent-001"
 func TestComputeHotBlock_basic(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0)
-	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)
-	addMemory(s, "user", "user", "name", "AJ Flinton", 4, testAgentHotBlock, 0)
+	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0)  //nolint:errcheck
+	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)       //nolint:errcheck
+	addMemory(s, "user", "user", "name", "AJ Flinton", 4, testAgentHotBlock, 0)                          //nolint:errcheck
 
 	// Memory hot block
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
@@ -33,9 +33,9 @@ func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
 	s := testStore(t)
 
 	// Add entries that would exceed a small limit
-	addMemory(s, "memory", "environment", "k1", "Short entry", 3, testAgentHotBlock, 0)
-	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)
-	addMemory(s, "memory", "environment", "k3", "Yet another entry that makes it longer", 2, testAgentHotBlock, 0)
+	addMemory(s, "memory", "environment", "k1", "Short entry", 3, testAgentHotBlock, 0)                          //nolint:errcheck
+	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)                //nolint:errcheck
+	addMemory(s, "memory", "environment", "k3", "Yet another entry that makes it longer", 2, testAgentHotBlock, 0) //nolint:errcheck
 
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
 		CharLimit:     50, // Very small limit
@@ -52,8 +52,8 @@ func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
 func TestComputeHotBlock_boostCategories(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "observation", "obs1", "Some observation", 3, testAgentHotBlock, 0)
-	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0)
+	addMemory(s, "memory", "observation", "obs1", "Some observation", 3, testAgentHotBlock, 0)            //nolint:errcheck
+	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0)       //nolint:errcheck
 
 	// With "project" boosted, it should come first
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
@@ -75,8 +75,8 @@ func TestComputeHotBlock_boostCategories(t *testing.T) {
 func TestComputeHotBlock_suppressCategories(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)
-	addMemory(s, "memory", "observation", "obs1", "Less important observation", 3, testAgentHotBlock, 0)
+	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)           //nolint:errcheck
+	addMemory(s, "memory", "observation", "obs1", "Less important observation", 3, testAgentHotBlock, 0) //nolint:errcheck
 
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
 		CharLimit:          4000,
@@ -98,10 +98,10 @@ func TestComputeHotBlock_expiredObservations(t *testing.T) {
 	s := testStore(t)
 
 	// Add an already-expired observation (expires_at in the past)
-	addMemory(s, "memory", "observation", "expired", "This is stale", 3, testAgentHotBlock, 1) // expired at epoch 1
+	addMemory(s, "memory", "observation", "expired", "This is stale", 3, testAgentHotBlock, 1) //nolint:errcheck // expired at epoch 1 //nolint:errcheck
 
 	// Add a non-expired observation
-	addMemory(s, "memory", "observation", "fresh", "This is recent", 3, testAgentHotBlock, 0) // no expiry
+	addMemory(s, "memory", "observation", "fresh", "This is recent", 3, testAgentHotBlock, 0) //nolint:errcheck // no expiry //nolint:errcheck
 
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
 		CharLimit:     4000,
