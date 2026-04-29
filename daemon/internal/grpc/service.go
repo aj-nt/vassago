@@ -397,6 +397,27 @@ func (s *Service) SearchSessions(ctx context.Context, req *pb.SearchSessionsRequ
 	return &pb.SearchSessionsResponse{Sessions: pbSessions}, nil
 }
 
+// ListSessions returns the most recently active sessions.
+func (s *Service) ListSessions(ctx context.Context, req *pb.ListSessionsRequest) (*pb.ListSessionsResponse, error) {
+	var limit int
+	if req.Limit != nil {
+		limit = int(*req.Limit)
+	}
+
+	sessions, err := s.store.ListRecentSessions(limit)
+	if err != nil {
+		slog.Error("ListSessions failed", "error", err)
+		return nil, status.Errorf(codes.Internal, "list sessions: %v", err)
+	}
+
+	pbSessions := make([]*pb.Session, len(sessions))
+	for i, sess := range sessions {
+		pbSessions[i] = sessionToProto(sess)
+	}
+
+	return &pb.ListSessionsResponse{Sessions: pbSessions}, nil
+}
+
 // --- Pub/Sub ---
 
 
