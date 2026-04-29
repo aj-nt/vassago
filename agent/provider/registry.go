@@ -11,18 +11,30 @@ import (
 type ProviderRegistry struct {
 	providers     map[string]Provider
 	fallbackChain []string
+	primary       string // Primary provider name (set from config)
 }
 
 // NewProviderRegistry creates a new registry.
 func NewProviderRegistry() *ProviderRegistry {
 	return &ProviderRegistry{
 		providers: make(map[string]Provider),
+		primary:   "openai", // backwards-compatible default
 	}
 }
 
 // Register adds a provider to the registry.
 func (r *ProviderRegistry) Register(name string, p Provider) {
 	r.providers[name] = p
+}
+
+// SetPrimary sets the primary provider name.
+func (r *ProviderRegistry) SetPrimary(name string) {
+	r.primary = name
+}
+
+// Primary returns the primary provider name.
+func (r *ProviderRegistry) Primary() string {
+	return r.primary
 }
 
 // Get returns a provider by name, or an error if not found.
@@ -39,7 +51,12 @@ func (r *ProviderRegistry) SetFallbackChain(chain []string) {
 	r.fallbackChain = chain
 }
 
-// GetWithFallback returns the primary provider, or tries fallbacks if it fails.
+// GetPrimary returns the primary provider, trying the configured primary name.
+func (r *ProviderRegistry) GetPrimary() (Provider, error) {
+	return r.GetWithFallback(r.primary)
+}
+
+// GetWithFallback returns the named provider, or tries fallbacks if it fails.
 func (r *ProviderRegistry) GetWithFallback(primary string) (Provider, error) {
 	// Try primary first
 	if p, err := r.Get(primary); err == nil {
