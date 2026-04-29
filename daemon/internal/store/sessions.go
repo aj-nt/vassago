@@ -184,6 +184,17 @@ func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, error) {
 	}, nil
 }
 
+// scanSession scans a single row into a Session.
+func scanSession(rows *sql.Rows) (*Session, error) {
+	sess := &Session{}
+	err := rows.Scan(&sess.ID, &sess.AgentID, &sess.Source, &sess.Title,
+		&sess.CreatedAt, &sess.LastActiveAt, &sess.MessageCount)
+	if err != nil {
+		return nil, fmt.Errorf("scan session: %w", err)
+	}
+	return sess, nil
+}
+
 // Agent represents a connected agent.
 type Agent struct {
 	ID         string

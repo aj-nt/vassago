@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
@@ -154,6 +156,18 @@ func (d *Daemon) Run() error {
 
 	slog.Info("mnemosyne daemon started", "db", d.config.Store.Path)
 
+	// Startup: expire stale memories
+	if removed, err := d.store.ExpireStaleMemories(); err != nil {
+		slog.Error("startup expiry sweep failed", "error", err)
+	} else if removed > 0 {
+		slog.Info("startup: expired stale memories", "count", removed)
+	}
+
+	// Background: periodic consolidation (expired + idle sweep every hour)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.runAutoConsolidation(ctx)
+
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -187,4 +201,29 @@ func (d *Daemon) Store() *store.Store {
 // Server returns the gRPC server (for testing).
 func (d *Daemon) Server() *grpc.Server {
 	return d.server
+}
+
+// runAutoConsolidation runs periodic consolidation (expired + idle sweep) every hour.
+func (d *Daemon) runAutoConsolidation(ctx context.Context) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("auto-consolidation stopped")
+			return
+		case <-ticker.C:
+			if result, err := d.store.Consolidate(store.ConsolidateScopeExpired, "", 0); err != nil {
+				slog.Error("auto-consolidation (expired) failed", "error", err)
+			} else if result.Removed > 0 {
+				slog.Info("auto-consolidation: expired memories removed", "count", result.Removed)
+			}
+			if result, err := d.store.Consolidate(store.ConsolidateScopeIdle, "", 0); err != nil {
+				slog.Error("auto-consolidation (idle) failed", "error", err)
+			} else if result.Removed > 0 {
+				slog.Info("auto-consolidation: idle memories removed", "count", result.Removed)
+			}
+		}
+	}
 }
