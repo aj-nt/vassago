@@ -1,29 +1,35 @@
-# Mnemosyne Agent — Development Configuration
-
 agent:
-  id: "00000000-0000-0000-0000-000000000001"
-  name: "dev-agent"
-  role: "development"
-
-daemon:
-  address: "localhost:50051"
-  # For Unix socket: address: "unix://~/.mnemosyne/mnemosyne.sock"
+  id: "mnemosyne-dev-001"
+  name: "dev"
+  role: "dev"
+  personality: "direct, dry-witted"
+  max_turns: 50
 
 provider:
   name: "openai"
-  api_base: "http://localhost:11434/v1"  # Ollama
-  model: "gemma3:4b"
-  api_key: ""                             # Empty for local
+  model: "gpt-4o"
+  api_key_env: "OPENAI_API_KEY"
+  base_url: "http://localhost:11434/v1"
+  temperature: 0.7
 
-streaming:
-  enabled: true
-  timeout_seconds: 120
+mnemosyne:
+  address: "localhost:50051"
 
 hot_block:
+  memory_char_limit: 4000
+  user_char_limit: 2000
+  min_priority: 2
   boost_categories:
-    - "project"
-    - "environment"
+    - project
+    - environment
+    - quirk
   suppress_categories:
-    - "observation"
+    - observation
 
-interface: cli
+tools:
+  enabled:
+    - AddMemory
+    - SearchMemories
+    - ReplaceMemory
+    - RemoveMemory
+  approval_required: []
