@@ -96,7 +96,7 @@ func cmdAdd(ctx context.Context, c *client.Client, args []string) {
 	target, category, key, content := args[0], args[1], args[2], args[3]
 	priority := int32(3) // default
 	if len(args) > 4 {
-		fmt.Sscanf(args[4], "%d", &priority)
+		_, _ = fmt.Sscanf(args[4], "%d", &priority)
 	}
 
 	entry, err := c.AddMemory(ctx, target, category, key, content, priority, "cli")
