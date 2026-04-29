@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -166,40 +165,7 @@ func (p *AnthropicProvider) Execute(ctx context.Context, req interface{}) (agent
 	}
 	defer resp.Body.Close()
 
-	// Handle error status codes
-	if resp.StatusCode >= 500 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:   resp.StatusCode == 503 || resp.StatusCode == 429,
-			ShouldFallback: resp.StatusCode == 429,
-			Error:         fmt.Errorf("server error %d: %s", resp.StatusCode, string(respBody)),
-		}, nil
-	}
-	if resp.StatusCode == 429 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:    true,
-			ShouldFallback: true,
-			Error:          fmt.Errorf("rate limited: %s", string(respBody)),
-		}, nil
-	}
-	if resp.StatusCode != 200 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry: false,
-			Error:       fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody)),
-		}, nil
-	}
-
-	// Read and return the response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return agentctx.ProviderResult{Error: err}, nil
-	}
-
-	return agentctx.ProviderResult{
-		RawResponse: respBody,
-	}, nil
+	return classifyHTTPResponse(resp), nil
 }
 
 // Parse converts the Anthropic response to a canonical ParsedResponse.

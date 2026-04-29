@@ -142,40 +142,7 @@ func (p *OpenAIProvider) Execute(ctx context.Context, req interface{}) (agentctx
 	}
 	defer resp.Body.Close()
 
-	// Retry on server errors
-	if resp.StatusCode >= 500 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:   resp.StatusCode == 503 || resp.StatusCode == 429,
-			ShouldFallback: resp.StatusCode == 429,
-			Error:         fmt.Errorf("server error %d: %s", resp.StatusCode, string(body)),
-		}, nil
-	}
-	if resp.StatusCode == 429 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:    true,
-			ShouldFallback: true,
-			Error:          fmt.Errorf("rate limited: %s", string(body)),
-		}, nil
-	}
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry: false,
-			Error:       fmt.Errorf("API error %d: %s", resp.StatusCode, string(body)),
-		}, nil
-	}
-
-	// Read and return the response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return agentctx.ProviderResult{Error: err}, nil
-	}
-
-	return agentctx.ProviderResult{
-		RawResponse: respBody,
-	}, nil
+	return classifyHTTPResponse(resp), nil
 }
 
 // Parse converts the OpenAI response to a canonical ParsedResponse.
