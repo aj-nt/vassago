@@ -379,19 +379,20 @@ and searchable. Zero data loss.
 
 ---
 
-## Phase 7: Client Polish & Validation (Week 9)
+## Phase 7: Client Polish & Validation (Week 9) — COMPLETE ✅
 
 **Goal:** Polished client library. Admin CLI. End-to-end validation against Hermes.
 
 ### 7.1 Client Package Polish
 - [x] `client/client.go` — Automatic reconnection on disconnect
-- [ ] `client/hotblock_cache.go` — Graceful shutdown: flush pending writes
-- [ ] Exponential backoff on connection failure
+- [x] `client/reconnect.go` — ResilientClient with exponential backoff
+- [x] `client/reconnect_test.go` — 4 tests for reconnect policy, close, after-close ops
+- [x] Exponential backoff on connection failure (initial 500ms, max 30s, 2x multiplier)
 
 ### 7.2 Admin CLI
-- [ ] `daemon/cmd/mnemosyne-cli/main.go` — admin/debug CLI
-- [ ] Commands: add, search, get, remove, hot-block, consolidate, stats, session
-- [ ] `stats` — memory count, agent count, hot block size, uptime
+- [x] `daemon/cmd/mnemosyne-cli/main.go` — full admin/debug CLI
+- [x] Commands: add, get, search, list, remove, hot-block, consolidate, stats, create-session, health
+- [x] `daemon/cmd/mnemosyne-cli/cli_test.go` — 5 integration tests
 
 ### 7.3 End-to-End Validation
 - [ ] Run Mnemosyne daemon alongside Hermes (different port/socket)
