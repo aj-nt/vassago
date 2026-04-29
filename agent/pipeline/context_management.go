@@ -7,6 +7,8 @@ import (
 )
 
 // ContextManagementStage appends results, checks limits, and decides whether to loop.
+// When the context exceeds the token limit, it attempts to compact by removing old
+// tool call/result pairs before terminating.
 type ContextManagementStage struct {
 	MaxContextTokens int
 }
@@ -50,11 +52,110 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionTERMINATE
 	}
 
-	// Check context token limit
+	// Check context token limit — try compaction before terminating
 	if s.MaxContextTokens > 0 && convCtx.TokenCount() > s.MaxContextTokens {
-		return agentctx.StageActionTERMINATE
+		compactContext(convCtx, s.MaxContextTokens)
+
+		// If still over limit after compaction, terminate
+		if convCtx.TokenCount() > s.MaxContextTokens {
+			return agentctx.StageActionTERMINATE
+		}
 	}
 
 	// Continue the loop to process tool results
 	return agentctx.StageActionCONTINUE
+}
+
+// compactContext removes old messages from the conversation to bring it under
+// the token limit. Strategy (in order):
+//  1. Remove old tool call/result pairs (keep the assistant text summary)
+//  2. Remove oldest user/assistant pairs, preserving the most recent context
+//
+// The system prompt is not compacted — it's always included.
+func compactContext(convCtx *agentctx.ConversationContext, maxTokens int) {
+	// Phase 1: Strip old tool results and summarize tool calls
+	// Find the last YIELD point (assistant text response with no tool calls)
+	lastYieldIdx := -1
+	for i := len(convCtx.Messages) - 1; i >= 0; i-- {
+		if convCtx.Messages[i].Role == "assistant" && len(convCtx.Messages[i].ToolCalls) == 0 && convCtx.Messages[i].Content != "" {
+			lastYieldIdx = i
+			break
+		}
+	}
+
+	if lastYieldIdx > 0 {
+		// Compact messages before the last yield point
+		var compacted []agentctx.Message
+		for i, msg := range convCtx.Messages {
+			switch msg.Role {
+			case "user":
+				compacted = append(compacted, msg)
+			case "assistant":
+				if i < lastYieldIdx && len(msg.ToolCalls) > 0 {
+					// Summarize old tool calls
+					names := make([]string, 0, len(msg.ToolCalls))
+					for _, tc := range msg.ToolCalls {
+						names = append(names, tc.Name)
+					}
+					summary := "[Called " + joinNames(names) + "]"
+					if msg.Content != "" {
+						summary = msg.Content + "\n" + summary
+					}
+					compacted = append(compacted, agentctx.Message{
+						Role:    "assistant",
+						Content: summary,
+					})
+				} else {
+					compacted = append(compacted, msg)
+				}
+			case "tool":
+				// Only keep tool results after the last yield
+				if i > lastYieldIdx {
+					compacted = append(compacted, msg)
+				}
+				// Old tool results are dropped
+			default:
+				compacted = append(compacted, msg)
+			}
+		}
+		convCtx.Messages = compacted
+	}
+
+	// Phase 2: If still over limit, remove oldest user/assistant pairs
+	if convCtx.TokenCount() > maxTokens {
+		for len(convCtx.Messages) > 2 && convCtx.TokenCount() > maxTokens {
+			// Remove the first user message and its response
+			// Find the first pair to remove
+			removed := 0
+			filtered := make([]agentctx.Message, 0, len(convCtx.Messages))
+			skipNext := false
+			for i, msg := range convCtx.Messages {
+				if skipNext {
+					skipNext = false
+					removed++
+					continue
+				}
+				if msg.Role == "user" && i > 0 && removed == 0 {
+					// Skip this user message and the next assistant/tool message
+					skipNext = true
+					removed++
+					continue
+				}
+				filtered = append(filtered, msg)
+			}
+			if removed == 0 {
+				break // Nothing left to remove
+			}
+			convCtx.Messages = filtered
+		}
+	}
+}
+
+// joinNames joins tool names with commas for summaries.
+func joinNames(names []string) string {
+	result := names[0]
+	for _, n := range names[1:] {
+		result += ", " + n
+	}
+	return result
 }

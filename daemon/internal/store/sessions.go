@@ -3,10 +3,34 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
+
+// sanitizeUTF8 replaces invalid UTF-8 bytes with the Unicode replacement character (U+FFFD).
+// This is necessary because protobuf/gRPC requires valid UTF-8 strings, and some
+// imported Hermes data or LLM outputs may contain invalid byte sequences.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	// Replace invalid bytes with U+FFFD
+	var b strings.Builder
+	b.Grow(len(s) + len(s)/10) // extra room for replacements
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size == 1 {
+			b.WriteString("\uFFFD")
+		} else {
+			b.WriteString(s[i : i+size])
+		}
+		i += size
+	}
+	return b.String()
+}
 
 // Session represents a conversation session.
 type Session struct {
@@ -89,10 +113,13 @@ func (s *Store) AddMessages(sessionID string, messages []Message) error {
 	defer func() { _ = tx.Rollback() }()
 
 	for _, m := range messages {
+		// Sanitize the content to ensure it is valid UTF-8
+		sanitizedContent := sanitizeUTF8(m.Content)
+
 		_, err := tx.Exec(`
 			INSERT INTO messages (session_id, role, content, tool_call_id, tool_name, timestamp)
 			VALUES (?, ?, ?, ?, ?, ?)`,
-			sessionID, m.Role, m.Content, m.ToolCallID, m.ToolName, m.Timestamp,
+			sessionID, m.Role, sanitizedContent, m.ToolCallID, m.ToolName, m.Timestamp,
 		)
 		if err != nil {
 			return fmt.Errorf("insert message: %w", err)

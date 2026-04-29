@@ -73,10 +73,11 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 
 	// Create new entry
 	id := uuid.New().String()
+	sanitizedContent := sanitizeUTF8(params.Content)
 	_, err = tx.Exec(`
 		INSERT INTO memories (id, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, params.Target, params.Category, params.Key, params.Content, params.Priority, params.SourceAgent, now, now, now, params.ExpiresAt,
+		id, params.Target, params.Category, params.Key, sanitizedContent, params.Priority, params.SourceAgent, now, now, now, params.ExpiresAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert memory: %w", err)
