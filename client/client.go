@@ -237,8 +237,21 @@ func (c *Client) SearchSessions(ctx context.Context, query string, limit int32) 
 
 // ListRecentSessions returns the most recently active sessions.
 func (c *Client) ListRecentSessions(ctx context.Context, limit int32) ([]SessionInfo, error) {
-	// SearchSessions with empty query doesn't work (store rejects it),
-	// so we search for a broad match. This is a stopgap until we add a
-	// proper ListSessions RPC to the proto.
-	return c.SearchSessions(ctx, "session", limit)
+	resp, err := c.api.ListSessions(ctx, &pb.ListSessionsRequest{
+		Limit: &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListSessions: %w", err)
+	}
+	result := make([]SessionInfo, len(resp.Sessions))
+	for i, s := range resp.Sessions {
+		result[i] = SessionInfo{
+			ID:           s.Id,
+			Title:        s.Title,
+			Source:       s.Source,
+			MessageCount: s.MessageCount,
+			LastActive:   s.LastActiveAt,
+		}
+	}
+	return result, nil
 }
