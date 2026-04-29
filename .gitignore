@@ -3,3 +3,4 @@ bin/
 bin/
 mnemosyne-agent
 .DS_Store
+mnemosyne-cli
