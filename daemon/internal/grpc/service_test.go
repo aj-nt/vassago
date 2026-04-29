@@ -21,7 +21,7 @@ func testStoreSvc(t *testing.T) *store.Store {
 
 func TestService_AddMemory(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	resp, err := svc.AddMemory(ctx, &pb.AddMemoryRequest{
@@ -48,7 +48,7 @@ func TestService_AddMemory(t *testing.T) {
 
 func TestService_AddMemory_validation(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -72,7 +72,7 @@ func TestService_AddMemory_validation(t *testing.T) {
 
 func TestService_GetMemory(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	addResp, _ := svc.AddMemory(ctx, &pb.AddMemoryRequest{
@@ -91,7 +91,7 @@ func TestService_GetMemory(t *testing.T) {
 
 func TestService_GetMemory_notFound(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	_, err := svc.GetMemory(ctx, &pb.GetMemoryRequest{Id: "nonexistent"})
@@ -102,7 +102,7 @@ func TestService_GetMemory_notFound(t *testing.T) {
 
 func TestService_RemoveMemory(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	addResp, _ := svc.AddMemory(ctx, &pb.AddMemoryRequest{
@@ -126,7 +126,7 @@ func TestService_RemoveMemory(t *testing.T) {
 
 func TestService_ListMemories(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "k1", Content: "env note", Priority: 3, SourceAgent: "a1"})     //nolint:errcheck
@@ -144,7 +144,7 @@ func TestService_ListMemories(t *testing.T) {
 
 func TestService_Search(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "python", Content: "Python 3.11 on venv", Priority: 3, SourceAgent: "a1"})      //nolint:errcheck
@@ -161,7 +161,7 @@ func TestService_Search(t *testing.T) {
 
 func TestService_Search_emptyQuery(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	_, err := svc.Search(ctx, &pb.SearchRequest{Query: ""})
@@ -172,7 +172,7 @@ func TestService_Search_emptyQuery(t *testing.T) {
 
 func TestService_GetHotBlock(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "environment", Key: "python", Content: "Python 3.11", Priority: 3, SourceAgent: "a1"}) //nolint:errcheck
@@ -195,7 +195,7 @@ func TestService_GetHotBlock(t *testing.T) {
 
 func TestService_GetHotBlock_empty(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	resp, err := svc.GetHotBlock(ctx, &pb.HotBlockRequest{
@@ -215,7 +215,7 @@ func TestService_GetHotBlock_empty(t *testing.T) {
 
 func TestService_CreateSession(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	sess, err := svc.CreateSession(ctx, &pb.CreateSessionRequest{
@@ -236,7 +236,7 @@ func TestService_CreateSession(t *testing.T) {
 
 func TestService_CreateSession_validation(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	_, err := svc.CreateSession(ctx, &pb.CreateSessionRequest{
@@ -251,7 +251,7 @@ func TestService_CreateSession_validation(t *testing.T) {
 
 func TestService_AddMessages(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(ctx, &pb.CreateSessionRequest{
@@ -275,7 +275,7 @@ func TestService_AddMessages(t *testing.T) {
 
 func TestService_AddMessages_empty(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(ctx, &pb.CreateSessionRequest{
@@ -293,7 +293,7 @@ func TestService_AddMessages_empty(t *testing.T) {
 
 func TestService_EndSession(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(ctx, &pb.CreateSessionRequest{
@@ -311,7 +311,7 @@ func TestService_EndSession(t *testing.T) {
 
 func TestService_UpdateMemory(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	addResp, _ := svc.AddMemory(ctx, &pb.AddMemoryRequest{
@@ -337,7 +337,7 @@ func TestService_UpdateMemory(t *testing.T) {
 
 func TestService_Consolidate_notImplemented(t *testing.T) {
 	s := testStoreSvc(t)
-	svc := NewService(s)
+	svc := NewService(s, nil)
 	ctx := context.Background()
 
 	_, err := svc.Consolidate(ctx, &pb.ConsolidateRequest{})
