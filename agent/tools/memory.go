@@ -14,6 +14,8 @@ func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID s
 	registry.Register("SearchMemories", makeSearchMemories(mnemo), SearchMemoriesSchema)
 	registry.Register("ReplaceMemory", makeReplaceMemory(mnemo, agentID), ReplaceMemorySchema)
 	registry.Register("RemoveMemory", makeRemoveMemory(mnemo), RemoveMemorySchema)
+	registry.Register("Consolidate", makeConsolidate(mnemo, agentID), ConsolidateSchema)
+	registry.Register("GetHotBlock", makeGetHotBlock(mnemo, agentID), GetHotBlockSchema)
 }
 
 func makeAddMemory(mnemo *client.Client, agentID string) ToolHandler {
@@ -97,6 +99,35 @@ func makeRemoveMemory(mnemo *client.Client) ToolHandler {
 			return fmt.Sprintf("RemoveMemory failed: %v", err), true
 		}
 		return "Memory removed.", false
+	}
+}
+
+func makeConsolidate(mnemo *client.Client, agentID string) ToolHandler {
+	return func(args map[string]interface{}) (string, bool) {
+		scope := strArg(args, "scope", "expired")
+		batchSize := intArg(args, "batch_size", 100)
+
+		ctx := context.Background()
+		// Assuming Consolidate is a method on mnemo; adjust if it's a different method name or signature.
+		// Placeholder: Replace with actual implementation if Consolidate is not available.
+		_ = scope
+		_ = batchSize
+		_ = ctx
+		return "Consolidate not implemented", true
+	}
+}
+
+func makeGetHotBlock(mnemo *client.Client, agentID string) ToolHandler {
+	return func(args map[string]interface{}) (string, bool) {
+		target := strArg(args, "target", "memory")
+		charLimit := int32(intArg(args, "char_limit", 4000))
+
+		ctx := context.Background()
+		hotBlock, err := mnemo.GetHotBlock(ctx, target, agentID, charLimit, nil, nil, 0)
+		if err != nil {
+			return fmt.Sprintf("GetHotBlock failed: %v", err), true
+		}
+		return fmt.Sprintf("Hot block retrieved (target: %s, char limit: %d): %s", target, charLimit, truncate(hotBlock, 100)), false
 	}
 }
 
@@ -184,6 +215,30 @@ var RemoveMemorySchema = map[string]interface{}{
 			"id": map[string]interface{}{"type": "string"},
 		},
 		"required": []string{"id"},
+	},
+}
+
+var ConsolidateSchema = map[string]interface{}{
+	"name":        "Consolidate",
+	"description": "Consolidate expired or idle memories",
+	"parameters": map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"scope":      map[string]interface{}{"type": "string", "enum": []string{"expired", "idle", "observations", "all"}},
+			"batch_size": map[string]interface{}{"type": "integer", "default": 100},
+		},
+	},
+}
+
+var GetHotBlockSchema = map[string]interface{}{
+	"name":        "GetHotBlock",
+	"description": "Get the current hot block of high-priority memories",
+	"parameters": map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"target":     map[string]interface{}{"type": "string", "enum": []string{"memory", "user"}, "default": "memory"},
+			"char_limit": map[string]interface{}{"type": "integer", "default": 4000},
+		},
 	},
 }
 
