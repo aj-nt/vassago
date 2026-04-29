@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: mnemosyne.proto
+// source: proto/mnemosyne.proto
 
 package proto
 
@@ -26,6 +26,7 @@ const (
 	Mnemosyne_ListMemories_FullMethodName               = "/mnemosyne.Mnemosyne/ListMemories"
 	Mnemosyne_Search_FullMethodName                     = "/mnemosyne.Mnemosyne/Search"
 	Mnemosyne_SearchSessions_FullMethodName             = "/mnemosyne.Mnemosyne/SearchSessions"
+	Mnemosyne_ListSessions_FullMethodName               = "/mnemosyne.Mnemosyne/ListSessions"
 	Mnemosyne_GetHotBlock_FullMethodName                = "/mnemosyne.Mnemosyne/GetHotBlock"
 	Mnemosyne_CreateSession_FullMethodName              = "/mnemosyne.Mnemosyne/CreateSession"
 	Mnemosyne_AddMessages_FullMethodName                = "/mnemosyne.Mnemosyne/AddMessages"
@@ -51,6 +52,7 @@ type MnemosyneClient interface {
 	// Search
 	Search(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchResponse, error)
 	SearchSessions(ctx context.Context, in *SearchSessionsRequest, opts ...grpc.CallOption) (*SearchSessionsResponse, error)
+	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
 	// Hot block — per-agent computed context
 	GetHotBlock(ctx context.Context, in *HotBlockRequest, opts ...grpc.CallOption) (*HotBlockResponse, error)
 	// Session lifecycle
@@ -140,6 +142,16 @@ func (c *mnemosyneClient) SearchSessions(ctx context.Context, in *SearchSessions
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SearchSessionsResponse)
 	err := c.cc.Invoke(ctx, Mnemosyne_SearchSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSessionsResponse)
+	err := c.cc.Invoke(ctx, Mnemosyne_ListSessions_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -268,6 +280,7 @@ type MnemosyneServer interface {
 	// Search
 	Search(context.Context, *SearchRequest) (*SearchResponse, error)
 	SearchSessions(context.Context, *SearchSessionsRequest) (*SearchSessionsResponse, error)
+	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
 	// Hot block — per-agent computed context
 	GetHotBlock(context.Context, *HotBlockRequest) (*HotBlockResponse, error)
 	// Session lifecycle
@@ -313,6 +326,9 @@ func (UnimplementedMnemosyneServer) Search(context.Context, *SearchRequest) (*Se
 }
 func (UnimplementedMnemosyneServer) SearchSessions(context.Context, *SearchSessionsRequest) (*SearchSessionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchSessions not implemented")
+}
+func (UnimplementedMnemosyneServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
 }
 func (UnimplementedMnemosyneServer) GetHotBlock(context.Context, *HotBlockRequest) (*HotBlockResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHotBlock not implemented")
@@ -487,6 +503,24 @@ func _Mnemosyne_SearchSessions_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MnemosyneServer).SearchSessions(ctx, req.(*SearchSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).ListSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_ListSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).ListSessions(ctx, req.(*ListSessionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -700,6 +734,10 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Mnemosyne_SearchSessions_Handler,
 		},
 		{
+			MethodName: "ListSessions",
+			Handler:    _Mnemosyne_ListSessions_Handler,
+		},
+		{
 			MethodName: "GetHotBlock",
 			Handler:    _Mnemosyne_GetHotBlock_Handler,
 		},
@@ -743,5 +781,5 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mnemosyne.proto",
+	Metadata: "proto/mnemosyne.proto",
 }

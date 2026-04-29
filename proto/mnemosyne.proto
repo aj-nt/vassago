@@ -18,6 +18,7 @@ service Mnemosyne {
   // Search
   rpc Search(SearchRequest) returns (SearchResponse);
   rpc SearchSessions(SearchSessionsRequest) returns (SearchSessionsResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
 
   // Hot block — per-agent computed context
   rpc GetHotBlock(HotBlockRequest) returns (HotBlockResponse);
@@ -117,6 +118,14 @@ message SearchSessionsRequest {
 }
 
 message SearchSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message ListSessionsRequest {
+  optional int32 limit = 1;
+}
+
+message ListSessionsResponse {
   repeated Session sessions = 1;
 }
 
