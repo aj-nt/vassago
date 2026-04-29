@@ -2,8 +2,10 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
@@ -236,4 +238,161 @@ func (a *Agent) persistSession(ctx context.Context, sessionID string, convCtx *a
 	if err := a.Mnemo.AddMessages(ctx, sessionID, msgs); err != nil {
 		log.Printf("Warning: failed to persist session: %v", err)
 	}
+}
+
+// StreamEvent is an event emitted during streaming agent execution.
+// Text tokens are streamed in real-time; tool calls are emitted as
+// discrete events; the final event has Done=true.
+type StreamEvent struct {
+	Type      agentctx.StreamEventType
+	Text      string
+	ToolName  string
+	ToolCallID string
+	ToolInput string
+	Done      bool
+	Error     error
+}
+
+// RunStreaming executes the agent loop with streaming text output.
+// It returns a channel of StreamEvents for real-time display.
+// Tool calls are still executed normally between turns.
+func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent) {
+	defer close(out)
+	var sessionID string
+	if a.Mnemo != nil && convCtx.SessionID != "" {
+		sessionID = convCtx.SessionID
+	}
+
+	for {
+		if convCtx.Interrupt.IsSet() {
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return
+		}
+		if convCtx.Iteration >= convCtx.MaxIterations {
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return
+		}
+		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > a.Config.MaxContextTokens {
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return
+		}
+
+		// Stage 1: Request Preparation
+		prepared := a.Stage1.Process(convCtx)
+
+		// Stage 2: Try streaming with the primary provider
+		provider, err := a.Registry.GetPrimary()
+		if err != nil {
+			out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
+			return
+		}
+
+		req, err := provider.Prepare(ctx, convCtx, prepared)
+		if err != nil {
+			out <- StreamEvent{Error: fmt.Errorf("prepare error: %w", err)}
+			return
+		}
+
+		// Try streaming
+		streamCh, streamErr := provider.Stream(ctx, req)
+		if streamErr != nil {
+			// Streaming not supported — fall back to non-streaming
+			a.runTurnNonStreaming(ctx, convCtx, out, prepared, provider, sessionID)
+			if convCtx.Iteration >= convCtx.MaxIterations {
+				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+				return
+			}
+			continue
+		}
+
+		// Accumulate streaming response
+		var fullText string
+		var toolCalls []agentctx.ToolCall
+		var currentToolID string
+		var currentToolName string
+		var currentToolInput strings.Builder
+
+		for event := range streamCh {
+			switch event.Type {
+			case agentctx.StreamText:
+				out <- StreamEvent{Type: agentctx.StreamText, Text: event.Text}
+				fullText += event.Text
+			case agentctx.StreamToolStart:
+				currentToolID = event.ToolCallID
+				currentToolName = event.ToolName
+				currentToolInput.Reset()
+				out <- StreamEvent{Type: agentctx.StreamToolStart, ToolName: event.ToolName, ToolCallID: event.ToolCallID}
+			case agentctx.StreamToolDelta:
+				currentToolInput.WriteString(event.ToolInputDelta)
+			case agentctx.StreamToolEnd:
+				toolCalls = append(toolCalls, agentctx.ToolCall{
+					ID:        currentToolID,
+					Name:      currentToolName,
+					Arguments: json.RawMessage(currentToolInput.String()),
+				})
+			case agentctx.StreamError:
+				out <- StreamEvent{Error: event.Error}
+				return
+			case agentctx.StreamDone:
+				// Stream complete
+			}
+		}
+
+		// Build parsed response
+		parsed := agentctx.ParsedResponse{
+			Text:      fullText,
+			ToolCalls: toolCalls,
+		}
+		if len(toolCalls) == 0 {
+			parsed.FinishReason = "stop"
+		} else {
+			parsed.FinishReason = "tool_use"
+		}
+
+		// Stage 4: Tool Dispatch (if tool calls present)
+		dispatch := a.Stage4.Process(convCtx, parsed)
+
+		// Stage 5: Context Management
+		action := a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
+
+		convCtx.Iteration++
+
+		switch action {
+		case agentctx.StageActionYIELD:
+			a.persistSession(ctx, sessionID, convCtx)
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return
+		case agentctx.StageActionTERMINATE:
+			a.persistSession(ctx, sessionID, convCtx)
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return
+		case agentctx.StageActionCONTINUE:
+			// Tool call was made — continue the loop
+			continue
+		}
+	}
+}
+
+// runTurnNonStreaming executes a single turn without streaming (fallback).
+func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, provider provider.Provider, sessionID string) {
+	result := a.Stage2.Process(ctx, convCtx, prepared)
+	if result.Error != nil {
+		out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
+		return
+	}
+
+	parsed, err := a.Stage3.Process(ctx, result)
+	if err != nil {
+		out <- StreamEvent{Error: fmt.Errorf("response processing failed: %w", err)}
+		return
+	}
+
+	// Emit text as a single chunk
+	if parsed.Text != "" {
+		out <- StreamEvent{Type: agentctx.StreamText, Text: parsed.Text}
+	}
+
+	// Stage 4 & 5
+	dispatch := a.Stage4.Process(convCtx, parsed)
+	a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
 }

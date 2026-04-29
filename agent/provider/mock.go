@@ -93,3 +93,8 @@ func (m *MockProvider) Parse(_ context.Context, result agentctx.ProviderResult) 
 	}
 	return resp, nil
 }
+
+// Stream is not supported by the mock provider — returns an error.
+func (m *MockProvider) Stream(_ context.Context, _ interface{}) (<-chan agentctx.StreamEvent, error) {
+	return nil, fmt.Errorf("mock provider does not support streaming")
+}

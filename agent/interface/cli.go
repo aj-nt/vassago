@@ -11,7 +11,6 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
-	"github.com/aj-nt/mnemosyne/agent/eventbus"
 )
 
 // CLI provides a terminal interface for the agent.
@@ -24,8 +23,7 @@ func NewCLI(a *agent.Agent) *CLI {
 	return &CLI{Agent: a}
 }
 
-// RunInteractive starts a persistent interactive chat loop with full
-// conversation history across turns.
+// RunInteractive starts a persistent interactive chat loop with streaming.
 func (c *CLI) RunInteractive(ctx context.Context) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -43,7 +41,7 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		}
 	}
 
-	// Get hot block once at start (it persists across turns)
+	// Get hot block once at start
 	hotBlock, err := c.Agent.GetHotBlock(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
@@ -99,9 +97,6 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			Temperature:     c.Agent.Config.Temperature,
 		}
 
-		// Subscribe to events for progress display
-		eventCh := c.Agent.EventBus.SubscribeAll()
-
 		// Handle Ctrl+C gracefully
 		turnCtx, cancel := context.WithCancel(ctx)
 		go func() {
@@ -114,75 +109,34 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			}
 		}()
 
-		// Run the agent loop
-		result, err := c.Agent.RunWithContext(turnCtx, convCtx)
-		cancel()
+		// Run streaming!
+		eventCh := make(chan agent.StreamEvent, 64)
+		go c.Agent.RunStreaming(turnCtx, convCtx, eventCh)
 
-		// Drain and display events, then unsubscribe
-		c.drainEvents(eventCh)
-		c.Agent.EventBus.Unsubscribe("*", eventCh)
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			// Remove the failed user message so history stays clean
-			if len(messages) > 0 && messages[len(messages)-1].Role == "user" {
-				messages = messages[:len(messages)-1]
+		// Display streaming events
+		for event := range eventCh {
+			switch event.Type {
+			case agentctx.StreamText:
+				fmt.Print(event.Text)
+			case agentctx.StreamToolStart:
+				fmt.Fprintf(os.Stderr, "  → %s\n", event.ToolName)
+			case agentctx.StreamDone:
+				// Stream complete
+			default:
+				if event.Error != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", event.Error)
+				}
 			}
-			continue
 		}
+		cancel()
 
 		// Update message history from the context (includes tool calls, results, etc.)
 		messages = convCtx.Messages
-
-		// Display the response
-		if result.Response != nil && result.Response.Text != "" {
-			fmt.Println(result.Response.Text)
-		} else if result.MaxIterationsHit {
-			fmt.Fprintf(os.Stderr, "[max iterations reached: %d]\n", result.Iterations)
-		}
-
-		if result.Interrupted {
-			fmt.Fprintf(os.Stderr, "[interrupted]\n")
-		}
-
-		fmt.Println() // Blank line between turns
+		fmt.Println()
+		fmt.Println()
 	}
 
 	return scanner.Err()
-}
-
-// drainEvents reads and displays any remaining events from the channel.
-func (c *CLI) drainEvents(eventCh <-chan eventbus.Event) {
-	for {
-		select {
-		case event, ok := <-eventCh:
-			if !ok {
-				return
-			}
-			c.displayEvent(event)
-		default:
-			return
-		}
-	}
-}
-
-// displayEvent prints a human-readable representation of a pipeline event.
-func (c *CLI) displayEvent(event eventbus.Event) {
-	switch event.Kind {
-	case "tool_call":
-		if name, ok := event.Data.(string); ok {
-			fmt.Fprintf(os.Stderr, "  → %s\n", name)
-		}
-	case "tool_result":
-		if result, ok := event.Data.(string); ok {
-			// Show first 500 chars of tool results
-			truncated := result
-			if len(truncated) > 500 {
-				truncated = truncated[:500] + "..."
-			}
-			fmt.Fprintf(os.Stderr, "  ← %s\n", truncated)
-		}
-	}
 }
 
 // RunOneShot runs the agent with a single message (piped input or arg).
