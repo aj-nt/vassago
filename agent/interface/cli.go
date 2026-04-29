@@ -11,6 +11,7 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/eventbus"
 )
 
 // CLI provides a terminal interface for the agent.
@@ -95,7 +96,18 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			Iteration:       0,
 			Interrupt:       interrupt,
 			HotBlockContent: hotBlock,
+			Temperature:     c.Agent.Config.Temperature,
 		}
+
+		// Subscribe to events for progress display
+		eventCh := c.Agent.EventBus.SubscribeAll()
+		done := make(chan struct{})
+		go func() {
+			for event := range eventCh {
+				c.displayEvent(event)
+			}
+			close(done)
+		}()
 
 		// Run the agent loop with per-turn context
 		turnCtx, cancel := context.WithCancel(ctx)
@@ -111,6 +123,14 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 
 		result, err := c.Agent.RunWithContext(turnCtx, convCtx)
 		cancel()
+
+		// Unsubscribe from events
+		// (EventBus channels are closed on agent.Close(), not per-subscription)
+		// Drain remaining events
+		go func() {
+			for range eventCh {
+			}
+		}()
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -133,6 +153,30 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	}
 
 	return scanner.Err()
+}
+
+// displayEvent prints a human-readable representation of a pipeline event.
+func (c *CLI) displayEvent(event eventbus.Event) {
+	switch event.Kind {
+	case "iteration_start":
+		if iter, ok := event.Data.(int); ok {
+			fmt.Fprintf(os.Stderr, "  [turn %d]\n", iter+1)
+		}
+	case "tool_call":
+		if name, ok := event.Data.(string); ok {
+			fmt.Fprintf(os.Stderr, "  [tool: %s]\n", name)
+		}
+	case "tool_result":
+		if result, ok := event.Data.(string); ok {
+			// Truncate long results
+			if len(result) > 200 {
+				result = result[:200] + "..."
+			}
+			fmt.Fprintf(os.Stderr, "  [result: %s]\n", result)
+		}
+	case "response":
+		// Response is displayed by the main loop
+	}
 }
 
 // RunOneShot runs the agent with a single message (piped input or arg).

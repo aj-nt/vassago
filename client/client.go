@@ -176,6 +176,18 @@ type Message struct {
 	Content string
 }
 
+// Consolidate triggers memory consolidation with the given scope.
+func (c *Client) Consolidate(ctx context.Context, scope pb.ConsolidateScope, batchSize int32) (*pb.ConsolidateResponse, error) {
+	resp, err := c.api.Consolidate(ctx, &pb.ConsolidateRequest{
+		Scope:     scope,
+		BatchSize: &batchSize,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Consolidate: %w", err)
+	}
+	return resp, nil
+}
+
 // HealthCheck verifies the daemon is reachable and responding.
 func (c *Client) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

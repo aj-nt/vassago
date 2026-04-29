@@ -6,6 +6,7 @@ import (
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/client"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 // RegisterMemoryTools adds all memory tool handlers to the registry.
@@ -104,16 +105,29 @@ func makeRemoveMemory(mnemo *client.Client) ToolHandler {
 
 func makeConsolidate(mnemo *client.Client, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
-		scope := strArg(args, "scope", "expired")
-		batchSize := intArg(args, "batch_size", 100)
+		scopeStr := strArg(args, "scope", "expired")
+		batchSize := int32(intArg(args, "batch_size", 100))
+
+		var scope pb.ConsolidateScope
+		switch scopeStr {
+		case "all":
+			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_ALL
+		case "observations":
+			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_OBSERVATIONS
+		case "category":
+			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_CATEGORY
+		case "expired":
+			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_EXPIRED
+		default:
+			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_EXPIRED
+		}
 
 		ctx := context.Background()
-		// Assuming Consolidate is a method on mnemo; adjust if it's a different method name or signature.
-		// Placeholder: Replace with actual implementation if Consolidate is not available.
-		_ = scope
-		_ = batchSize
-		_ = ctx
-		return "Consolidate not implemented", true
+		resp, err := mnemo.Consolidate(ctx, scope, batchSize)
+		if err != nil {
+			return fmt.Sprintf("Consolidate failed: %v", err), true
+		}
+		return fmt.Sprintf("Consolidated: removed %d, merged %d. %s", resp.GetRemoved(), resp.GetMerged(), resp.GetSummary()), false
 	}
 }
 
@@ -220,11 +234,11 @@ var RemoveMemorySchema = map[string]interface{}{
 
 var ConsolidateSchema = map[string]interface{}{
 	"name":        "Consolidate",
-	"description": "Consolidate expired or idle memories",
+	"description": "Consolidate expired or idle memories to free up space",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"scope":      map[string]interface{}{"type": "string", "enum": []string{"expired", "idle", "observations", "all"}},
+			"scope":      map[string]interface{}{"type": "string", "enum": []string{"expired", "observations", "category", "all"}, "default": "expired"},
 			"batch_size": map[string]interface{}{"type": "integer", "default": 100},
 		},
 	},
