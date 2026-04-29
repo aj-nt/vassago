@@ -259,22 +259,22 @@ Mock provider tests pass — full loop tested without real LLM calls.
 **Goal:** Multiple agents share memory in real-time. Pub/sub working.
 
 ### 3.1 Pub/Sub Hub
-- [ ] `daemon/internal/pubsub/hub.go` — In-process pub/sub hub
+- [x] `daemon/internal/pubsub/hub.go` — In-process pub/sub hub
 - [ ] `daemon/internal/pubsub/subscription.go` — Scope matching (target, category, key_prefix)
-- [ ] `SubscribeHotBlock` gRPC stream — push updates to connected agents
-- [ ] `client/hotblock_cache.go` — Update: merge incoming updates into hot block (replaces Phase 2's static cache)
+- [x] `SubscribeHotBlock` gRPC stream — push updates to connected agents
+- [x] `client/hotblock_cache.go` — Update: merge incoming updates into hot block (replaces Phase 2's static cache)
 
 ### 3.2 Agent Registration
-- [ ] `RegisterAgent` RPC — agent identifies itself, gets agent_id
-- [ ] `Heartbeat` RPC — keep-alive, detect disconnected agents
-- [ ] `agents` table — track connected agents
-- [ ] Clean up subscriptions on disconnect
-- [ ] Agent sends agent_id and role on connect; daemon records in agents table
+- [x] `RegisterAgent` RPC — agent identifies itself, gets agent_id
+- [x] `Heartbeat` RPC — keep-alive, detect disconnected agents
+- [x] `agents` table — track connected agents
+- [x] Clean up subscriptions on disconnect
+- [x] Agent sends agent_id and role on connect; daemon records in agents table
 
 ### 3.3 Agent Hot Block Subscription
-- [ ] Agent subscribes to hot block updates at session start
-- [ ] Hot block refreshes mid-session when telepathy event arrives
-- [ ] Unsubscribe on session end
+- [x] Agent subscribes to hot block updates at session start
+- [x] Hot block refreshes mid-session when telepathy event arrives
+- [x] Unsubscribe on session end
 
 **Deliverable:** Two agent processes connected to same daemon. Agent A writes a
 memory. Agent B receives the update in its hot block stream within milliseconds.
