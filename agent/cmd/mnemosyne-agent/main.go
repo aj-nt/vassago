@@ -35,28 +35,17 @@ func main() {
 	}
 	defer mnemo.Close()
 
-	// Set up provider registry
-	registry := provider.NewProviderRegistry()
-	apiKey := os.Getenv(cfg.Provider.APIKeyEnv)
-	openaiProvider := provider.NewOpenAIProvider(cfg.Provider.BaseURL, apiKey, cfg.Provider.Model)
-	registry.Register("openai", openaiProvider)
-
-	// Set up tool registry
-	toolReg := tools.NewToolRegistry()
-	tools.RegisterMemoryTools(toolReg, mnemo, cfg.Agent.ID)
-	tools.RegisterFileTools(toolReg)
-	tools.RegisterTerminalTools(toolReg)
-
-	// Set up Anthropic provider if API key is available
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		anthropicProvider := provider.NewAnthropicProvider(apiKey, cfg.Provider.Model)
-		registry.Register("anthropic", anthropicProvider)
-	}
+	// Wire providers and tools from config
+	registry := setupProviders(&cfg.Provider)
+	toolReg := setupTools(&cfg.Tools, mnemo, cfg.Agent.ID)
 
 	// Create agent
 	agentCfg := cfg.ToAgentConfig()
 	a := agent.NewAgent(agentCfg, registry, toolReg, mnemo)
 	defer a.Close()
+
+	log.Printf("Starting agent %q with primary provider %q (model: %s)",
+		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
 
 	// Run
 	cli := iface.NewCLI(a)
@@ -67,8 +56,7 @@ func main() {
 	} else {
 		// Check if stdin has data (piped input)
 		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			// Piped input
+		if stat.Mode()&os.ModeCharDevice == 0 {
 			var input string
 			if _, err := fmt.Scan(&input); err != nil {
 				log.Fatalf("Error reading input: %v", err)
@@ -77,10 +65,99 @@ func main() {
 				log.Fatalf("Error: %v", err)
 			}
 		} else {
-			// Interactive
 			if err := cli.RunInteractive(ctx); err != nil {
 				log.Fatalf("Error: %v", err)
 			}
 		}
 	}
+}
+
+// setupProviders creates and configures the provider registry from config.
+func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
+	registry := provider.NewProviderRegistry()
+
+	// OpenAI-compatible provider (local Ollama or remote OpenAI)
+	openaiBaseURL := firstNonEmpty(cfg.OpenAIBaseURL, cfg.BaseURL, "https://api.openai.com/v1")
+	openaiModel := firstNonEmpty(cfg.OpenAIModel, cfg.Model)
+	openaiKeyEnv := firstNonEmpty(cfg.OpenAIAPIKeyEnv, cfg.APIKeyEnv, "OPENAI_API_KEY")
+	openaiAPIKey := os.Getenv(openaiKeyEnv)
+
+	registry.Register("openai", provider.NewOpenAIProvider(openaiBaseURL, openaiAPIKey, openaiModel))
+
+	// Anthropic provider — only if API key is available
+	anthropicKeyEnv := firstNonEmpty(cfg.AnthropicAPIKeyEnv, "ANTHROPIC_API_KEY")
+	if apiKey := os.Getenv(anthropicKeyEnv); apiKey != "" {
+		anthropicModel := firstNonEmpty(cfg.AnthropicModel, "claude-sonnet-4-6")
+		registry.Register("anthropic", provider.NewAnthropicProvider(apiKey, anthropicModel))
+		log.Printf("Anthropic provider registered (model: %s)", anthropicModel)
+	} else {
+		log.Printf("No Anthropic API key found (checked %s), Anthropic provider not available", anthropicKeyEnv)
+	}
+
+	// Configure fallback chain and primary provider
+	fallbackChain := []string{}
+	if cfg.Fallback1 != "" {
+		fallbackChain = append(fallbackChain, cfg.Fallback1)
+	}
+	if cfg.Fallback2 != "" {
+		fallbackChain = append(fallbackChain, cfg.Fallback2)
+	}
+	registry.SetFallbackChain(fallbackChain)
+	registry.SetPrimary(cfg.Name)
+
+	// Verify primary provider exists
+	if _, err := registry.Get(cfg.Name); err != nil {
+		log.Fatalf("Primary provider %q not registered: %v", cfg.Name, err)
+	}
+
+	return registry
+}
+
+// setupTools creates the tool registry and registers tools per the config's enabled list.
+func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID string) *tools.ToolRegistry {
+	toolReg := tools.NewToolRegistry()
+	enabled := cfg.Enabled
+
+	// If no tools.enabled specified, register all tools (backward compatible)
+	if len(enabled) == 0 {
+		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
+		tools.RegisterFileTools(toolReg)
+		tools.RegisterTerminalTools(toolReg)
+		return toolReg
+	}
+
+	// Register only enabled tool groups
+	if anyEnabled(enabled, "AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory", "Consolidate", "GetHotBlock") {
+		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
+	}
+	if anyEnabled(enabled, "FileRead", "FileSearch", "FileWrite") {
+		tools.RegisterFileTools(toolReg)
+	}
+	if anyEnabled(enabled, "Execute") {
+		tools.RegisterTerminalTools(toolReg)
+	}
+
+	return toolReg
+}
+
+// anyEnabled returns true if any of the given tool names appear in the enabled list.
+func anyEnabled(enabled []string, names ...string) bool {
+	for _, n := range names {
+		for _, e := range enabled {
+			if e == n {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// firstNonEmpty returns the first non-empty string from the arguments.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

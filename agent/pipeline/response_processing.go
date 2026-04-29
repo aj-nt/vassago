@@ -18,13 +18,13 @@ func NewResponseProcessingStage(registry *provider.ProviderRegistry) *ResponsePr
 	return &ResponseProcessingStage{Registry: registry}
 }
 
-// Process converts raw response to ParsedResponse.
+// Process converts raw response to ParsedResponse using the primary provider.
 func (s *ResponseProcessingStage) Process(ctx context.Context, result agentctx.ProviderResult) (agentctx.ParsedResponse, error) {
 	if result.Error != nil {
 		return agentctx.ParsedResponse{}, fmt.Errorf("response processing: %w", result.Error)
 	}
 
-	p, err := s.Registry.GetWithFallback("openai")
+	p, err := s.Registry.GetPrimary()
 	if err != nil {
 		return agentctx.ParsedResponse{}, fmt.Errorf("get provider for parse: %w", err)
 	}

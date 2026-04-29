@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -13,21 +12,21 @@ import (
 
 // AnthropicProvider implements Provider for Anthropic Messages API.
 type AnthropicProvider struct {
-	apiKey     string
-	model      string
-	client     *http.Client
+	apiKey       string
+	model        string
+	client       *http.Client
 	capabilities agentctx.ProviderCapabilities
 }
 
 // NewAnthropicProvider creates a new Anthropic provider.
 func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 	if model == "" {
-		model = "claude-sonnet-4-20250514"
+		model = "claude-sonnet-4-6"
 	}
 	return &AnthropicProvider{
-		apiKey:  apiKey,
-		model:   model,
-		client:  &http.Client{},
+		apiKey: apiKey,
+		model:  model,
+		client: &http.Client{},
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -46,51 +45,93 @@ func (p *AnthropicProvider) Capabilities() agentctx.ProviderCapabilities { retur
 
 // Prepare builds the Anthropic Messages API request.
 func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.ConversationContext, prepared agentctx.PreparedRequest) (interface{}, error) {
-	messages := make([]map[string]interface{}, 0, len(prepared.Messages)+1)
+	// Build Anthropic-format messages (no system role — system goes in top-level field)
+	messages := make([]map[string]interface{}, 0)
 
-	// System prompt
-	if prepared.SystemPrompt != "" {
-		messages = append(messages, map[string]interface{}{
-			"role":    "system",
-			"content": prepared.SystemPrompt,
-		})
-	}
-
-	// Conversation messages
 	for _, msg := range prepared.Messages {
-		m := map[string]interface{}{
+		// Skip system messages — they go in the top-level system field
+		if msg.Role == "system" {
+			continue
+		}
+
+		// Handle tool results: Anthropic expects role="user" with tool_result content blocks
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			resultContent := msg.Content
+			if resultContent == "" {
+				resultContent = "(empty result)"
+			}
+			messages = append(messages, map[string]interface{}{
+				"role": "user",
+				"content": []map[string]interface{}{
+					{
+						"type":       "tool_result",
+						"tool_use_id": msg.ToolCallID,
+						"content":     resultContent,
+					},
+				},
+			})
+			continue
+		}
+
+		// Handle assistant messages with tool calls
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			content := make([]map[string]interface{}, 0)
+			// Add text content if present
+			if msg.Content != "" {
+				content = append(content, map[string]interface{}{
+					"type": "text",
+					"text": msg.Content,
+				})
+			}
+			// Add tool_use blocks
+			for _, tc := range msg.ToolCalls {
+				var input interface{}
+				if err := json.Unmarshal(tc.Arguments, &input); err != nil {
+					input = map[string]interface{}{}
+				}
+				content = append(content, map[string]interface{}{
+					"type":  "tool_use",
+					"id":    tc.ID,
+					"name":  tc.Name,
+					"input": input,
+				})
+			}
+			messages = append(messages, map[string]interface{}{
+				"role":    "assistant",
+				"content": content,
+			})
+			continue
+		}
+
+		// Regular text messages
+		messages = append(messages, map[string]interface{}{
 			"role":    msg.Role,
 			"content": msg.Content,
-		}
-		if len(msg.ToolCalls) > 0 {
-			content := msg.Content
-			for _, tc := range msg.ToolCalls {
-				content += fmt.Sprintf("\n<%s>%s</%s>", tc.Name, string(tc.Arguments), tc.Name)
-			}
-			m["content"] = content
-		}
-		if msg.ToolCallID != "" {
-			m["tool_call_id"] = msg.ToolCallID
-		}
-		messages = append(messages, m)
+		})
 	}
 
 	// Build request body
 	body := map[string]interface{}{
-		"model":    p.model,
-		"messages": messages,
+		"model":      p.model,
+		"messages":   messages,
 		"max_tokens": 4096,
 	}
 
-	// Add tools (function calling)
+	// System prompt goes in the top-level system field (not as a message)
+	if prepared.SystemPrompt != "" {
+		body["system"] = prepared.SystemPrompt
+	}
+
+	// Add tools (Anthropic format)
 	if len(prepared.Tools) > 0 && p.capabilities.SupportsFunctionCalling {
-		tools := make([]interface{}, len(prepared.Tools))
-		for i, t := range prepared.Tools {
-			tools[i] = map[string]interface{}{
+		tools := make([]map[string]interface{}, 0, len(prepared.Tools))
+		for _, t := range prepared.Tools {
+			tool := map[string]interface{}{
 				"name":        t.Name,
 				"description": t.Description,
 				"input_schema": t.Parameters,
 			}
+			tools = append(tools, tool)
 		}
 		body["tools"] = tools
 	}
@@ -124,40 +165,7 @@ func (p *AnthropicProvider) Execute(ctx context.Context, req interface{}) (agent
 	}
 	defer resp.Body.Close()
 
-	// Retry on server errors
-	if resp.StatusCode >= 500 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:   resp.StatusCode == 503 || resp.StatusCode == 429,
-			ShouldFallback: resp.StatusCode == 429,
-			Error:         fmt.Errorf("server error %d: %s", resp.StatusCode, string(body)),
-		}, nil
-	}
-	if resp.StatusCode == 429 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry:    true,
-			ShouldFallback: true,
-			Error:          fmt.Errorf("rate limited: %s", string(body)),
-		}, nil
-	}
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return agentctx.ProviderResult{
-			ShouldRetry: false,
-			Error:       fmt.Errorf("API error %d: %s", resp.StatusCode, string(body)),
-		}, nil
-	}
-
-	// Read and return the response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return agentctx.ProviderResult{Error: err}, nil
-	}
-
-	return agentctx.ProviderResult{
-		RawResponse: respBody,
-	}, nil
+	return classifyHTTPResponse(resp), nil
 }
 
 // Parse converts the Anthropic response to a canonical ParsedResponse.
@@ -227,7 +235,7 @@ func convertAnthropicUsage(u anthropicUsage) *agentctx.UsageInfo {
 		return nil
 	}
 	return &agentctx.UsageInfo{
-		PromptTokens:    u.InputTokens,
+		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
 		TotalTokens:      u.InputTokens + u.OutputTokens,
 	}

@@ -37,10 +37,18 @@ func TestFileWrite(t *testing.T) {
 	testFile := "test_write.txt"
 	defer os.Remove(testFile)
 
-	_, isError := FileWrite(map[string]interface{}{"path": testFile, "content": "test"})
-	if !isError {
-		t.Error("FileWrite should require approval by default")
-		os.Remove(testFile) // Clean up if file was created
+	result, isError := FileWrite(map[string]interface{}{"path": testFile, "content": "test"})
+	if isError {
+		t.Errorf("FileWrite should allow writes: %s", result)
+	}
+
+	// Verify file was created with correct content
+	content, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Errorf("Failed to read written file: %v", err)
+	}
+	if string(content) != "test" {
+		t.Errorf("Expected content 'test', got %q", string(content))
 	}
 }
 

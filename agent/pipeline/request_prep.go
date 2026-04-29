@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
@@ -20,8 +21,10 @@ func NewRequestPrepStage(personality string) *RequestPrepStage {
 // Process builds a PreparedRequest from the conversation context.
 func (s *RequestPrepStage) Process(ctx *agentctx.ConversationContext) agentctx.PreparedRequest {
 	systemPrompt := s.buildSystemPrompt(ctx)
+
+	// Set provider-specific parameters
 	apiKwargs := map[string]interface{}{
-		"temperature": 0.7,
+		"temperature": ctx.Temperature,
 	}
 
 	return agentctx.PreparedRequest{
@@ -38,7 +41,13 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 
 	// Personality directive
 	if s.Personality != "" {
-		parts = append(parts, fmt.Sprintf("You are %s.", s.Personality))
+		// If personality is a full prompt (multi-line, from a file), use it directly.
+		// Otherwise, wrap it: "direct" → "You are direct."
+		if strings.Contains(s.Personality, "\n") {
+			parts = append(parts, s.Personality)
+		} else {
+			parts = append(parts, fmt.Sprintf("You are %s.", s.Personality))
+		}
 	}
 
 	// Memory section
