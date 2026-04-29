@@ -139,14 +139,53 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	return scanner.Err()
 }
 
-// RunOneShot runs the agent with a single message (piped input or arg).
+// RunOneShot runs the agent with a single message, streaming the output.
 func (c *CLI) RunOneShot(ctx context.Context, message string) error {
-	result, err := c.Agent.Run(ctx, message)
+	// Get hot block
+	hotBlock, err := c.Agent.GetHotBlock(ctx)
 	if err != nil {
-		return err
+		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
+		hotBlock = ""
 	}
-	if result.Response != nil {
-		fmt.Println(result.Response.Text)
+
+	// Create session
+	var sessionID string
+	if c.Agent.Mnemo != nil {
+		sessionID, _ = c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "")
 	}
+
+	// Build context
+	convCtx := &agentctx.ConversationContext{
+		SessionID:       sessionID,
+		AgentID:         c.Agent.Config.AgentID,
+		Messages:        []agentctx.Message{{Role: "user", Content: message}},
+		SystemPrompt:    "",
+		Tools:           c.Agent.BuildToolDefinitions(),
+		MaxIterations:   c.Agent.Config.MaxTurns,
+		Iteration:       0,
+		Interrupt:       agentctx.NewInterruptSignal(),
+		HotBlockContent: hotBlock,
+		Temperature:     c.Agent.Config.Temperature,
+	}
+
+	// Stream the response
+	eventCh := make(chan agent.StreamEvent, 64)
+	go c.Agent.RunStreaming(ctx, convCtx, eventCh)
+
+	for event := range eventCh {
+		switch event.Type {
+		case agentctx.StreamText:
+			fmt.Print(event.Text)
+		case agentctx.StreamToolStart:
+			fmt.Fprintf(os.Stderr, "  → %s\n", event.ToolName)
+		case agentctx.StreamDone:
+			// done
+		default:
+			if event.Error != nil {
+				return event.Error
+			}
+		}
+	}
+	fmt.Println()
 	return nil
 }
