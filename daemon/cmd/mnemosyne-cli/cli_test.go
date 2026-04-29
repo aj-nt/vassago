@@ -38,7 +38,9 @@ func startTestDaemon(t *testing.T) (string, func()) {
 		t.Fatalf("listen: %v", err)
 	}
 
-	go server.Serve(lis)
+	go func() {
+		_ = server.Serve(lis)
+	}()
 
 	addr := lis.Addr().String()
 

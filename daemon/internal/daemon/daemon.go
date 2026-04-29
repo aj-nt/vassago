@@ -86,6 +86,7 @@ type Daemon struct {
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
+// nolint:unused // This function is kept for potential future use
 func (d *Daemon) transportCredentials() (credentials.TransportCredentials, error) {
 	if d.config.Daemon.TLS.Cert == "" || d.config.Daemon.TLS.Key == "" {
 		return nil, nil

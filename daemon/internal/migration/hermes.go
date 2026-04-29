@@ -174,7 +174,7 @@ func importMemories(mnemoStore *store.Store, hermesDB *sql.DB, result *ImportRes
 		result.MemoriesImported++
 
 		// Update timestamps to match Hermes (AddMemory sets them to now)
-		mnemoStore.DB().Exec(
+		_, _ = mnemoStore.DB().Exec(
 			"UPDATE memories SET created_at = ?, updated_at = ?, accessed_at = ? WHERE key = ? AND target = ?",
 			int64(m.CreatedAt), int64(m.UpdatedAt), int64(m.LastAccessed), m.Key, m.Target,
 		)
