@@ -16,7 +16,7 @@ import (
 // Agent orchestrates the 5-stage pipeline loop.
 type Agent struct {
 	Config      Config
-	Registry    *provider.ProviderRegistry
+	Registry   *provider.ProviderRegistry
 	ToolRegistry *tools.ToolRegistry
 	EventBus    *eventbus.EventBus
 	Mnemo       *memoclient.Client
@@ -31,13 +31,13 @@ type Agent struct {
 
 // Config holds agent configuration.
 type Config struct {
-	AgentID        string
-	AgentName      string
-	AgentRole      string
-	Personality    string
-	MaxTurns       int
+	AgentID          string
+	AgentName        string
+	AgentRole        string
+	Personality     string
+	MaxTurns         int
 	MaxContextTokens int
-	HotBlockConfig HotBlockConfig
+	HotBlockConfig   HotBlockConfig
 }
 
 // HotBlockConfig controls hot block retrieval.
@@ -76,23 +76,20 @@ func (a *Agent) Close() {
 	a.EventBus.Close()
 }
 
-// Run executes the agent loop for a conversation.
+// Run executes the agent loop for a user message.
+// This is the simple API — creates a fresh context each time.
 func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.PipelineResult, error) {
 	// Get hot block from daemon
-	hotBlock, err := a.getHotBlock(ctx)
+	hotBlock, err := a.GetHotBlock(ctx)
 	if err != nil {
 		log.Printf("Warning: failed to get hot block: %v", err)
-		hotBlock = "" // Continue without hot block
+		hotBlock = ""
 	}
 
-	// Create session (skip if no daemon)
+	// Create session
 	var sessionID string
 	if a.Mnemo != nil {
-		var err error
-		sessionID, err = a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "")
-		if err != nil {
-			log.Printf("Warning: failed to create session: %v", err)
-		}
+		sessionID, _ = a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "")
 	}
 
 	// Build conversation context
@@ -102,14 +99,24 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		AgentID:         a.Config.AgentID,
 		Messages:        []agentctx.Message{{Role: "user", Content: userMessage}},
 		SystemPrompt:    "",
-		Tools:           a.buildToolDefinitions(),
+		Tools:           a.BuildToolDefinitions(),
 		MaxIterations:   a.Config.MaxTurns,
 		Iteration:       0,
 		Interrupt:       interrupt,
 		HotBlockContent: hotBlock,
 	}
 
-	// Run the pipeline loop
+	return a.RunWithContext(ctx, convCtx)
+}
+
+// RunWithContext executes the agent loop using an existing conversation context.
+// This is the main loop — it runs the 5-stage pipeline until YIELD or TERMINATE.
+func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.ConversationContext) (*agentctx.PipelineResult, error) {
+	var sessionID string
+	if a.Mnemo != nil && convCtx.SessionID != "" {
+		sessionID = convCtx.SessionID
+	}
+
 	for {
 		// Check termination conditions
 		if convCtx.Interrupt.IsSet() {
@@ -118,7 +125,7 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		if convCtx.Iteration >= convCtx.MaxIterations {
 			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
 		}
-		// Check context token limit (rough estimate: 4 chars per token)
+		// Check context token limit
 		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > a.Config.MaxContextTokens {
 			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
 		}
@@ -157,7 +164,6 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 
 		switch action {
 		case agentctx.StageActionYIELD:
-			// Persist session messages
 			a.persistSession(ctx, sessionID, convCtx)
 			return &agentctx.PipelineResult{
 				Response:   &parsed,
@@ -178,10 +184,10 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 	}
 }
 
-// getHotBlock retrieves the hot block from the daemon.
-func (a *Agent) getHotBlock(ctx context.Context) (string, error) {
+// GetHotBlock retrieves the hot block from the daemon.
+func (a *Agent) GetHotBlock(ctx context.Context) (string, error) {
 	if a.Mnemo == nil {
-		return "", nil // No daemon, no hot block
+		return "", nil
 	}
 	return a.Mnemo.GetHotBlock(
 		ctx,
@@ -194,8 +200,8 @@ func (a *Agent) getHotBlock(ctx context.Context) (string, error) {
 	)
 }
 
-// buildToolDefinitions creates ToolDefinitions from the registry schemas.
-func (a *Agent) buildToolDefinitions() []agentctx.ToolDefinition {
+// BuildToolDefinitions creates ToolDefinitions from the registry schemas.
+func (a *Agent) BuildToolDefinitions() []agentctx.ToolDefinition {
 	schemas := a.ToolRegistry.Schemas()
 	defs := make([]agentctx.ToolDefinition, 0, len(schemas))
 	for name, schema := range schemas {

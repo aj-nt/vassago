@@ -1,19 +1,16 @@
 agent:
-  id: "mnemosyne-dev-001"
-  name: "dev"
-  role: "dev"
-  personality: "direct, dry-witted"
-  max_turns: 50
+  id: "mnemosyne-dev"
+  name: "mnemosyne"
+  role: "assistant"
+  personality: "direct, dry-witted collaborator"
+  max_turns: 20
 
 provider:
   name: "openai"
-  model: "gpt-4o"
+  model: "glm-5.1:cloud"
   api_key_env: "OPENAI_API_KEY"
   base_url: "http://localhost:11434/v1"
   temperature: 0.7
-  # Fallback providers (tried in order on 429/503/timeout)
-  fallback1: "anthropic"
-  # fallback2: "ollama"
 
 mnemosyne:
   address: "localhost:50051"
