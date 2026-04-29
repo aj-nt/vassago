@@ -203,3 +203,42 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	}
 	return nil
 }
+
+// SessionInfo is a brief summary of a session.
+type SessionInfo struct {
+	ID           string
+	Title        string
+	Source       string
+	MessageCount int32
+	LastActive   int64
+}
+
+// SearchSessions searches session titles matching the query.
+func (c *Client) SearchSessions(ctx context.Context, query string, limit int32) ([]SessionInfo, error) {
+	resp, err := c.api.SearchSessions(ctx, &pb.SearchSessionsRequest{
+		Query: query,
+		Limit: &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("SearchSessions: %w", err)
+	}
+	result := make([]SessionInfo, len(resp.Sessions))
+	for i, s := range resp.Sessions {
+		result[i] = SessionInfo{
+			ID:           s.Id,
+			Title:        s.Title,
+			Source:       s.Source,
+			MessageCount: s.MessageCount,
+			LastActive:   s.LastActiveAt,
+		}
+	}
+	return result, nil
+}
+
+// ListRecentSessions returns the most recently active sessions.
+func (c *Client) ListRecentSessions(ctx context.Context, limit int32) ([]SessionInfo, error) {
+	// SearchSessions with empty query doesn't work (store rejects it),
+	// so we search for a broad match. This is a stopgap until we add a
+	// proper ListSessions RPC to the proto.
+	return c.SearchSessions(ctx, "session", limit)
+}
