@@ -86,7 +86,7 @@ func (s *Store) AddMessages(sessionID string, messages []Message) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	for _, m := range messages {
 		_, err := tx.Exec(`

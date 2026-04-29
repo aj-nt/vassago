@@ -179,7 +179,7 @@ func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 	}
 
 	// Update accessed_at (side effect of read — consider making this explicit)
-	s.db.Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", time.Now().Unix(), id)
+	s.db.Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", time.Now().Unix(), id) //nolint:errcheck
 	return entry, nil
 }
 

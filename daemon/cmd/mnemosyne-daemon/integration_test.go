@@ -52,7 +52,7 @@ func startTestDaemon(t *testing.T) (*daemon.Daemon, pb.MnemosyneClient, func()) 
 		t.Fatalf("listen: %v", err)
 	}
 
-	go d.Server().Serve(lis)
+	go func() { _ = d.Server().Serve(lis) }()
 
 	// Connect client
 	conn, err := grpc.NewClient(

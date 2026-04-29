@@ -10,7 +10,7 @@ const testAgent = "test-agent-001"
 func TestAddMemory(t *testing.T) {
 	s := testStore(t)
 
-	entry, err := addMemory(s, "memory", "environment", "test_key", "test content", 3, testAgent, 0)
+	entry, err := addMemory(s, "memory", "environment", "test_key", "test content", 3, testAgent, 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add memory: %v", err)
 	}
@@ -48,13 +48,13 @@ func TestAddMemory_upsert(t *testing.T) {
 	s := testStore(t)
 
 	// Add initial
-	entry1, err := addMemory(s, "memory", "environment", "unique_key", "original", 2, testAgent, 0)
+	entry1, err := addMemory(s, "memory", "environment", "unique_key", "original", 2, testAgent, 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add first: %v", err)
 	}
 
 	// Add with same target+key — should update
-	entry2, err := addMemory(s, "memory", "environment", "unique_key", "updated", 4, "agent-002", 0)
+	entry2, err := addMemory(s, "memory", "environment", "unique_key", "updated", 4, "agent-002", 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add second: %v", err)
 	}
@@ -77,11 +77,11 @@ func TestAddMemory_differentTargetsSameKey(t *testing.T) {
 	s := testStore(t)
 
 	// Same key, different targets — both should exist
-	_, err := addMemory(s, "memory", "environment", "host", "agent notes", 3, testAgent, 0)
+	_, err := addMemory(s, "memory", "environment", "host", "agent notes", 3, testAgent, 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add memory target: %v", err)
 	}
-	_, err = addMemory(s, "user", "user", "host", "user notes", 3, testAgent, 0)
+	_, err = addMemory(s, "user", "user", "host", "user notes", 3, testAgent, 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add user target: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestAddMemory_differentTargetsSameKey(t *testing.T) {
 func TestGetMemoryByID(t *testing.T) {
 	s := testStore(t)
 
-	added, err := addMemory(s, "memory", "quirk", "test", "content", 3, testAgent, 0)
+	added, err := addMemory(s, "memory", "quirk", "test", "content", 3, testAgent, 0) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("add: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestGetMemoryByID_notFound(t *testing.T) {
 func TestGetMemoryByID_updatesAccessedAt(t *testing.T) {
 	s := testStore(t)
 
-	added, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0)
+	added, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0) //nolint:errcheck
 	time.Sleep(10 * time.Millisecond) // ensure time passes
 
 	got, _ := s.GetMemoryByID(added.ID)
@@ -136,7 +136,7 @@ func TestGetMemoryByID_updatesAccessedAt(t *testing.T) {
 func TestRemoveMemory(t *testing.T) {
 	s := testStore(t)
 
-	entry, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0)
+	entry, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0) //nolint:errcheck
 	deleted, err := s.RemoveMemory(entry.ID)
 	if err != nil {
 		t.Fatalf("remove: %v", err)
@@ -166,9 +166,9 @@ func TestRemoveMemory_notFound(t *testing.T) {
 func TestListMemories_filterByTarget(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "a1", "env1", 3, testAgent, 0)
-	addMemory(s, "memory", "quirk", "a2", "quirk1", 3, testAgent, 0)
-	addMemory(s, "user", "user", "a3", "user1", 3, testAgent, 0)
+	addMemory(s, "memory", "environment", "a1", "env1", 3, testAgent, 0) //nolint:errcheck
+	addMemory(s, "memory", "quirk", "a2", "quirk1", 3, testAgent, 0)      //nolint:errcheck
+	addMemory(s, "user", "user", "a3", "user1", 3, testAgent, 0)          //nolint:errcheck
 
 	entries, err := s.ListMemories("memory", "", 0)
 	if err != nil {
@@ -182,9 +182,9 @@ func TestListMemories_filterByTarget(t *testing.T) {
 func TestListMemories_filterByCategory(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "b1", "env", 3, testAgent, 0)
-	addMemory(s, "memory", "quirk", "b2", "quirk", 3, testAgent, 0)
-	addMemory(s, "memory", "project", "b3", "proj", 3, testAgent, 0)
+	addMemory(s, "memory", "environment", "b1", "env", 3, testAgent, 0)    //nolint:errcheck
+	addMemory(s, "memory", "quirk", "b2", "quirk", 3, testAgent, 0)        //nolint:errcheck
+	addMemory(s, "memory", "project", "b3", "proj", 3, testAgent, 0)      //nolint:errcheck
 
 	entries, err := s.ListMemories("", "quirk", 0)
 	if err != nil {
@@ -198,9 +198,9 @@ func TestListMemories_filterByCategory(t *testing.T) {
 func TestListMemories_filterByMinPriority(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "c1", "low", 1, testAgent, 0)
-	addMemory(s, "memory", "environment", "c2", "mid", 3, testAgent, 0)
-	addMemory(s, "memory", "environment", "c3", "high", 5, testAgent, 0)
+	addMemory(s, "memory", "environment", "c1", "low", 1, testAgent, 0)  //nolint:errcheck
+	addMemory(s, "memory", "environment", "c2", "mid", 3, testAgent, 0)  //nolint:errcheck
+	addMemory(s, "memory", "environment", "c3", "high", 5, testAgent, 0) //nolint:errcheck
 
 	entries, err := s.ListMemories("", "", 3)
 	if err != nil {
@@ -214,9 +214,9 @@ func TestListMemories_filterByMinPriority(t *testing.T) {
 func TestListMemories_orderedByPriority(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "low", "low", 1, testAgent, 0)
-	addMemory(s, "memory", "environment", "high", "high", 5, testAgent, 0)
-	addMemory(s, "memory", "environment", "mid", "mid", 3, testAgent, 0)
+	addMemory(s, "memory", "environment", "low", "low", 1, testAgent, 0)   //nolint:errcheck
+	addMemory(s, "memory", "environment", "high", "high", 5, testAgent, 0) //nolint:errcheck
+	addMemory(s, "memory", "environment", "mid", "mid", 3, testAgent, 0)  //nolint:errcheck
 
 	entries, _ := s.ListMemories("", "", 0)
 	if len(entries) < 3 {
