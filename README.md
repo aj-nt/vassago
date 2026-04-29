@@ -1,55 +1,183 @@
 # Mnemosyne
 
-Shared memory daemon for AI agents.
+A shared memory daemon for AI agents. Mnemosyne gives agents persistent, searchable, shared memory — every agent sees the same hot blocks, the same facts, the same context. Built with Go, SQLite, and gRPC.
 
-## What
+## Architecture
 
-Mnemosyne is a standalone daemon that provides persistent memory for AI agents via gRPC. Multiple agents connect to the same daemon and share memories in real-time — *telepathy* between agents.
+```
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│  Agent A     │   │  Agent B     │   │  Agent C     │
+│  (Go SDK)    │   │  (gRPC)     │   │  (CLI)       │
+└──────┬───────┘   └──────┬──────┘   └──────┬───────┘
+       │                  │                  │
+       └──────────────────┼──────────────────┘
+                          │ gRPC (TCP/Unix)
+                  ┌───────┴───────┐
+                  │   Mnemosyne   │
+                  │   Daemon      │
+                  │               │
+                  │  ┌─────────┐ │
+                  │  │ SQLite  │ │
+                  │  │ (WAL)   │ │
+                  │  └─────────┘ │
+                  │               │
+                  │  Hot Block    │  ← per-agent context window
+                  │  Telepathy    │  ← pub/sub event routing
+                  │  Consolidation│  ← auto-expiry + idle sweep
+                  └───────────────┘
+```
 
-- **SQLite** for storage — proven, fast, no separate database server
-- **Go** — single binary, no runtime, cross-compile for any OS
-- **gRPC** — typed API, streaming for real-time updates, gateway for HTTP later
-- **Per-agent hot blocks** — each agent gets a context-appropriate set of memories injected into its system prompt
-- **Pub/sub** — when Agent A learns something, Agent B knows within milliseconds
-
-## Why
-
-Hermes' memory subsystem has architectural flaws that can't be patched:
-- Three conflicting config sources, deep merge that won't let you remove defaults
-- Hot block frozen at agent init, never updated
-- Single-agent assumption — no mechanism for agents to share memory
-- Self-referential quirks consuming 84% of the memory budget
-- Observations that never expire, FTS5 queries that silently fail
-
-See [DESIGN.md](DESIGN.md) for the full architecture and rationale.
+**Core concepts:**
+- **Hot Block** — Each agent gets a computed, priority-sorted context block (memories + user profile), truncated to a character limit. No more stale caches.
+- **Telepathy** — When agent A modifies memory, agent B gets notified via gRPC server-stream, broken feedback loops.
+- **Consolidation** — Expired entries are swept hourly. Idle low-priority entries are cleaned up after 30 days.
 
 ## Quick Start
 
 ```bash
 # Build
-make build
+go build ./daemon/cmd/mnemosyne-daemon/
+go build ./daemon/cmd/mnemosyne-cli/
+go build ./daemon/cmd/mnemosyne-import/
 
-# Start the daemon
-./bin/mnemosyne-daemon -config configs/mnemosyne.yaml
+# Run daemon (uses defaults: localhost:50051, ~/.mnemosyne/mnemosyne.db)
+./mnemosyne-daemon
 
-# Import from Hermes (optional)
-./bin/mnemosyne-import -source ~/.hermes/state.db
-
-# Use the CLI
-./bin/mnemosyne-cli add --target memory --category project --key "design" --content "Mnemosyne: Go + gRPC memory daemon"
-./bin/mnemosyne-cli search "gRPC"
-./bin/mnemosyne-cli hot-block
+# Or with config
+./mnemosyne-daemon --config ~/.mnemosyne/config.yaml
 ```
 
-## Documentation
+## CLI Reference
 
-- [DESIGN.md](DESIGN.md) — Architecture, schema, API, rationale
-- [ROADMAP.md](ROADMAP.md) — Phased delivery plan
+```bash
+# Add a memory
+mnemosyne-cli add memory environment "os-version" "macOS 15 arm64"
 
-## Status
+# Get memory by ID
+mnemosyne-cli get <id>
 
-Phase 1 (Foundation) — not yet started. Design spec complete, under review.
+# Search (FTS5)
+mnemosyne-cli search "project directory"
+
+# List memories
+mnemosyne-cli list              # default: target=memory
+mnemosyne-cli list user         # user profile entries
+
+# Remove memory
+mnemosyne-cli remove <id>
+
+# Hot block (computed context)
+mnemosyne-cli hot-block          # memory hot block
+mnemosyne-cli hot-block user     # user profile
+
+# Consolidation
+mnemosyne-cli consolidate expired      # remove expired entries
+mnemosyne-cli consolidate idle          # remove idle low-priority entries
+mnemosyne-cli consolidate observations  # remove old observations
+mnemosyne-cli consolidate all           # full sweep
+
+# Statistics
+mnemosyne-cli stats
+
+# Health check
+mnemosyne-cli health
+```
+
+## Configuration
+
+`~/.mnemosyne/config.yaml`:
+
+```yaml
+daemon:
+  socket: ~/.mnemosyne/mnemosyne.sock   # Unix socket (optional)
+  tcp: localhost:50051                    # TCP listener
+  api_key: ""                             # Set to require auth, empty = no auth
+  tls:
+    cert: ""                              # TLS cert path
+    key: ""                               # TLS key path
+
+database:
+  path: ~/.mnemosyne/mnemosyne.db
+  wal_mode: true
+  busy_timeout: 5000
+
+hot_block:
+  memory_char_limit: 4000
+  user_char_limit: 2000
+  min_priority: 2
+  observation_ttl_days: 30
+```
+
+## Import from Hermes
+
+```bash
+# Import your existing Hermes state.db
+./mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
+```
+
+## Deployment
+
+### macOS (launchd)
+
+```bash
+# Copy the plist
+mkdir -p ~/Library/LaunchAgents
+cp configs/com.mnemosyne.daemon.plist ~/Library/LaunchAgents/
+# Edit the plist to set your username, then:
+launchctl load ~/Library/LaunchAgents/com.mnemosyne.daemon.plist
+```
+
+### Linux (systemd)
+
+```ini
+[Unit]
+Description=Mnemosyne Memory Daemon
+After=network.target
+
+[Service]
+User=youruser
+ExecStart=/usr/local/bin/mnemosyne-daemon --config /home/youruser/.mnemosyne/config.yaml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## API
+
+gRPC service defined in `proto/mnemosyne.proto`. Key RPCs:
+
+| RPC | Description |
+|-----|-------------|
+| AddMemory | Create or update a memory entry |
+| GetMemory | Retrieve by ID |
+| RemoveMemory | Delete by ID |
+| ListMemories | List by target/category |
+| Search | FTS5 full-text search |
+| GetHotBlock | Computed context for an agent |
+| Subscribe | Stream real-time memory updates |
+| Consolidate | Run expiry/idle cleanup |
+
+## Testing
+
+```bash
+go test ./... -race    # 127 tests with race detector
+go vet ./...           # static analysis
+```
+
+## Project Status
+
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| 1 | Daemon Foundation | ✅ Merged |
+| 2 | Agent Core | ✅ Merged |
+| 3 | Telepathy (pub/sub) | ✅ Merged |
+| 4 | Search & Consolidation | ✅ Merged |
+| 5 | Agent Tools & Anthropic Provider | ✅ Merged |
+| 6 | Data Migration (Hermes import) | ✅ Merged |
+| 7 | Client Polish & Admin CLI | ✅ Merged |
+| 8 | Hardening & Polish | ✅ Current |
 
 ## License
 
-Proprietary — aj-nt
+MIT

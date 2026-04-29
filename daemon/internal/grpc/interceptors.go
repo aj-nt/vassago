@@ -10,9 +10,48 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Interceptors returns gRPC unary and stream interceptors for logging and recovery.
-func Interceptors() (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
-	return UnaryInterceptor, StreamInterceptor
+// ChainUnaryInterceptor chains multiple unary interceptors.
+func ChainUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		var chainedHandler grpc.UnaryHandler = func(ctx context.Context, req interface{}) (interface{}, error) {
+			return handler(ctx, req)
+		}
+
+		for i := len(interceptors) - 1; i >= 0; i-- {
+			current := interceptors[i]
+			prevHandler := chainedHandler
+			chainedHandler = func(ctx context.Context, req interface{}) (interface{}, error) {
+				return current(ctx, req, info, prevHandler)
+			}
+		}
+
+		return chainedHandler(ctx, req)
+	}
+}
+
+// ChainStreamInterceptor chains multiple stream interceptors.
+func ChainStreamInterceptor(interceptors ...grpc.StreamServerInterceptor) grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		var chainedHandler grpc.StreamHandler = func(srv interface{}, stream grpc.ServerStream) error {
+			return handler(srv, stream)
+		}
+
+		for i := len(interceptors) - 1; i >= 0; i-- {
+			current := interceptors[i]
+			prevHandler := chainedHandler
+			chainedHandler = func(srv interface{}, stream grpc.ServerStream) error {
+				return current(srv, stream, info, prevHandler)
+			}
+		}
+
+		return chainedHandler(srv, ss)
+	}
+}
+
+// Interceptors returns gRPC unary and stream interceptors for logging, recovery, and authentication.
+func Interceptors(apiKey string) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+	return ChainUnaryInterceptor(UnaryInterceptor, APIKeyInterceptor(apiKey)),
+		ChainStreamInterceptor(StreamInterceptor, StreamAPIKeyInterceptor(apiKey))
 }
 
 // UnaryInterceptor logs requests and recovers from panics.
