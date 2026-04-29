@@ -20,8 +20,10 @@ func NewRequestPrepStage(personality string) *RequestPrepStage {
 // Process builds a PreparedRequest from the conversation context.
 func (s *RequestPrepStage) Process(ctx *agentctx.ConversationContext) agentctx.PreparedRequest {
 	systemPrompt := s.buildSystemPrompt(ctx)
+
+	// Set provider-specific parameters
 	apiKwargs := map[string]interface{}{
-		"temperature": 0.7,
+		"temperature": ctx.Temperature,
 	}
 
 	return agentctx.PreparedRequest{

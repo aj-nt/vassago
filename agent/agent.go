@@ -35,6 +35,7 @@ type Config struct {
 	AgentName        string
 	AgentRole        string
 	Personality     string
+	Temperature     float64
 	MaxTurns         int
 	MaxContextTokens int
 	HotBlockConfig   HotBlockConfig
@@ -104,6 +105,7 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		Iteration:       0,
 		Interrupt:       interrupt,
 		HotBlockContent: hotBlock,
+		Temperature:     a.Config.Temperature,
 	}
 
 	return a.RunWithContext(ctx, convCtx)

@@ -3,6 +3,7 @@ package agent
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -17,11 +18,12 @@ type AgentConfig struct {
 }
 
 type AgentSection struct {
-	ID          string `yaml:"id"`
-	Name        string `yaml:"name"`
-	Role        string `yaml:"role"`
-	Personality string `yaml:"personality"`
-	MaxTurns    int    `yaml:"max_turns"`
+	ID            string `yaml:"id"`
+	Name          string `yaml:"name"`
+	Role          string `yaml:"role"`
+	Personality   string `yaml:"personality"`
+	PersonalityFile string `yaml:"personality_file"`
+	MaxTurns      int    `yaml:"max_turns"`
 }
 
 type ProviderSection struct {
@@ -75,6 +77,23 @@ func LoadConfig(path string) (*AgentConfig, error) {
 	if cfg.HotBlock.MinPriority == 0 {
 		cfg.HotBlock.MinPriority = 2
 	}
+
+	// Load personality from file if specified
+	if cfg.Agent.PersonalityFile != "" {
+		personalityPath := cfg.Agent.PersonalityFile
+		// If the path is relative, resolve it relative to the config file's directory
+		if !filepath.IsAbs(personalityPath) {
+			configDir := filepath.Dir(path)
+			personalityPath = filepath.Join(configDir, personalityPath)
+		}
+
+		personalityData, err := os.ReadFile(personalityPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read personality file: %w", err)
+		}
+		cfg.Agent.Personality = string(personalityData)
+	}
+
 	return cfg, nil
 }
 
@@ -101,11 +120,12 @@ func (c *AgentConfig) Validate() error {
 // ToAgentConfig converts the YAML config to the Agent's Config struct.
 func (c *AgentConfig) ToAgentConfig() Config {
 	return Config{
-		AgentID:   c.Agent.ID,
-		AgentName: c.Agent.Name,
-		AgentRole: c.Agent.Role,
-		Personality: c.Agent.Personality,
-		MaxTurns:  c.Agent.MaxTurns,
+		AgentID:      c.Agent.ID,
+		AgentName:    c.Agent.Name,
+		AgentRole:    c.Agent.Role,
+		Personality:  c.Agent.Personality,
+		Temperature:  c.Provider.Temperature,
+		MaxTurns:      c.Agent.MaxTurns,
 		MaxContextTokens: 128000,
 		HotBlockConfig: HotBlockConfig{
 			CharLimit:          c.HotBlock.MemoryCharLimit,
