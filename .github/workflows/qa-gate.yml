@@ -28,6 +28,11 @@ jobs:
         run: go build ./...
 
       # Verify proto is up to date
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
+
       - name: Verify proto generation
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
