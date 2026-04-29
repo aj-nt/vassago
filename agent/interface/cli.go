@@ -30,7 +30,7 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Println("Mnemosyne Agent — type /quit to exit, /clear to reset context")
+	fmt.Println("Mnemosyne Agent — type /quit to exit, /clear to reset context, /hot to show hot block")
 	fmt.Println()
 
 	// Start a session with the daemon
@@ -50,8 +50,9 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		hotBlock = ""
 	}
 
-	// Persistent conversation context
+	// Persistent conversation context across turns
 	messages := []agentctx.Message{}
+	toolDefs := c.Agent.BuildToolDefinitions()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -63,20 +64,19 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		if input == "" {
 			continue
 		}
-		if input == "/quit" || input == "/exit" {
-			// End session
+
+		switch input {
+		case "/quit", "/exit":
 			if c.Agent.Mnemo != nil && sessionID != "" {
 				_ = c.Agent.Mnemo.EndSession(ctx, sessionID)
 			}
 			fmt.Println("Goodbye!")
 			return nil
-		}
-		if input == "/clear" {
+		case "/clear":
 			messages = messages[:0]
 			fmt.Println("[Context cleared]")
 			continue
-		}
-		if input == "/hot" {
+		case "/hot":
 			fmt.Println(hotBlock)
 			continue
 		}
@@ -84,14 +84,14 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		// Add user message to history
 		messages = append(messages, agentctx.Message{Role: "user", Content: input})
 
-		// Build conversation context
+		// Build conversation context — fresh iteration counter per user turn
 		interrupt := agentctx.NewInterruptSignal()
 		convCtx := &agentctx.ConversationContext{
 			SessionID:       sessionID,
 			AgentID:         c.Agent.Config.AgentID,
 			Messages:        messages,
 			SystemPrompt:    "",
-			Tools:           c.Agent.BuildToolDefinitions(),
+			Tools:           toolDefs,
 			MaxIterations:   c.Agent.Config.MaxTurns,
 			Iteration:       0,
 			Interrupt:       interrupt,
@@ -101,15 +101,8 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 
 		// Subscribe to events for progress display
 		eventCh := c.Agent.EventBus.SubscribeAll()
-		done := make(chan struct{})
-		go func() {
-			for event := range eventCh {
-				c.displayEvent(event)
-			}
-			close(done)
-		}()
 
-		// Run the agent loop with per-turn context
+		// Handle Ctrl+C gracefully
 		turnCtx, cancel := context.WithCancel(ctx)
 		go func() {
 			select {
@@ -121,23 +114,24 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			}
 		}()
 
+		// Run the agent loop
 		result, err := c.Agent.RunWithContext(turnCtx, convCtx)
 		cancel()
 
-		// Unsubscribe from events
-		// (EventBus channels are closed on agent.Close(), not per-subscription)
-		// Drain remaining events
-		go func() {
-			for range eventCh {
-			}
-		}()
+		// Drain and display events, then unsubscribe
+		c.drainEvents(eventCh)
+		c.Agent.EventBus.Unsubscribe("*", eventCh)
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			// Remove the failed user message so history stays clean
+			if len(messages) > 0 && messages[len(messages)-1].Role == "user" {
+				messages = messages[:len(messages)-1]
+			}
 			continue
 		}
 
-		// Update message history from the context (includes tool calls, etc.)
+		// Update message history from the context (includes tool calls, results, etc.)
 		messages = convCtx.Messages
 
 		// Display the response
@@ -150,32 +144,44 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		if result.Interrupted {
 			fmt.Fprintf(os.Stderr, "[interrupted]\n")
 		}
+
+		fmt.Println() // Blank line between turns
 	}
 
 	return scanner.Err()
 }
 
+// drainEvents reads and displays any remaining events from the channel.
+func (c *CLI) drainEvents(eventCh <-chan eventbus.Event) {
+	for {
+		select {
+		case event, ok := <-eventCh:
+			if !ok {
+				return
+			}
+			c.displayEvent(event)
+		default:
+			return
+		}
+	}
+}
+
 // displayEvent prints a human-readable representation of a pipeline event.
 func (c *CLI) displayEvent(event eventbus.Event) {
 	switch event.Kind {
-	case "iteration_start":
-		if iter, ok := event.Data.(int); ok {
-			fmt.Fprintf(os.Stderr, "  [turn %d]\n", iter+1)
-		}
 	case "tool_call":
 		if name, ok := event.Data.(string); ok {
-			fmt.Fprintf(os.Stderr, "  [tool: %s]\n", name)
+			fmt.Fprintf(os.Stderr, "  → %s\n", name)
 		}
 	case "tool_result":
 		if result, ok := event.Data.(string); ok {
-			// Truncate long results
-			if len(result) > 200 {
-				result = result[:200] + "..."
+			// Show first 500 chars of tool results
+			truncated := result
+			if len(truncated) > 500 {
+				truncated = truncated[:500] + "..."
 			}
-			fmt.Fprintf(os.Stderr, "  [result: %s]\n", result)
+			fmt.Fprintf(os.Stderr, "  ← %s\n", truncated)
 		}
-	case "response":
-		// Response is displayed by the main loop
 	}
 }
 
