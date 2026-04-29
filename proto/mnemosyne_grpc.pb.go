@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: mnemosyne.proto
+// source: proto/mnemosyne.proto
 
 package proto
 
@@ -33,6 +33,8 @@ const (
 	Mnemosyne_Consolidate_FullMethodName                = "/mnemosyne.Mnemosyne/Consolidate"
 	Mnemosyne_GetConsolidationCandidates_FullMethodName = "/mnemosyne.Mnemosyne/GetConsolidationCandidates"
 	Mnemosyne_Subscribe_FullMethodName                  = "/mnemosyne.Mnemosyne/Subscribe"
+	Mnemosyne_RegisterAgent_FullMethodName              = "/mnemosyne.Mnemosyne/RegisterAgent"
+	Mnemosyne_Heartbeat_FullMethodName                  = "/mnemosyne.Mnemosyne/Heartbeat"
 )
 
 // MnemosyneClient is the client API for Mnemosyne service.
@@ -59,6 +61,9 @@ type MnemosyneClient interface {
 	GetConsolidationCandidates(ctx context.Context, in *GetConsolidationCandidatesRequest, opts ...grpc.CallOption) (*ConsolidationCandidatesResponse, error)
 	// Pub/sub — agent subscribes to memory changes
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[UpdateEvent], error)
+	// --- Agent Management ---
+	RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error)
+	Heartbeat(ctx context.Context, in *AgentId, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type mnemosyneClient struct {
@@ -218,6 +223,26 @@ func (c *mnemosyneClient) Subscribe(ctx context.Context, in *SubscribeRequest, o
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Mnemosyne_SubscribeClient = grpc.ServerStreamingClient[UpdateEvent]
 
+func (c *mnemosyneClient) RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterAgentResponse)
+	err := c.cc.Invoke(ctx, Mnemosyne_RegisterAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) Heartbeat(ctx context.Context, in *AgentId, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Mnemosyne_Heartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MnemosyneServer is the server API for Mnemosyne service.
 // All implementations must embed UnimplementedMnemosyneServer
 // for forward compatibility.
@@ -242,6 +267,9 @@ type MnemosyneServer interface {
 	GetConsolidationCandidates(context.Context, *GetConsolidationCandidatesRequest) (*ConsolidationCandidatesResponse, error)
 	// Pub/sub — agent subscribes to memory changes
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[UpdateEvent]) error
+	// --- Agent Management ---
+	RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error)
+	Heartbeat(context.Context, *AgentId) (*Empty, error)
 	mustEmbedUnimplementedMnemosyneServer()
 }
 
@@ -293,6 +321,12 @@ func (UnimplementedMnemosyneServer) GetConsolidationCandidates(context.Context, 
 }
 func (UnimplementedMnemosyneServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[UpdateEvent]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (UnimplementedMnemosyneServer) RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RegisterAgent not implemented")
+}
+func (UnimplementedMnemosyneServer) Heartbeat(context.Context, *AgentId) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Heartbeat not implemented")
 }
 func (UnimplementedMnemosyneServer) mustEmbedUnimplementedMnemosyneServer() {}
 func (UnimplementedMnemosyneServer) testEmbeddedByValue()                   {}
@@ -560,6 +594,42 @@ func _Mnemosyne_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Mnemosyne_SubscribeServer = grpc.ServerStreamingServer[UpdateEvent]
 
+func _Mnemosyne_RegisterAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).RegisterAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_RegisterAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).RegisterAgent(ctx, req.(*RegisterAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AgentId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).Heartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_Heartbeat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).Heartbeat(ctx, req.(*AgentId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Mnemosyne_ServiceDesc is the grpc.ServiceDesc for Mnemosyne service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -619,6 +689,14 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetConsolidationCandidates",
 			Handler:    _Mnemosyne_GetConsolidationCandidates_Handler,
 		},
+		{
+			MethodName: "RegisterAgent",
+			Handler:    _Mnemosyne_RegisterAgent_Handler,
+		},
+		{
+			MethodName: "Heartbeat",
+			Handler:    _Mnemosyne_Heartbeat_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -627,5 +705,5 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mnemosyne.proto",
+	Metadata: "proto/mnemosyne.proto",
 }
