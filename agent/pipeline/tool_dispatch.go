@@ -5,17 +5,19 @@ import (
 	"fmt"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/eventbus"
 	"github.com/aj-nt/mnemosyne/agent/tools"
 )
 
 // ToolDispatchStage routes tool calls to their handlers and collects results.
 type ToolDispatchStage struct {
 	Registry *tools.ToolRegistry
+	EventBus *eventbus.EventBus
 }
 
 // NewToolDispatchStage creates a new Stage 4.
-func NewToolDispatchStage(registry *tools.ToolRegistry) *ToolDispatchStage {
-	return &ToolDispatchStage{Registry: registry}
+func NewToolDispatchStage(registry *tools.ToolRegistry, eventBus *eventbus.EventBus) *ToolDispatchStage {
+	return &ToolDispatchStage{Registry: registry, EventBus: eventBus}
 }
 
 // Process executes tool calls and returns their results.
@@ -26,6 +28,9 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 
 	var toolResults []agentctx.ToolResult
 	for _, tc := range parsed.ToolCalls {
+		if s.EventBus != nil {
+			s.EventBus.Emit(eventbus.Event{Kind: "tool_call", Data: tc.Name})
+		}
 		handler, err := s.Registry.Get(tc.Name)
 		if err != nil {
 			toolResults = append(toolResults, agentctx.ToolResult{
@@ -51,6 +56,9 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 
 		// Call handler with panic recovery
 		result, isErr := safeCallHandler(handler, args)
+		if s.EventBus != nil {
+			s.EventBus.Emit(eventbus.Event{Kind: "tool_result", Data: result})
+		}
 		toolResults = append(toolResults, agentctx.ToolResult{
 			CallID:  tc.ID,
 			Name:    tc.Name,

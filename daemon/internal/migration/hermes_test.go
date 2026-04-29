@@ -54,7 +54,9 @@ func TestImportHermesDB_Memories(t *testing.T) {
 		t.Fatalf("open hermes db for verification: %v", err)
 	}
 	var memCount int
-	hDB.QueryRow("SELECT COUNT(*) FROM memories").Scan(&memCount)
+	if err := hDB.QueryRow("SELECT COUNT(*) FROM memories").Scan(&memCount); err != nil {
+		t.Fatalf("scan memory count: %v", err)
+	}
 	if memCount != 3 {
 		t.Fatalf("expected 3 memories in Hermes, got %d", memCount)
 	}
@@ -266,11 +268,13 @@ func insertHermesMemory(t *testing.T, dbPath, target, category, key, content str
 
 	// Verify the insert worked
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM memories").Scan(&count)
+	if err := db.QueryRow("SELECT COUNT(*) FROM memories").Scan(&count); err != nil {
+		t.Fatalf("scan count after insert: %v", err)
+	}
 	if count == 0 {
 		t.Errorf("no memories found after insert into %s", dbPath)
 	}
 
 	// Checkpoint WAL so subsequent readers can see the data
-	db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	_, _ = db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 }

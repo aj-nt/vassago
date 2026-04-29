@@ -20,8 +20,8 @@ func NewProviderCallStage(registry *provider.ProviderRegistry) *ProviderCallStag
 
 // Process calls the LLM and returns the raw result.
 func (s *ProviderCallStage) Process(ctx context.Context, convCtx *agentctx.ConversationContext, prepared agentctx.PreparedRequest) agentctx.ProviderResult {
-	// Get provider (use first available if no specific provider set)
-	p, err := s.Registry.GetWithFallback("openai")
+	// Get provider using the configured primary provider name
+	p, err := s.Registry.GetPrimary()
 	if err != nil {
 		return agentctx.ProviderResult{
 			ShouldRetry: false,
@@ -42,7 +42,7 @@ func (s *ProviderCallStage) Process(ctx context.Context, convCtx *agentctx.Conve
 	result, err := p.Execute(ctx, req)
 	if err != nil {
 		return agentctx.ProviderResult{
-			ShouldRetry:   result.ShouldRetry,
+			ShouldRetry:    result.ShouldRetry,
 			ShouldFallback: result.ShouldFallback,
 			Error:          fmt.Errorf("execute: %w", err),
 		}

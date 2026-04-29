@@ -20,6 +20,7 @@ type ConversationContext struct {
 	Interrupt       *InterruptSignal
 	HotBlockContent string
 	AgentID         string
+	Temperature     float64
 }
 
 // AddMessage appends a message to the conversation.
