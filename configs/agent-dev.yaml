@@ -3,6 +3,7 @@ agent:
   name: "mnemosyne"
   role: "assistant"
   personality: "direct, dry-witted collaborator"
+  personality_file: "personalities/bartimaeus.md"
   max_turns: 20
 
 provider:
@@ -11,6 +12,7 @@ provider:
   api_key_env: "OPENAI_API_KEY"
   base_url: "http://localhost:11434/v1"
   temperature: 0.7
+  fallback1: "anthropic"
 
 mnemosyne:
   address: "localhost:50051"
@@ -33,11 +35,14 @@ tools:
     - ReplaceMemory
     - RemoveMemory
     - Consolidate
+    - GetHotBlock
     - FileRead
     - FileSearch
+    - FileWrite
     - Execute
   approval_required:
     - FileWrite
+    - Execute
   allowed_dirs:
     - /tmp
     - .
