@@ -203,40 +203,40 @@ is a database without a client. Building the agent right after basic CRUD lets
 us validate the entire system end-to-end while we build the fancier features.
 
 ### 2.1 Agent Scaffold
-- [ ] `agent/cmd/mnemosyne-agent/main.go` — CLI entry point
-- [ ] `agent/agent.go` — Orchestrator: drives Stage 1→2→3→4→5 loop (see AGENT.md §3.3)
-- [ ] `agent/config.go` — Load agent config from YAML
-- [ ] `agent/context/types.go` — PreparedRequest, ParsedResponse, ProviderResult, ToolDispatchResult, StageAction
-- [ ] `agent/context/context.go` — ConversationContext, SessionState
-- [ ] `agent/context/capabilities.go` — ProviderCapabilities
+- [x] `agent/cmd/mnemosyne-agent/main.go` — CLI entry point
+- [x] `agent/agent.go` — Orchestrator: drives Stage 1→2→3→4→5 loop (see AGENT.md §3.3)
+- [x] `agent/config.go` — Load agent config from YAML
+- [x] `agent/context/types.go` — PreparedRequest, ParsedResponse, ProviderResult, ToolDispatchResult, StageAction
+- [x] `agent/context/context.go` — ConversationContext, SessionState
+- [x] `agent/context/capabilities.go` — ProviderCapabilities
 
 ### 2.2 Client Library (basic)
-- [ ] `client/client.go` — Connect, AddMemory, SearchMemories, ReplaceMemory, RemoveMemory, GetHotBlock, CreateSession, AddMessages
+- [x] `client/client.go` — Connect, AddMemory, SearchMemories, ReplaceMemory, RemoveMemory, GetHotBlock, CreateSession, AddMessages
 - [ ] `client/hotblock_cache.go` — Local cache (no subscription yet — that's Phase 3)
 
 ### 2.3 Pipeline Stages
-- [ ] `agent/pipeline/request_prep.go` — Stage 1: Build system prompt, inject hot block, prepare API kwargs
-- [ ] `agent/pipeline/provider_call.go` — Stage 2: Call LLM via ProviderRegistry, emit stream deltas
-- [ ] `agent/pipeline/response_processing.go` — Stage 3: Parse into canonical ParsedResponse
-- [ ] `agent/pipeline/tool_dispatch.go` — Stage 4: Route tool calls to handlers, collect results
-- [ ] `agent/pipeline/context_management.go` — Stage 5: Append results, check limits, persist session
+- [x] `agent/pipeline/request_prep.go` — Stage 1: Build system prompt, inject hot block, prepare API kwargs
+- [x] `agent/pipeline/provider_call.go` — Stage 2: Call LLM via ProviderRegistry, emit stream deltas
+- [x] `agent/pipeline/response_processing.go` — Stage 3: Parse into canonical ParsedResponse
+- [x] `agent/pipeline/tool_dispatch.go` — Stage 4: Route tool calls to handlers, collect results
+- [x] `agent/pipeline/context_management.go` — Stage 5: Append results, check limits, persist session
 
 ### 2.4 Provider (OpenAI-compatible only for now)
-- [ ] `agent/provider/registry.go` — ProviderRegistry: name → Provider
-- [ ] `agent/provider/provider.go` — Provider interface (Prepare, Execute, Parse, Capabilities)
-- [ ] `agent/provider/openai.go` — OpenAI-compatible API (covers Ollama, OpenRouter)
-- [ ] `agent/provider/mock.go` — MockProvider for testing (canned responses)
+- [x] `agent/provider/registry.go` — ProviderRegistry: name → Provider
+- [x] `agent/provider/provider.go` — Provider interface (Prepare, Execute, Parse, Capabilities)
+- [x] `agent/provider/openai.go` — OpenAI-compatible API (covers Ollama, OpenRouter)
+- [x] `agent/provider/mock.go` — MockProvider for testing (canned responses)
 
 ### 2.5 Memory Tools
-- [ ] `agent/tools/registry.go` — ToolRegistry: name → ToolHandler
-- [ ] `agent/tools/memory.go` — AddMemory, SearchMemories, ReplaceMemory, RemoveMemory, Consolidate
-- [ ] Connects to daemon via client library (gRPC)
+- [x] `agent/tools/registry.go` — ToolRegistry: name → ToolHandler
+- [x] `agent/tools/memory.go` — AddMemory, SearchMemories, ReplaceMemory, RemoveMemory, Consolidate
+- [x] Connects to daemon via client library (gRPC)
 
 ### 2.6 CLI Interface
-- [ ] `agent/interface/cli.go` — stdin/stdout terminal interface
-- [ ] Streaming output (token-by-token display via EventBus)
-- [ ] Signal handling (Ctrl+C to interrupt)
-- [ ] `agent/eventbus/bus.go` — EventBus for observability
+- [x] `agent/interface/cli.go` — stdin/stdout terminal interface
+- [x] Streaming output (token-by-token display via EventBus)
+- [x] Signal handling (Ctrl+C to interrupt)
+- [x] `agent/eventbus/bus.go` — EventBus for observability
 
 **Deliverable:** `mnemosyne-agent chat "What do you know about me?"` works.
 The agent reads hot block from daemon, calls LLM, executes memory tools, loops
@@ -383,7 +383,7 @@ and searchable. Zero data loss.
 **Goal:** Polished client library. Admin CLI. End-to-end validation against Hermes.
 
 ### 7.1 Client Package Polish
-- [ ] `client/client.go` — Automatic reconnection on disconnect
+- [x] `client/client.go` — Automatic reconnection on disconnect
 - [ ] `client/hotblock_cache.go` — Graceful shutdown: flush pending writes
 - [ ] Exponential backoff on connection failure
 
