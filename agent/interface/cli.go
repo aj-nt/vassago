@@ -28,7 +28,7 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Println("Mnemosyne Agent — type /quit to exit, /clear to reset context, /hot to show hot block")
+	fmt.Println("Mnemosyne Agent — type /quit to exit, /clear to reset context, /hot to show hot block, /history to show context, /sessions to list recent sessions")
 	fmt.Println()
 
 	// Start a session with the daemon
@@ -76,6 +76,43 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			continue
 		case "/hot":
 			fmt.Println(hotBlock)
+			continue
+		case "/history":
+			// Show current conversation history
+			if len(messages) == 0 {
+				fmt.Println("[No messages in current context]")
+			} else {
+				for _, m := range messages {
+					var preview string
+					if len(m.Content) > 100 {
+						preview = m.Content[:100] + "..."
+					} else {
+						preview = m.Content
+					}
+					fmt.Printf("  [%s] %s\n", m.Role, preview)
+				}
+			}
+			continue
+		case "/sessions":
+			// List recent sessions from the daemon
+			if c.Agent.Mnemo != nil {
+				sessions, err := c.Agent.Mnemo.ListRecentSessions(ctx, 10)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error listing sessions: %v\n", err)
+				} else if len(sessions) == 0 {
+					fmt.Println("[No sessions found]")
+				} else {
+					for _, s := range sessions {
+						title := s.Title
+						if title == "" {
+							title = "(untitled)"
+						}
+						fmt.Printf("  %-25s  %-20s  %3d msg  [%s]\n", s.ID[:25], title, s.MessageCount, s.Source)
+					}
+				}
+			} else {
+				fmt.Println("[Not connected to daemon]")
+			}
 			continue
 		}
 
