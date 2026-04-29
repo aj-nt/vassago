@@ -323,30 +323,30 @@ Verify periodic sweep removes stale entries. ✅ PASSED
 Anthropic provider support.
 
 ### 5.1 Anthropic Provider
-- [ ] `agent/provider/anthropic.go` — Anthropic Messages API + prompt caching
-- [ ] ProviderCapabilities dispatches on capabilities, not provider name
-- [ ] Fallback chain: primary → fallback1 → fallback2 (config-driven)
-- [ ] Error handling for retries, rate limits, daemon-down (resolves AGENT.md §3.6)
+- [x] `agent/provider/anthropic.go` — Anthropic Messages API + prompt caching
+- [x] ProviderCapabilities dispatches on capabilities, not provider name
+- [x] Fallback chain: primary → fallback1 → fallback2 (config-driven)
+- [x] Error handling for retries, rate limits, daemon-down (resolves AGENT.md §3.6)
 
 ### 5.2 File Tools
-- [ ] `agent/tools/file.go` — FileRead, FileWrite, FileSearch
-- [ ] Read-only by default, write requires approval in config
+- [x] `agent/tools/file.go` — FileRead, FileWrite, FileSearch
+- [x] Read-only by default, write requires approval in config
 
 ### 5.3 Terminal Tool
-- [ ] `agent/tools/terminal.go` — Execute shell commands
-- [ ] Approval gate: dangerous commands require user confirmation
+- [x] `agent/tools/terminal.go` — Execute shell commands
+- [x] Approval gate: dangerous commands require user confirmation
 
 ### 5.4 More Tools (Priority-Sorted)
 - [ ] `agent/tools/browser.go` — Web browsing (if needed)
 - [ ] `agent/tools/delegate.go` — Sub-agent delegation (future)
-- [ ] Tool registry: pluggable, enable/disable per agent config
+- [x] Tool registry: pluggable, enable/disable per agent config
 
 **Deliverable:** Agent can read/write files, run shell commands, and search
 memories. Anthropic provider works. Fallback chain works.
 
-**QA Pass:** File operations work. Terminal executes commands. Memory tools still work after adding new tools. Anthropic provider streams correctly with prompt caching.
+**QA Pass:** File operations work. Terminal executes commands. Memory tools still work after adding new tools. Anthropic provider streams correctly with prompt caching. ✅ PASSED
 
-**Red Team QA Pass:** File path traversal (../../etc/passwd) — blocked. Shell injection (rm -rf /) — approval gate catches it. Concurrent file writes — no corruption. Provider fallback: primary returns 429 → fallback chain tries next.
+**Red Team QA Pass:** File path traversal (../../etc/passwd) — blocked. Shell injection (rm -rf /) — approval gate catches it. Concurrent file writes — no corruption. Provider fallback: primary returns 429 → fallback chain tries next. ✅ PASSED
 
 ---
 
