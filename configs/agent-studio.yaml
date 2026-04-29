@@ -1,0 +1,51 @@
+agent:
+  id: "mnemosyne"
+  name: "mnemosyne"
+  role: "assistant"
+  personality: "direct, dry-witted collaborator"
+  personality_file: "/Users/aj/Documents/repos/mnemosyne/configs/personalities/bartimaeus.md"
+  max_turns: 20
+
+provider:
+  name: "anthropic"
+  model: "claude-sonnet-4-6"
+  anthropic_model: "claude-sonnet-4-6"
+  anthropic_api_key_env: "ANTHROPIC_API_KEY"
+  temperature: 0.7
+  fallback1: "openai"
+  openai_model: "glm-5.1:cloud"
+  openai_base_url: "http://localhost:11434/v1"
+  openai_api_key_env: "OLLAMA_API_KEY"
+
+mnemosyne:
+  address: "localhost:15051"
+
+hot_block:
+  memory_char_limit: 4000
+  user_char_limit: 2000
+  min_priority: 2
+  boost_categories:
+    - project
+    - environment
+    - quirk
+  suppress_categories:
+    - observation
+
+tools:
+  enabled:
+    - AddMemory
+    - SearchMemories
+    - ReplaceMemory
+    - RemoveMemory
+    - Consolidate
+    - GetHotBlock
+    - FileRead
+    - FileSearch
+    - FileWrite
+    - Execute
+  approval_required:
+    - FileWrite
+    - Execute
+  allowed_dirs:
+    - /tmp
+    - .
