@@ -66,7 +66,7 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		if input == "/quit" || input == "/exit" {
 			// End session
 			if c.Agent.Mnemo != nil && sessionID != "" {
-				c.Agent.Mnemo.EndSession(ctx, sessionID)
+				_ = c.Agent.Mnemo.EndSession(ctx, sessionID)
 			}
 			fmt.Println("Goodbye!")
 			return nil
