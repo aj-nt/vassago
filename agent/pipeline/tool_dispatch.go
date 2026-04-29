@@ -49,7 +49,8 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 			continue
 		}
 
-		result, isErr := handler(args)
+		// Call handler with panic recovery
+		result, isErr := safeCallHandler(handler, args)
 		toolResults = append(toolResults, agentctx.ToolResult{
 			CallID:  tc.ID,
 			Name:    tc.Name,
@@ -61,4 +62,17 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 	return agentctx.ToolDispatchResult{
 		ToolResults: toolResults,
 	}
+}
+
+
+// safeCallHandler calls a tool handler with panic recovery.
+// If the handler panics, the panic is caught and returned as an error.
+func safeCallHandler(handler tools.ToolHandler, args map[string]interface{}) (result string, isErr bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = fmt.Sprintf("tool handler panicked: %v", r)
+			isErr = true
+		}
+	}()
+	return handler(args)
 }

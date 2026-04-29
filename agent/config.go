@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -72,6 +73,26 @@ func LoadConfig(path string) (*AgentConfig, error) {
 		cfg.HotBlock.MinPriority = 2
 	}
 	return cfg, nil
+}
+
+// Validate checks the config for invalid values.
+func (c *AgentConfig) Validate() error {
+	if c.Agent.ID == "" {
+		return fmt.Errorf("agent.id is required")
+	}
+	if c.Agent.MaxTurns < 1 {
+		return fmt.Errorf("agent.max_turns must be >= 1, got %d", c.Agent.MaxTurns)
+	}
+	if c.Provider.Name == "" {
+		return fmt.Errorf("provider.name is required")
+	}
+	if c.Provider.Model == "" {
+		return fmt.Errorf("provider.model is required")
+	}
+	if c.Mnemosyne.Address == "" {
+		return fmt.Errorf("mnemosyne.address is required")
+	}
+	return nil
 }
 
 // ToAgentConfig converts the YAML config to the Agent's Config struct.

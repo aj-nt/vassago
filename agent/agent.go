@@ -118,6 +118,10 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		if convCtx.Iteration >= convCtx.MaxIterations {
 			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
 		}
+		// Check context token limit (rough estimate: 4 chars per token)
+		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > a.Config.MaxContextTokens {
+			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
+		}
 
 		// Emit iteration event
 		a.EventBus.Emit(eventbus.Event{Kind: "iteration_start", Data: convCtx.Iteration})
