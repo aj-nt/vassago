@@ -44,6 +44,14 @@ func main() {
 	// Set up tool registry
 	toolReg := tools.NewToolRegistry()
 	tools.RegisterMemoryTools(toolReg, mnemo, cfg.Agent.ID)
+	tools.RegisterFileTools(toolReg)
+	tools.RegisterTerminalTools(toolReg)
+
+	// Set up Anthropic provider if API key is available
+	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+		anthropicProvider := provider.NewAnthropicProvider(apiKey, cfg.Provider.Model)
+		registry.Register("anthropic", anthropicProvider)
+	}
 
 	// Create agent
 	agentCfg := cfg.ToAgentConfig()
