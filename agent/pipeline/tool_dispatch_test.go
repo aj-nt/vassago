@@ -128,6 +128,52 @@ func TestToolDispatchStage_InvalidArguments(t *testing.T) {
 	}
 }
 
+func TestToolDispatchStage_EmptyArguments(t *testing.T) {
+	registry := tools.NewToolRegistry()
+	registry.Register("GetHotBlock", func(args map[string]interface{}) (string, bool) {
+		// GetHotBlock should work fine with empty args (defaults apply)
+		return "Hot block retrieved", false
+	}, map[string]interface{}{})
+	bus := eventbus.NewEventBus()
+	stage := NewToolDispatchStage(registry, bus)
+
+	testCases := []struct {
+		name string
+		args json.RawMessage
+	}{
+		{"empty byte slice", json.RawMessage("")},
+		{"null literal", json.RawMessage("null")},
+		{"empty object", json.RawMessage("{}")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := agentctx.ParsedResponse{
+				Text: "",
+				ToolCalls: []agentctx.ToolCall{
+					{ID: "call_1", Name: "GetHotBlock", Arguments: tc.args},
+				},
+			}
+			convCtx := &agentctx.ConversationContext{
+				Messages:      []agentctx.Message{},
+				MaxIterations: 5,
+			}
+
+			result := stage.Process(convCtx, parsed)
+
+			if len(result.ToolResults) != 1 {
+				t.Fatalf("Expected 1 tool result, got %d", len(result.ToolResults))
+			}
+			if result.ToolResults[0].IsError {
+				t.Errorf("Empty/null arguments should default to {}, got error: %s", result.ToolResults[0].Result)
+			}
+			if result.ToolResults[0].Result != "Hot block retrieved" {
+				t.Errorf("Expected successful result, got %q", result.ToolResults[0].Result)
+			}
+		})
+	}
+}
+
 func TestToolDispatchStage_PanicRecovery(t *testing.T) {
 	registry := tools.NewToolRegistry()
 	registry.Register("PanickingTool", func(args map[string]interface{}) (string, bool) {

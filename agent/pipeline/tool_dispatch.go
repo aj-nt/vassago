@@ -42,9 +42,13 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 			continue
 		}
 
-		// Unmarshal arguments
+		// Unmarshal arguments — treat empty/null as empty map
 		var args map[string]interface{}
-		if err := json.Unmarshal(tc.Arguments, &args); err != nil {
+		rawArgs := tc.Arguments
+		if len(rawArgs) == 0 || string(rawArgs) == "null" {
+			rawArgs = json.RawMessage("{}")
+		}
+		if err := json.Unmarshal(rawArgs, &args); err != nil {
 			toolResults = append(toolResults, agentctx.ToolResult{
 				CallID:  tc.ID,
 				Name:    tc.Name,
