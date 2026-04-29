@@ -25,11 +25,13 @@ type AgentSection struct {
 }
 
 type ProviderSection struct {
-	Name        string  `yaml:"name"`
-	Model       string  `yaml:"model"`
-	APIKeyEnv   string  `yaml:"api_key_env"`
-	BaseURL     string  `yaml:"base_url"`
-	Temperature float64 `yaml:"temperature"`
+	Name         string  `yaml:"name"`
+	Model        string  `yaml:"model"`
+	APIKeyEnv    string  `yaml:"api_key_env"`
+	BaseURL      string  `yaml:"base_url"`
+	Temperature  float64 `yaml:"temperature"`
+	Fallback1    string  `yaml:"fallback1"` // Fallback provider name (e.g., "anthropic")
+	Fallback2    string  `yaml:"fallback2"` // Second fallback provider name
 }
 
 type MnemosyneSection struct {
@@ -47,6 +49,7 @@ type HotBlockSection struct {
 type ToolsSection struct {
 	Enabled         []string `yaml:"enabled"`
 	ApprovalRequired []string `yaml:"approval_required"`
+	AllowedDirs     []string `yaml:"allowed_dirs"`
 }
 
 // LoadConfig reads agent config from a YAML file.

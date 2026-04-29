@@ -11,6 +11,9 @@ provider:
   api_key_env: "OPENAI_API_KEY"
   base_url: "http://localhost:11434/v1"
   temperature: 0.7
+  # Fallback providers (tried in order on 429/503/timeout)
+  fallback1: "anthropic"
+  # fallback2: "ollama"
 
 mnemosyne:
   address: "localhost:50051"
@@ -32,4 +35,12 @@ tools:
     - SearchMemories
     - ReplaceMemory
     - RemoveMemory
-  approval_required: []
+    - Consolidate
+    - FileRead
+    - FileSearch
+    - Execute
+  approval_required:
+    - FileWrite
+  allowed_dirs:
+    - /tmp
+    - .
