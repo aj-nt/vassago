@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	"github.com/aj-nt/mnemosyne/agent/provider"
@@ -57,12 +58,18 @@ func main() {
 		// Check if stdin has data (piped input)
 		stat, _ := os.Stdin.Stat()
 		if stat.Mode()&os.ModeCharDevice == 0 {
-			var input string
-			if _, err := fmt.Scan(&input); err != nil {
-				log.Fatalf("Error reading input: %v", err)
+			// Read all of stdin as a single message
+			var input strings.Builder
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				input.WriteString(scanner.Text())
+				input.WriteString("\n")
 			}
-			if err := cli.RunOneShot(ctx, input); err != nil {
-				log.Fatalf("Error: %v", err)
+			msg := strings.TrimSpace(input.String())
+			if msg != "" {
+				if err := cli.RunOneShot(ctx, msg); err != nil {
+					log.Fatalf("Error: %v", err)
+				}
 			}
 		} else {
 			if err := cli.RunInteractive(ctx); err != nil {
