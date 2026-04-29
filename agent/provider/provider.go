@@ -25,22 +25,3 @@ type Provider interface {
 	// Parse converts the provider-specific result into a canonical ParsedResponse.
 	Parse(ctx context.Context, result agentctx.ProviderResult) (agentctx.ParsedResponse, error)
 }
-
-// ChatMessage is the format for LLM API messages.
-type ChatMessage struct {
-	Role       string     `json:"role"`
-	Content    string     `json:"content"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
-	Name       string     `json:"name,omitempty"`
-}
-
-// ToolCall in provider format (mirrors OpenAI structure).
-type ToolCall struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"` // always "function"
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
-}
