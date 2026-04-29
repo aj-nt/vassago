@@ -41,7 +41,7 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		}
 	}
 
-	// Get hot block once at start
+	// Get hot block once at start — refresh on each turn
 	hotBlock, err := c.Agent.GetHotBlock(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
@@ -82,12 +82,23 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		// Add user message to history
 		messages = append(messages, agentctx.Message{Role: "user", Content: input})
 
+		// Refresh hot block each turn — memory may have been updated
+		if hb, err := c.Agent.GetHotBlock(ctx); err == nil && hb != "" {
+			hotBlock = hb
+		}
+
+		// Compact messages: strip old tool call/result pairs from prior turns.
+		// Tool results are needed within the current agentic loop but cause
+		// repetition when sent on subsequent user turns (the model re-reads
+		// prior tool outputs and re-states the facts from them).
+		compacted := compactMessagesForNextTurn(messages)
+
 		// Build conversation context — fresh iteration counter per user turn
 		interrupt := agentctx.NewInterruptSignal()
 		convCtx := &agentctx.ConversationContext{
 			SessionID:       sessionID,
 			AgentID:         c.Agent.Config.AgentID,
-			Messages:        messages,
+			Messages:        compacted,
 			SystemPrompt:    "",
 			Tools:           toolDefs,
 			MaxIterations:   c.Agent.Config.MaxTurns,
