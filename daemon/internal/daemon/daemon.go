@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
+	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"google.golang.org/grpc"
 )
@@ -75,6 +76,7 @@ func DefaultConfig() *Config {
 type Daemon struct {
 	config *Config
 	store  *store.Store
+	hub    *pubsub.Hub
 	server *grpc.Server
 }
 
@@ -99,12 +101,16 @@ func New(cfg *Config) (*Daemon, error) {
 		grpc.StreamInterceptor(streamInt),
 	)
 
+	// Create pub/sub hub
+	hub := pubsub.NewHub()
+
 	// Register service
-	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st))
+	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub))
 
 	return &Daemon{
 		config: cfg,
 		store:  st,
+		hub:    hub,
 		server: server,
 	}, nil
 }

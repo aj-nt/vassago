@@ -2,10 +2,12 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	pb "github.com/aj-nt/mnemosyne/proto"
+	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,11 +17,12 @@ import (
 type Service struct {
 	pb.UnimplementedMnemosyneServer
 	store *store.Store
+	hub  *pubsub.Hub
 }
 
 // NewService creates a new gRPC service backed by the given store.
-func NewService(s *store.Store) *Service {
-	return &Service{store: s}
+func NewService(s *store.Store, h *pubsub.Hub) *Service {
+	return &Service{store: s, hub: h}
 }
 
 // --- Memory CRUD ---
@@ -47,6 +50,18 @@ func (s *Service) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.
 	if err != nil {
 		slog.Error("AddMemory failed", "error", err, "target", req.Target, "key", req.Key)
 		return nil, status.Errorf(codes.Internal, "add memory: %v", err)
+	}
+
+	// Publish event to subscribers
+	if s.hub != nil {
+		s.hub.Publish(pubsub.Event{
+			Type:     pb.UpdateEvent_ADDED,
+			Target:   req.Target,
+			Category: req.Category,
+			Key:      req.Key,
+			AgentID:  req.SourceAgent,
+			Entry:    memoryEntryToProto(entry),
+		})
 	}
 
 	return &pb.AddMemoryResponse{Entry: memoryEntryToProto(entry)}, nil
@@ -301,10 +316,6 @@ func (s *Service) GetConsolidationCandidates(ctx context.Context, req *pb.GetCon
 
 // --- Pub/Sub (stub — Phase 3) ---
 
-func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_SubscribeServer) error {
-	// TODO: Phase 3 — implement pub/sub
-	return status.Error(codes.Unimplemented, "subscription not yet implemented")
-}
 
 // --- Conversion helpers ---
 
@@ -336,3 +347,95 @@ func sessionToProto(sess *store.Session) *pb.Session {
 	}
 }
 
+
+
+// Subscribe implements the server-streaming Subscribe RPC.
+// Agent subscribes to memory change events. The stream stays open
+// until the client disconnects or cancels.
+func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_SubscribeServer) error {
+	agentID := req.AgentId
+	if agentID == "" {
+		return status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	// Build subscription
+	targets := make(map[string]bool)
+	for _, t := range req.Targets {
+		targets[t] = true
+	}
+	categories := make(map[string]bool)
+	for _, c := range req.Categories {
+		categories[c] = true
+	}
+
+	subID := fmt.Sprintf("%s-%d", agentID, time.Now().UnixNano())
+	sub := &pubsub.Subscription{
+		ID:         subID,
+		AgentID:    agentID,
+		Targets:    targets,
+		Categories: categories,
+		KeyPrefixes: req.KeyPrefixes,
+		Ch:         make(chan pubsub.Event, 100),
+	}
+
+	s.hub.Subscribe(sub)
+	defer s.hub.Unsubscribe(subID)
+
+	slog.Info("agent subscribed", "agent_id", agentID, "sub_id", subID)
+
+	// Stream events until client disconnects
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("agent disconnected", "agent_id", agentID, "sub_id", subID)
+			return ctx.Err()
+		case event := <-sub.Ch:
+			updateEvent := &pb.UpdateEvent{
+				EventType: event.Type,
+				Target:    event.Target,
+				Category:  event.Category,
+				Key:       event.Key,
+				AgentId:   event.AgentID,
+			}
+			if event.Entry != nil {
+				updateEvent.Entry = event.Entry
+			}
+			if err := stream.Send(updateEvent); err != nil {
+				slog.Error("failed to send update", "agent_id", agentID, "error", err)
+				return err
+			}
+		}
+	}
+}
+
+// RegisterAgent registers an agent with the daemon.
+func (s *Service) RegisterAgent(ctx context.Context, req *pb.RegisterAgentRequest) (*pb.RegisterAgentResponse, error) {
+	agentID := req.AgentId
+	if agentID == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	_, err := s.store.EnsureAgent(agentID, req.Name, req.Role)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "ensure agent: %v", err)
+	}
+
+	slog.Info("agent registered", "agent_id", agentID, "name", req.Name, "role", req.Role)
+
+	return &pb.RegisterAgentResponse{
+		AgentId: agentID,
+		IsNew:   false, // TODO: track first-seen vs returning agent
+	}, nil
+}
+
+// Heartbeat receives a keep-alive from an agent.
+func (s *Service) Heartbeat(ctx context.Context, req *pb.AgentId) (*pb.Empty, error) {
+	if req.AgentId == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	// Just log it — the real disconnect detection is via the Subscribe stream
+	slog.Debug("heartbeat received", "agent_id", req.AgentId)
+	return &pb.Empty{}, nil
+}

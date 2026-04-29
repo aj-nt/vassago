@@ -33,6 +33,10 @@ service Mnemosyne {
 
   // Pub/sub — agent subscribes to memory changes
   rpc Subscribe(SubscribeRequest) returns (stream UpdateEvent);
+
+  // --- Agent Management ---
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+  rpc Heartbeat(AgentId) returns (Empty);
 }
 
 // --- Messages ---
@@ -228,8 +232,26 @@ message UpdateEvent {
   }
   EventType event_type = 1;
   string target = 2;
-  optional MemoryEntry entry = 3;     // Present for ADDED/UPDATED
-  optional string removed_id = 4;      // Present for REMOVED
-  string hot_block_target = 5;        // Present for HOT_BLOCK_CHANGED
-  int64 timestamp = 6;
+  string category = 3;
+  string key = 4;
+  string agent_id = 5;       // Which agent made the change
+  MemoryEntry entry = 6;     // The entry that changed (if ADDED/UPDATED)
+  HotBlockResponse hot_block = 7; // Fresh hot block (if HOT_BLOCK_CHANGED)
 }
+
+message RegisterAgentRequest {
+  string agent_id = 1;     // Client-assigned or empty for server-assigned
+  string name = 2;         // Human-readable name ("studio-dev")
+  string role = 3;         // "dev", "personal", "monitor"
+}
+
+message RegisterAgentResponse {
+  string agent_id = 1;
+  bool is_new = 2;        // True if this is a first-time agent
+}
+
+message AgentId {
+  string agent_id = 1;
+}
+
+message Empty {}
