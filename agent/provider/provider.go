@@ -24,4 +24,9 @@ type Provider interface {
 
 	// Parse converts the provider-specific result into a canonical ParsedResponse.
 	Parse(ctx context.Context, result agentctx.ProviderResult) (agentctx.ParsedResponse, error)
+
+	// Stream sends the request and returns a channel of streaming events.
+	// Providers that don't support streaming should return an error.
+	// The channel is closed when the stream is done.
+	Stream(ctx context.Context, req interface{}) (<-chan agentctx.StreamEvent, error)
 }
