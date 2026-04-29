@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // Config holds the daemon configuration.
@@ -27,9 +29,10 @@ type Config struct {
 }
 
 type DaemonConfig struct {
-	Socket string    `yaml:"socket"`  // Unix socket path
-	TCP    string    `yaml:"tcp"`     // TCP listen address (host:port)
-	TLS    TLSConfig `yaml:"tls"`
+	Socket  string    `yaml:"socket"`  // Unix socket path
+	TCP     string    `yaml:"tcp"`     // TCP listen address (host:port)
+	TLS     TLSConfig `yaml:"tls"`
+	APIKey  string    `yaml:"api_key"` // Optional API key for authentication
 }
 
 type TLSConfig struct {
@@ -82,6 +85,21 @@ type Daemon struct {
 	server *grpc.Server
 }
 
+// transportCredentials returns TLS credentials if configured, otherwise nil.
+func (d *Daemon) transportCredentials() (credentials.TransportCredentials, error) {
+	if d.config.Daemon.TLS.Cert == "" || d.config.Daemon.TLS.Key == "" {
+		return nil, nil
+	}
+
+	// Load TLS certificate and key
+	cert, err := tls.LoadX509KeyPair(d.config.Daemon.TLS.Cert, d.config.Daemon.TLS.Key)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS key pair: %w", err)
+	}
+
+	return credentials.NewServerTLSFromCert(&cert), nil
+}
+
 // New creates a new daemon instance.
 func New(cfg *Config) (*Daemon, error) {
 	// Ensure database directory exists
@@ -97,7 +115,7 @@ func New(cfg *Config) (*Daemon, error) {
 	}
 
 	// Create gRPC server with interceptors
-	unaryInt, streamInt := daemongrpc.Interceptors()
+	unaryInt, streamInt := daemongrpc.Interceptors(cfg.Daemon.APIKey)
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(daemongrpc.RecoveryInterceptor, unaryInt),
 		grpc.StreamInterceptor(streamInt),

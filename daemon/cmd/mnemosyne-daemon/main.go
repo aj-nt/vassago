@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/aj-nt/mnemosyne/daemon/internal/daemon"
@@ -14,10 +13,16 @@ func main() {
 	flag.Parse()
 
 	// Load config
-	cfg := daemon.DefaultConfig()
+	var err error
+	var cfg *daemon.Config
 	if *configPath != "" {
-		// TODO: Parse YAML config file, override defaults
-		slog.Info("config file specified but YAML parsing not yet implemented", "path", *configPath)
+		cfg, err = daemon.LoadConfig(*configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		cfg = daemon.DefaultConfig()
 	}
 
 	// Create and run daemon
