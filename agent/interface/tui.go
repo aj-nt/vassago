@@ -250,14 +250,22 @@ func formatInterruptSignal() string {
 func formatGoodbye(stats *SessionStats) string {
 	if !useColor() {
 		if stats != nil {
-			return fmt.Sprintf("Goodbye! (%d turns, %d tool calls, %d tokens)", stats.Turns, stats.ToolCalls, stats.TokensUsed)
+			costStr := ""
+			if stats.CostUSD > 0 {
+				costStr = fmt.Sprintf(", $%.4f", stats.CostUSD)
+			}
+			return fmt.Sprintf("Goodbye! (%d turns, %d tool calls, %d tokens%s)", stats.Turns, stats.ToolCalls, stats.TokensUsed, costStr)
 		}
 		return "Goodbye!"
 	}
 	base := colorize(brightCyan+bold, "Goodbye!")
 	if stats != nil && stats.Turns > 0 {
-		base += " " + colorize(dim, fmt.Sprintf("(%d turns · %d tool calls · %s)",
-			stats.Turns, stats.ToolCalls, humanizeTokens(stats.TokensUsed)))
+		costStr := ""
+		if stats.CostUSD > 0 {
+			costStr = fmt.Sprintf(" · $%.4f", stats.CostUSD)
+		}
+		base += " " + colorize(dim, fmt.Sprintf("(%d turns · %d tool calls · %s%s)",
+			stats.Turns, stats.ToolCalls, humanizeTokens(stats.TokensUsed), costStr))
 	}
 	return base
 }
@@ -328,6 +336,7 @@ type SessionStats struct {
 	Turns      int
 	ToolCalls  int
 	TokensUsed int
+	CostUSD    float64
 }
 
 // wrapText wraps text to maxWidth characters, preserving existing newlines.
