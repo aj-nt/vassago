@@ -2,8 +2,12 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestDefaultReconnectPolicy(t *testing.T) {
@@ -70,4 +74,28 @@ func TestRawConnection(t *testing.T) {
 		t.Fatalf("RawConnection should not fail on dial: %v", err)
 	}
 	conn.Close()
+}
+
+func TestIsConnectionError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"unavailable", status.Error(codes.Unavailable, "transport error"), true},
+		{"canceled", status.Error(codes.Canceled, "canceled"), true},
+		{"not found", status.Error(codes.NotFound, "not found"), false},
+		{"internal", status.Error(codes.Internal, "internal error"), false},
+		{"non-grpc error", fmt.Errorf("some error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isConnectionError(tt.err)
+			if got != tt.want {
+				t.Errorf("isConnectionError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
 }
