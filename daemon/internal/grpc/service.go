@@ -315,7 +315,28 @@ func (s *Service) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*p
 		return nil, status.Errorf(codes.NotFound, "session not found: %s", req.SessionId)
 	}
 
-	return sessionToProto(sess), nil
+	pbSession := sessionToProto(sess)
+
+	// Include messages if requested
+	if req.IncludeMessages != nil && *req.IncludeMessages {
+		msgs, err := s.store.GetSessionMessages(req.SessionId)
+		if err != nil {
+			slog.Error("GetSessionMessages failed", "error", err, "session_id", req.SessionId)
+		} else {
+			pbSession.Messages = make([]*pb.Message, len(msgs))
+			for i, m := range msgs {
+				pbSession.Messages[i] = &pb.Message{
+					Role:      m.Role,
+					Content:   m.Content,
+					ToolCallId: m.ToolCallID,
+					ToolName:  m.ToolName,
+					Timestamp: m.Timestamp,
+				}
+			}
+		}
+	}
+
+	return pbSession, nil
 }
 
 // --- Consolidation ---
