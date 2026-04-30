@@ -151,6 +151,9 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 	if anyEnabled(enabled, "Execute") {
 		tools.RegisterTerminalTools(toolReg)
 	}
+	if anyEnabled(enabled, "SearchWeb", "FetchURL") {
+		tools.RegisterWebTools(toolReg, nil) // nil = use default HTTP client
+	}
 
 	return toolReg
 }
