@@ -161,6 +161,7 @@ message Session {
   int64 created_at = 5;
   int64 last_active_at = 6;
   int32 message_count = 7;
+  repeated Message messages = 8;     // Only populated when include_messages = true
 }
 
 message Message {
