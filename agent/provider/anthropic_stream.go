@@ -26,7 +26,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req interface{}) (<-chan
 		return nil, fmt.Errorf("marshal stream request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(bodyJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, fmt.Errorf("create stream request: %w", err)
 	}
