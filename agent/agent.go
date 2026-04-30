@@ -251,6 +251,7 @@ type StreamEvent struct {
 	ToolInput string
 	Done      bool
 	Error     error
+	Usage     *agentctx.UsageInfo
 }
 
 // RunStreaming executes the agent loop with streaming text output.
@@ -334,7 +335,8 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 				out <- StreamEvent{Error: event.Error}
 				return
 			case agentctx.StreamDone:
-				// Stream complete
+				// Forward usage info from provider
+				out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
 			}
 		}
 
@@ -347,6 +349,11 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			parsed.FinishReason = "stop"
 		} else {
 			parsed.FinishReason = "tool_use"
+		}
+
+		// Emit tool execution events before dispatch
+		for _, tc := range toolCalls {
+			out <- StreamEvent{Type: agentctx.StreamToolExec, ToolName: tc.Name, ToolCallID: tc.ID}
 		}
 
 		// Stage 4: Tool Dispatch (if tool calls present)
