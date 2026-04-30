@@ -45,6 +45,10 @@ const (
 	// StreamToolEnd signals the tool call input is complete.
 	StreamToolEnd
 
+	// StreamToolExec signals tool execution is starting (after the tool_use block
+	// is parsed and before dispatch). Emitted by the agent, not the provider.
+	StreamToolExec
+
 	// StreamError means something went wrong.
 	StreamError
 
