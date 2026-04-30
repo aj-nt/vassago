@@ -49,35 +49,42 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Println("Mnemosyne Agent — type /quit to exit, /clear to reset context, /hot to show hot block, /history to show context, /sessions to list recent sessions")
+	// --- Startup display ---
+	fmt.Println(formatBanner(c.Agent.Config.AgentName, c.Agent.Config.Personality))
 	fmt.Println()
 
-	// Start a session with the daemon
+	// Start session
 	var sessionID string
 	if c.Agent.Mnemo != nil {
 		var err error
 		sessionID, err = c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "Interactive session")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: could not create session: %v\n", err)
+			fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("could not create session: %v", err)))
 		}
 	}
 
-	// Get hot block once at start — refresh on each turn
+	// Get hot block — refresh on each turn
 	hotBlock, err := c.Agent.GetHotBlock(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
+		fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("could not get hot block: %v", err)))
 		hotBlock = ""
 	}
-	// Sanitize UTF-8 on read — belt and suspenders with the daemon-side fix (#17)
 	hotBlock = sanitizeUTF8(hotBlock)
+
+	// Show startup info
+	fmt.Println(formatStartupInfo(0, utf8.RuneCountInString(hotBlock), ""))
+	fmt.Println()
+	fmt.Println(formatCommandsHelp())
+	fmt.Println()
 
 	// Persistent conversation context across turns
 	messages := []agentctx.Message{}
 	toolDefs := c.Agent.BuildToolDefinitions()
+	stats := &SessionStats{}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("> ")
+		fmt.Print(formatPrompt(c.Agent.Config.AgentName))
 		if !scanner.Scan() {
 			break
 		}
@@ -91,50 +98,42 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			if c.Agent.Mnemo != nil && sessionID != "" {
 				_ = c.Agent.Mnemo.EndSession(ctx, sessionID)
 			}
-			fmt.Println("Goodbye!")
+			fmt.Println(formatGoodbye(stats))
 			return nil
 		case "/clear":
 			messages = messages[:0]
-			fmt.Println("[Context cleared]")
+			fmt.Println(formatContextCleared())
 			continue
 		case "/hot":
 			fmt.Println(hotBlock)
 			continue
 		case "/history":
-			// Show current conversation history
 			if len(messages) == 0 {
-				fmt.Println("[No messages in current context]")
+				fmt.Println(colorize(dim, "  [No messages in current context]"))
 			} else {
 				for _, m := range messages {
-					var preview string
-					if len(m.Content) > 100 {
-						preview = m.Content[:100] + "..."
-					} else {
-						preview = m.Content
-					}
-					fmt.Printf("  [%s] %s\n", m.Role, preview)
+					fmt.Println(formatHistoryLine(m.Role, m.Content))
 				}
 			}
 			continue
 		case "/sessions":
-			// List recent sessions from the daemon
 			if c.Agent.Mnemo != nil {
 				sessions, err := c.Agent.Mnemo.ListRecentSessions(ctx, 10)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error listing sessions: %v\n", err)
+					fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("listing sessions: %w", err)))
 				} else if len(sessions) == 0 {
-					fmt.Println("[No sessions found]")
+					fmt.Println(colorize(dim, "  [No sessions found]"))
 				} else {
 					for _, s := range sessions {
 						title := s.Title
 						if title == "" {
 							title = "(untitled)"
 						}
-						fmt.Printf("  %-25s  %-20s  %3d msg  [%s]\n", s.ID[:25], title, s.MessageCount, s.Source)
+						fmt.Println(formatSessionLine(s.ID[:25], title, int(s.MessageCount), s.Source))
 					}
 				}
 			} else {
-				fmt.Println("[Not connected to daemon]")
+				fmt.Println(colorize(dim, "  [Not connected to daemon]"))
 			}
 			continue
 		}
@@ -142,18 +141,15 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		// Add user message to history
 		messages = append(messages, agentctx.Message{Role: "user", Content: input})
 
-		// Refresh hot block each turn — memory may have been updated
+		// Refresh hot block each turn
 		if hb, err := c.Agent.GetHotBlock(ctx); err == nil && hb != "" {
 			hotBlock = hb
 		}
 
-		// Compact messages: strip old tool call/result pairs from prior turns.
-		// Tool results are needed within the current agentic loop but cause
-		// repetition when sent on subsequent user turns (the model re-reads
-		// prior tool outputs and re-states the facts from them).
+		// Compact messages: strip old tool call/result pairs from prior turns
 		compacted := compactMessagesForNextTurn(messages)
 
-		// Build conversation context — fresh iteration counter per user turn
+		// Build conversation context
 		interrupt := agentctx.NewInterruptSignal()
 		convCtx := &agentctx.ConversationContext{
 			SessionID:       sessionID,
@@ -173,37 +169,77 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		go func() {
 			select {
 			case <-sigCh:
-				fmt.Println("\nInterrupting...")
+				fmt.Println(formatInterruptSignal())
 				interrupt.Set()
 				cancel()
 			case <-turnCtx.Done():
 			}
 		}()
 
-		// Run streaming!
+		// --- Streaming display ---
 		eventCh := make(chan agent.StreamEvent, 64)
 		go c.Agent.RunStreaming(turnCtx, convCtx, eventCh)
 
-		// Display streaming events
+		var responseText strings.Builder
+		thinkingShown := true // Show thinking indicator immediately
+		fmt.Print(formatThinkingIndicator())
+		toolCalls := 0
+
 		for event := range eventCh {
 			switch event.Type {
 			case agentctx.StreamText:
+				if thinkingShown {
+					fmt.Print(formatClearThinking())
+					thinkingShown = false
+				}
 				fmt.Print(event.Text)
+				responseText.WriteString(event.Text)
+
 			case agentctx.StreamToolStart:
-				fmt.Fprintf(os.Stderr, "  → %s\n", event.ToolName)
+				if thinkingShown {
+					fmt.Print(formatClearThinking())
+					thinkingShown = false
+				}
+				toolCalls++
+				fmt.Println(formatToolStart(event.ToolName))
+
+			case agentctx.StreamToolEnd:
+				// Tool_use block finished parsing — dispatch comes after
+
+			case agentctx.StreamToolExec:
+				// Agent is dispatching the tool now
+				fmt.Println(formatToolExec(event.ToolName))
+
 			case agentctx.StreamDone:
-				// Stream complete
+				// Stream complete — record usage
+				if event.Usage != nil {
+					stats.TokensUsed += event.Usage.TotalTokens
+				}
+
+			case agentctx.StreamError:
+				if event.Error != nil {
+					fmt.Fprintln(os.Stderr, formatError(event.Error))
+				}
+
 			default:
 				if event.Error != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", event.Error)
+					fmt.Fprintln(os.Stderr, formatError(event.Error))
 				}
 			}
 		}
 		cancel()
 
-		// Update message history from the context (includes tool calls, results, etc.)
+		stats.Turns++
+		stats.ToolCalls += toolCalls
+
+		// Update message history from the context
 		messages = convCtx.Messages
-		fmt.Println()
+
+		// Wrap the response in a bordered panel
+		if responseText.Len() > 0 {
+			fmt.Println()
+			fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
+		}
 		fmt.Println()
 	}
 
@@ -215,7 +251,7 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	// Get hot block
 	hotBlock, err := c.Agent.GetHotBlock(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
+		fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("could not get hot block: %v", err)))
 		hotBlock = ""
 	}
 
@@ -243,20 +279,45 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	eventCh := make(chan agent.StreamEvent, 64)
 	go c.Agent.RunStreaming(ctx, convCtx, eventCh)
 
+	var responseText strings.Builder
+	thinkingShown := true
+	fmt.Print(formatThinkingIndicator())
+
 	for event := range eventCh {
 		switch event.Type {
 		case agentctx.StreamText:
+			if thinkingShown {
+				fmt.Print(formatClearThinking())
+				thinkingShown = false
+			}
 			fmt.Print(event.Text)
+			responseText.WriteString(event.Text)
 		case agentctx.StreamToolStart:
-			fmt.Fprintf(os.Stderr, "  → %s\n", event.ToolName)
+			if thinkingShown {
+				fmt.Print(formatClearThinking())
+				thinkingShown = false
+			}
+			fmt.Println(formatToolStart(event.ToolName))
+		case agentctx.StreamToolEnd:
+			// Tool_use block finished parsing
+		case agentctx.StreamToolExec:
+			fmt.Println(formatToolExec(event.ToolName))
 		case agentctx.StreamDone:
 			// done
+		case agentctx.StreamError:
+			if event.Error != nil {
+				return event.Error
+			}
 		default:
 			if event.Error != nil {
 				return event.Error
 			}
 		}
 	}
+
 	fmt.Println()
+	if responseText.Len() > 0 {
+		fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
+	}
 	return nil
 }
