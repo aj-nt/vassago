@@ -6,6 +6,8 @@ import (
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // testStore creates a temp store for service unit tests.
@@ -364,5 +366,49 @@ func TestService_Consolidate_expired(t *testing.T) {
 	}
 	if resp.Summary == "" {
 		t.Error("expected non-empty summary")
+	}
+}
+
+func TestService_checkDB(t *testing.T) {
+	s := testStoreSvc(t)
+	svc := NewService(s, nil)
+	ctx := context.Background()
+
+	// Healthy DB should succeed
+	resp, err := svc.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "test",
+		Key:         "health",
+		Content:     "ok",
+		Priority:    3,
+		SourceAgent: "test",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory with healthy DB: %v", err)
+	}
+	if resp.Entry.Id == "" {
+		t.Error("expected entry ID")
+	}
+
+	// Closed DB should return Unavailable
+	s.Close()
+	_, err = svc.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "test",
+		Key:         "health2",
+		Content:     "ok",
+		Priority:    3,
+		SourceAgent: "test",
+	})
+	if err == nil {
+		t.Fatal("expected error with closed DB, got nil")
+	}
+	// Should be Unavailable code, not Internal
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
+	}
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable code, got %s", st.Code())
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
@@ -28,7 +29,7 @@ func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: "https://api.anthropic.com/v1/messages",
-		client:  &http.Client{},
+		client:  NewHTTPClient(120 * time.Second),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -148,26 +149,30 @@ func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.Convers
 
 // Execute sends the request to the Anthropic API.
 func (p *AnthropicProvider) Execute(ctx context.Context, req interface{}) (agentctx.ProviderResult, error) {
-	bodyJSON, err := json.Marshal(req)
-	if err != nil {
-		return agentctx.ProviderResult{}, fmt.Errorf("marshal request: %w", err)
-	}
+	config := DefaultRetryConfig()
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewReader(bodyJSON))
-	if err != nil {
-		return agentctx.ProviderResult{ShouldRetry: false, Error: err}, nil
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", p.apiKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
+	return WithRetry(ctx, config, func() (agentctx.ProviderResult, error) {
+		bodyJSON, err := json.Marshal(req)
+		if err != nil {
+			return agentctx.ProviderResult{}, fmt.Errorf("marshal request: %w", err)
+		}
 
-	resp, err := p.client.Do(httpReq)
-	if err != nil {
-		return agentctx.ProviderResult{ShouldRetry: true, Error: err}, nil
-	}
-	defer resp.Body.Close()
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewReader(bodyJSON))
+		if err != nil {
+			return agentctx.ProviderResult{ShouldRetry: false, Error: err}, nil
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("x-api-key", p.apiKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
 
-	return classifyHTTPResponse(resp), nil
+		resp, err := p.client.Do(httpReq)
+		if err != nil {
+			return agentctx.ProviderResult{ShouldRetry: true, Error: err}, nil
+		}
+		defer resp.Body.Close()
+
+		return classifyHTTPResponse(resp), nil
+	})
 }
 
 // Parse converts the Anthropic response to a canonical ParsedResponse.

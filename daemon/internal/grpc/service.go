@@ -41,9 +41,20 @@ func NewService(s *store.Store, h *pubsub.Hub) *Service {
 	return &Service{store: s, hub: h}
 }
 
+// checkDB verifies database connectivity before critical operations.
+func (s *Service) checkDB() error {
+	if err := s.store.Ping(); err != nil {
+		return status.Errorf(codes.Unavailable, "database unavailable: %v", err)
+	}
+	return nil
+}
+
 // --- Memory CRUD ---
 
 func (s *Service) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.AddMemoryResponse, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.Target == "" {
 		return nil, status.Error(codes.InvalidArgument, "target is required")
 	}
@@ -97,6 +108,9 @@ func (s *Service) GetMemory(ctx context.Context, req *pb.GetMemoryRequest) (*pb.
 }
 
 func (s *Service) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest) (*pb.MemoryEntry, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
@@ -246,6 +260,9 @@ func (s *Service) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb
 // --- Session Lifecycle ---
 
 func (s *Service) CreateSession(ctx context.Context, req *pb.CreateSessionRequest) (*pb.Session, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.AgentId == "" {
 		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
 	}
@@ -260,6 +277,9 @@ func (s *Service) CreateSession(ctx context.Context, req *pb.CreateSessionReques
 }
 
 func (s *Service) AddMessages(ctx context.Context, req *pb.AddMessagesRequest) (*pb.Session, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.SessionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}
@@ -563,4 +583,19 @@ func (s *Service) Heartbeat(ctx context.Context, req *pb.AgentId) (*pb.Empty, er
 	// Just log it — the real disconnect detection is via the Subscribe stream
 	slog.Debug("heartbeat received", "agent_id", req.AgentId)
 	return &pb.Empty{}, nil
+}
+
+// Ping checks the health of the store and returns a health status.
+func (s *Service) Ping(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
+	// Check database connectivity
+	if err := s.store.Ping(); err != nil {
+		slog.Error("Health check failed", "error", err)
+		return nil, status.Errorf(codes.Internal, "health check failed: %v", err)
+	}
+
+	return &pb.HealthCheckResponse{
+		Status:    "healthy",
+		Version:   "1.0.0",
+		Timestamp: time.Now().Unix(),
+	}, nil
 }
