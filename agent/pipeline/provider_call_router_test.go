@@ -39,7 +39,9 @@ func TestProviderCallStageWithRouterSelectsProvider(t *testing.T) {
 		Provider:  "mock",
 		ToolUse:   true,
 	})
-	router.SetPrimary("mock-model")
+	if err := router.SetPrimary("mock-model"); err != nil {
+		t.Fatal(err)
+	}
 
 	stage := NewProviderCallStageWithRouter(registry, router)
 	convCtx := &agentctx.ConversationContext{
@@ -67,7 +69,8 @@ func TestProviderCallStageWithRouterFallback(t *testing.T) {
 		Provider: "nonexistent-provider",
 		ToolUse:  true,
 	})
-	router.SetPrimary("nonexistent-model")
+	// SetPrimary to nonexistent model is fine for testing (it validates the model exists)
+	router.SetPrimary("nonexistent-model") //nolint:errcheck // intentional: testing fallback
 
 	stage := NewProviderCallStageWithRouter(registry, router)
 	convCtx := &agentctx.ConversationContext{

@@ -62,7 +62,9 @@ func newRouterWithModels(strategy RoutingStrategy) *ModelRouter {
 	for _, m := range testModels() {
 		r.Register(*m)
 	}
-	r.SetPrimary("premium")
+	if err := r.SetPrimary("premium"); err != nil {
+		panic(err)
+	}
 	return r
 }
 
