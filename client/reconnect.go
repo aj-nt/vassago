@@ -9,7 +9,9 @@ import (
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // ReconnectPolicy controls how the client reconnects after a disconnect.
@@ -83,6 +85,19 @@ func (rc *ResilientClient) connect(ctx context.Context) error {
 	return fmt.Errorf("failed to connect after %d attempts: %w", rc.policy.MaxRetries, lastErr)
 }
 
+// isConnectionError returns true if the error indicates a connection problem
+// that might be resolved by reconnecting.
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	return s.Code() == codes.Unavailable || s.Code() == codes.Canceled
+}
+
 // getClient returns the current client, reconnecting if necessary.
 func (rc *ResilientClient) getClient() (*Client, error) {
 	rc.mu.Lock()
@@ -90,7 +105,181 @@ func (rc *ResilientClient) getClient() (*Client, error) {
 	if rc.closed {
 		return nil, fmt.Errorf("client is closed")
 	}
+	if rc.client == nil {
+		return nil, fmt.Errorf("client not connected")
+	}
 	return rc.client, nil
+}
+
+// reconnect forces a reconnection to the daemon.
+func (rc *ResilientClient) reconnect(ctx context.Context) error {
+	rc.mu.Lock()
+	if rc.closed {
+		rc.mu.Unlock()
+		return fmt.Errorf("client is closed")
+	}
+	if rc.client != nil {
+		rc.client.Close()
+		rc.client = nil
+	}
+	rc.mu.Unlock()
+	return rc.connect(ctx)
+}
+
+// AddMemory adds or updates a memory entry, with automatic reconnection on connection failure.
+func (rc *ResilientClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.AddMemory(ctx, target, category, key, content, priority, sourceAgent)
+	if err != nil {
+		// Try reconnecting once on connection error
+		if isConnectionError(err) {
+			if reconnectErr := rc.reconnect(ctx); reconnectErr != nil {
+				return nil, reconnectErr
+			}
+			c, err = rc.getClient()
+			if err != nil {
+				return nil, err
+			}
+			return c.AddMemory(ctx, target, category, key, content, priority, sourceAgent)
+		}
+	}
+	return result, err
+}
+
+// GetMemory retrieves a memory by ID.
+func (rc *ResilientClient) GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.GetMemory(ctx, id)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return nil, rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return nil, err
+		}
+		return c.GetMemory(ctx, id)
+	}
+	return result, err
+}
+
+// RemoveMemory deletes a memory by ID.
+func (rc *ResilientClient) RemoveMemory(ctx context.Context, id string) error {
+	c, err := rc.getClient()
+	if err != nil {
+		return err
+	}
+	err = c.RemoveMemory(ctx, id)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return err
+		}
+		return c.RemoveMemory(ctx, id)
+	}
+	return err
+}
+
+// SearchMemories searches memories using FTS5.
+func (rc *ResilientClient) SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.SearchMemories(ctx, query, target, limit)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return nil, rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return nil, err
+		}
+		return c.SearchMemories(ctx, query, target, limit)
+	}
+	return result, err
+}
+
+// ListMemories lists memories with optional filtering.
+func (rc *ResilientClient) ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.ListMemories(ctx, target, category, minPriority)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return nil, rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return nil, err
+		}
+		return c.ListMemories(ctx, target, category, minPriority)
+	}
+	return result, err
+}
+
+// GetHotBlock retrieves the computed hot block for an agent.
+func (rc *ResilientClient) GetHotBlock(ctx context.Context, target, agentID string, charLimit int32, boostCategories, suppressCategories []string, boostPriority int32) (string, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return "", err
+	}
+	result, err := c.GetHotBlock(ctx, target, agentID, charLimit, boostCategories, suppressCategories, boostPriority)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return "", rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return "", err
+		}
+		return c.GetHotBlock(ctx, target, agentID, charLimit, boostCategories, suppressCategories, boostPriority)
+	}
+	return result, err
+}
+
+// CreateSession creates a new session.
+func (rc *ResilientClient) CreateSession(ctx context.Context, agentID, source, title string) (string, error) {
+	c, err := rc.getClient()
+	if err != nil {
+		return "", err
+	}
+	result, err := c.CreateSession(ctx, agentID, source, title)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return "", rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return "", err
+		}
+		return c.CreateSession(ctx, agentID, source, title)
+	}
+	return result, err
+}
+
+// HealthCheck verifies the daemon is reachable and responding.
+func (rc *ResilientClient) HealthCheck(ctx context.Context) error {
+	c, err := rc.getClient()
+	if err != nil {
+		return err
+	}
+	err = c.HealthCheck(ctx)
+	if err != nil && isConnectionError(err) {
+		if rerr := rc.reconnect(ctx); rerr != nil {
+			return rerr
+		}
+		if c, err = rc.getClient(); err != nil {
+			return err
+		}
+		return c.HealthCheck(ctx)
+	}
+	return err
 }
 
 // Close closes the connection. No reconnection will be attempted.
@@ -102,78 +291,6 @@ func (rc *ResilientClient) Close() error {
 		return rc.client.Close()
 	}
 	return nil
-}
-
-// AddMemory adds or updates a memory entry, with automatic retry on connection failure.
-func (rc *ResilientClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return nil, err
-	}
-	return c.AddMemory(ctx, target, category, key, content, priority, sourceAgent)
-}
-
-// GetMemory retrieves a memory by ID.
-func (rc *ResilientClient) GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return nil, err
-	}
-	return c.GetMemory(ctx, id)
-}
-
-// RemoveMemory deletes a memory by ID.
-func (rc *ResilientClient) RemoveMemory(ctx context.Context, id string) error {
-	c, err := rc.getClient()
-	if err != nil {
-		return err
-	}
-	return c.RemoveMemory(ctx, id)
-}
-
-// SearchMemories searches memories using FTS5.
-func (rc *ResilientClient) SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return nil, err
-	}
-	return c.SearchMemories(ctx, query, target, limit)
-}
-
-// ListMemories lists memories with optional filtering.
-func (rc *ResilientClient) ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return nil, err
-	}
-	return c.ListMemories(ctx, target, category, minPriority)
-}
-
-// GetHotBlock retrieves the computed hot block for an agent.
-func (rc *ResilientClient) GetHotBlock(ctx context.Context, target, agentID string, charLimit int32, boostCategories, suppressCategories []string, boostPriority int32) (string, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return "", err
-	}
-	return c.GetHotBlock(ctx, target, agentID, charLimit, boostCategories, suppressCategories, boostPriority)
-}
-
-// CreateSession creates a new session.
-func (rc *ResilientClient) CreateSession(ctx context.Context, agentID, source, title string) (string, error) {
-	c, err := rc.getClient()
-	if err != nil {
-		return "", err
-	}
-	return c.CreateSession(ctx, agentID, source, title)
-}
-
-// HealthCheck verifies the daemon is reachable and responding.
-func (rc *ResilientClient) HealthCheck(ctx context.Context) error {
-	c, err := rc.getClient()
-	if err != nil {
-		return err
-	}
-	return c.HealthCheck(ctx)
 }
 
 // RawConnection returns a raw gRPC connection for RPCs not in the client wrapper.

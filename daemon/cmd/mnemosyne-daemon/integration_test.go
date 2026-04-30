@@ -268,3 +268,82 @@ func TestUnit_ServiceWiring(t *testing.T) {
 		t.Error("expected non-empty entry ID")
 	}
 }
+
+func TestIntegration_SessionRoundTrip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, client, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Create session
+	sess, err := client.CreateSession(ctx, &pb.CreateSessionRequest{
+		AgentId: "test-agent",
+		Source:  "cli",
+		Title:   "Integration test session",
+	})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	if sess.Id == "" {
+		t.Fatal("expected non-empty session ID")
+	}
+
+	// Add messages
+	msgs := []*pb.Message{
+		{Role: "user", Content: "Hello from integration test"},
+		{Role: "assistant", Content: "Hi there!"},
+		{Role: "user", Content: "Goodbye"},
+	}
+	_, err = client.AddMessages(ctx, &pb.AddMessagesRequest{
+		SessionId: sess.Id,
+		Messages:  msgs,
+	})
+	if err != nil {
+		t.Fatalf("AddMessages: %v", err)
+	}
+
+	// Get session with messages
+	includeMsgs := true
+	gotSess, err := client.GetSession(ctx, &pb.GetSessionRequest{
+		SessionId:       sess.Id,
+		IncludeMessages:  &includeMsgs,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if len(gotSess.Messages) != 3 {
+		t.Errorf("expected 3 messages, got %d", len(gotSess.Messages))
+	}
+	if gotSess.Messages[0].Content != "Hello from integration test" {
+		t.Errorf("first message = %q, want 'Hello from integration test'", gotSess.Messages[0].Content)
+	}
+	if gotSess.Messages[2].Role != "user" {
+		t.Errorf("third message role = %q, want 'user'", gotSess.Messages[2].Role)
+	}
+}
+
+func TestIntegration_DaemonHealthCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, client, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Ping the daemon
+	resp, err := client.Ping(ctx, &pb.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+	if resp.Status != "healthy" {
+		t.Errorf("Ping status = %q, want 'healthy'", resp.Status)
+	}
+}
