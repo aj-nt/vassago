@@ -10,7 +10,7 @@ import (
 func TestNewRequestPrepStage(t *testing.T) {
 	stage := NewRequestPrepStage("direct")
 	if stage == nil {
-		t.Error("NewRequestPrepStage should return a non-nil stage")
+		t.Fatal("NewRequestPrepStage should return a non-nil stage")
 	}
 	if stage.Personality != "direct" {
 		t.Errorf("Expected Personality 'direct', got %q", stage.Personality)

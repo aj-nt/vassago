@@ -10,7 +10,7 @@ import (
 func TestNewContextManagementStage(t *testing.T) {
 	stage := NewContextManagementStage(1000)
 	if stage == nil {
-		t.Error("NewContextManagementStage should return a non-nil stage")
+		t.Fatal("NewContextManagementStage should return a non-nil stage")
 	}
 	if stage.MaxContextTokens != 1000 {
 		t.Errorf("Expected MaxContextTokens to be 1000, got %d", stage.MaxContextTokens)
