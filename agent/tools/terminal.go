@@ -1,60 +1,118 @@
 package tools
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
 )
 
-// Execute runs a shell command and returns stdout/stderr.
+// Execute runs a terminal command and returns its output.
 func Execute(args map[string]interface{}) (string, bool) {
-	command := strArg(args, "command", "")
-	timeout := intArg(args, "timeout", 30)
-	if command == "" {
-		return "command is required", true
+	command, ok := args["command"].(string)
+	if !ok || command == "" {
+		return "Execute requires a 'command' argument", true
 	}
 
-	// Check for dangerous commands
 	if isDangerousCommand(command) {
-		return "dangerous command detected: requires approval", true
+		return fmt.Sprintf("Command blocked for safety: %q. This command matches a dangerous pattern.", command), true
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
+	// Check for shell injection metacharacters that allow command chaining
+	if hasShellInjection(command) {
+		return fmt.Sprintf("Command blocked: shell metacharacters detected in %q. Use single commands only — no chaining, pipes to shell, or subshells.", command), true
+	}
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	cmd := exec.Command("sh", "-c", command)
 	output, err := cmd.CombinedOutput()
-
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return "command timed out", true
-		}
-		return fmt.Sprintf("command failed: %v\n%s", err, string(output)), true
+		return fmt.Sprintf("Error: %v\nOutput: %s", err, string(output)), true
 	}
 
 	return string(output), false
 }
 
-// RegisterTerminalTools adds all terminal tool handlers to the registry.
-func RegisterTerminalTools(registry *ToolRegistry) {
-	registry.Register("Execute", Execute, ExecuteSchema)
-}
-
 // isDangerousCommand checks if a command matches dangerous patterns.
+// Blocklist approach: known-destructive commands are rejected.
+// This is supplemented by hasShellInjection() for chaining/pipe attacks.
 func isDangerousCommand(command string) bool {
+	// Destructive file operations
 	dangerousPatterns := []string{
+		// File destruction
 		"rm -rf",
+		"rm -r ",
+		"rmdir",
+
+		// Privilege escalation
 		"sudo ",
+		"su ",
+		"chown",
+		"chmod 777",
+		"chmod 000",
+		"chmod a+w",
+
+		// Disk/filesystem destruction
 		"mkfs",
-		"dd ",
+		"fdisk",
+		"format",
+		"dd if=",
+		"dd of=",
+
+		// System control
+		"shutdown",
+		"reboot",
+		"halt",
+		"poweroff",
+		"init 0",
+		"init 6",
+		"kill -9 1",
+		"killall",
+
+		// Fork bomb
 		":(){:|:&};:",
+
+		// Network exfiltration / reverse shells
+		"nc -l",
+		"ncat -l",
+		"nc -e",
+		"/dev/tcp/",
+
+		// Package/dependency attacks
+		"curl|sh",
+		"curl|bash",
+		"wget|sh",
+		"wget|bash",
+		"curl | sh",
+		"curl | bash",
+		"wget | sh",
+		"wget | bash",
+		"| sh",
+		"| bash",
+		"| zsh",
+		"| fish",
+		"| python",
+		"| perl",
+
+		// Sensitive file access
+		"passwd",
+		"shadow",
+		"/etc/passwd",
+		"/etc/shadow",
+		"ssh-keygen",
+		"ssh-keysign",
+
+		// System modification
+		"launchctl unload",
+		"launchctl remove",
+		"defaults write",
+		"csrutil",
+		"nvram",
+		"diskutil erase",
+		"diskutil partition",
 	}
 
 	cmdLower := strings.ToLower(command)
 	for _, pattern := range dangerousPatterns {
-		if strings.Contains(cmdLower, pattern) {
+		if strings.Contains(cmdLower, strings.ToLower(pattern)) {
 			return true
 		}
 	}
@@ -62,21 +120,66 @@ func isDangerousCommand(command string) bool {
 	return false
 }
 
-// Tool schema for terminal execution
+// hasShellInjection detects shell metacharacters that allow command chaining,
+// subshells, or piping to interpreters. These let an LLM bypass the single-command
+// restriction by appending destructive commands.
+func hasShellInjection(command string) bool {
+	// Allow safe pipes (e.g., grep pattern | sort, ls | wc -l)
+	// Block pipes to shells/interpreters (handled above in isDangerousCommand)
+	// Block command chaining and subshells
+
+	injectionPatterns := []string{
+		";",      // command separator: cmd1; cmd2
+		"&&",     // AND chaining: cmd1 && cmd2
+		"||",     // OR chaining: cmd1 || cmd2
+		"$(",     // command substitution: $(cmd)
+		"`",      // backtick substitution: `cmd`
+		"> /etc", // redirect to system files
+		"> /dev", // redirect to devices (except /dev/null below)
+		">>",     // append redirect — allow for legitimate use? Block for safety.
+	}
+
+	// Allow specific safe redirects
+	safeExceptions := []string{
+		"> /dev/null",
+		"> /tmp/",
+		"2>/dev/null",
+		"2> /dev/null",
+	}
+
+	for _, pattern := range injectionPatterns {
+		if strings.Contains(command, pattern) {
+			// Check if it's a safe exception
+			isException := false
+			for _, ex := range safeExceptions {
+				if strings.Contains(command, ex) {
+					isException = true
+					break
+				}
+			}
+			if !isException {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// RegisterTerminalTools adds all terminal tool handlers to the registry.
+func RegisterTerminalTools(registry *ToolRegistry) {
+	registry.Register("Execute", Execute, ExecuteSchema)
+}
+
 var ExecuteSchema = map[string]interface{}{
 	"name":        "Execute",
-	"description": "Execute a shell command.",
+	"description": "Execute a terminal command and return its output. Dangerous commands and shell chaining are blocked for safety.",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			"command": map[string]interface{}{
 				"type":        "string",
-				"description": "Shell command to execute",
-			},
-			"timeout": map[string]interface{}{
-				"type":        "integer",
-				"description": "Timeout in seconds (default: 30)",
-				"default":     30,
+				"description": "The command to execute",
 			},
 		},
 		"required": []string{"command"},

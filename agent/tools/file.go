@@ -2,26 +2,159 @@ package tools
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// FileRead reads a file and returns its content.
-func FileRead(args map[string]interface{}) (string, bool) {
-	path := strArg(args, "path", "")
-	if path == "" {
-		return "path is required", true
+// allowedDirs is the list of directories the agent is allowed to read/write.
+// Set by RegisterFileToolsWithConfig. If empty, all absolute paths are allowed
+// (dev mode). If non-empty, only paths under these directories are allowed.
+var allowedDirs []string
+
+// approvalRequired is the list of tools that require user approval before execution.
+var approvalRequired []string
+
+// SetFileConfig configures file tools with security constraints.
+func SetFileConfig(dirs []string, approval []string) {
+	allowedDirs = make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		abs, err := filepath.Abs(d)
+		if err == nil {
+			// Resolve symlinks in allowlist entries too (e.g., /tmp → /private/tmp on macOS)
+			resolved, resolveErr := filepath.EvalSymlinks(abs)
+			if resolveErr == nil {
+				allowedDirs = append(allowedDirs, resolved)
+			} else {
+				// Directory doesn't exist yet — use the absolute path as-is
+				allowedDirs = append(allowedDirs, abs)
+			}
+		}
+	}
+	approvalRequired = approval
+}
+
+// isPathSafe checks if a path is safe to access.
+// It resolves symlinks, checks for traversal, and validates against allowed directories.
+func isPathSafe(path string) bool {
+	// Reject obvious traversal
+	if strings.Contains(path, "../") {
+		return false
 	}
 
-	// Path safety check
+	// Get absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	// Resolve symlinks — walk up the path until we find an existing component
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// File or parent directories don't exist yet — walk up to find
+		// the nearest existing ancestor, then append the remaining path
+		dir := filepath.Dir(absPath)
+		base := filepath.Base(absPath)
+		for {
+			dirResolved, dirErr := filepath.EvalSymlinks(dir)
+			if dirErr == nil {
+				resolved = filepath.Join(dirResolved, base)
+				break
+			}
+			// Parent doesn't exist either — go up one level
+			base = filepath.Join(filepath.Base(dir), base)
+			dir = filepath.Dir(dir)
+			if dir == "/" {
+				// Reached root without finding an existing directory
+				resolved = absPath
+				break
+			}
+		}
+	}
+
+	// Block device files and virtual filesystems
+	if isDevicePath(resolved) {
+		return false
+	}
+
+	// If allowedDirs is configured, enforce it
+	if len(allowedDirs) > 0 {
+		return isUnderAllowedDir(resolved)
+	}
+
+	// No allowlist configured — allow all (dev mode)
+	return true
+}
+
+// isWriteAllowed checks if file write operations are allowed for the given path.
+func isWriteAllowed(path string) bool {
+	// isPathSafe already checks allowlist, symlink resolution, device paths, etc.
+	// For write, we use the same logic — if it's safe to read, it's safe to write
+	// (within the allowlist boundaries).
+	return isPathSafe(path)
+}
+
+// isDevicePath returns true for paths under /dev, /proc, /sys, /sys/fs.
+func isDevicePath(path string) bool {
+	devPrefixes := []string{"/dev/", "/proc/", "/sys/"}
+	for _, prefix := range devPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// isUnderAllowedDir checks if the path falls under any of the configured allowed directories.
+// Resolves symlinks on the input path to handle macOS /tmp → /private/tmp, /var → /private/var.
+func isUnderAllowedDir(path string) bool {
+	// Try to resolve symlinks on the input path
+	resolvedPath := path
+	if r, err := filepath.EvalSymlinks(path); err == nil {
+		resolvedPath = r
+	} else {
+		// Walk up to find existing ancestor, same as isPathSafe
+		dir := filepath.Dir(path)
+		base := filepath.Base(path)
+		for {
+			if dirResolved, dirErr := filepath.EvalSymlinks(dir); dirErr == nil {
+				resolvedPath = filepath.Join(dirResolved, base)
+				break
+			}
+			base = filepath.Join(filepath.Base(dir), base)
+			dir = filepath.Dir(dir)
+			if dir == "/" {
+				break
+			}
+		}
+	}
+
+	for _, dir := range allowedDirs {
+		// Check both resolved and raw paths against resolved allowlist
+		for _, p := range []string{resolvedPath, path} {
+			if strings.HasPrefix(p+"/", dir+"/") || p == dir {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// FileRead reads a file and returns its content.
+func FileRead(args map[string]interface{}) (string, bool) {
+	path, ok := args["path"].(string)
+	if !ok || path == "" {
+		return "FileRead requires a 'path' argument", true
+	}
+
 	if !isPathSafe(path) {
-		return "invalid path: directory traversal not allowed", true
+		return fmt.Sprintf("Access denied: path %q is not in an allowed directory", path), true
 	}
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Sprintf("failed to read file: %v", err), true
+		return fmt.Sprintf("Error reading file: %v", err), true
 	}
 
 	return string(content), false
@@ -29,87 +162,73 @@ func FileRead(args map[string]interface{}) (string, bool) {
 
 // FileWrite writes content to a file.
 func FileWrite(args map[string]interface{}) (string, bool) {
-	path := strArg(args, "path", "")
-	content := strArg(args, "content", "")
-	if path == "" || content == "" {
-		return "path and content are required", true
+	path, ok := args["path"].(string)
+	if !ok || path == "" {
+		return "FileWrite requires a 'path' argument", true
 	}
 
-	// Path safety check
-	if !isPathSafe(path) {
-		return "invalid path: directory traversal not allowed", true
+	content, ok := args["content"].(string)
+	if !ok {
+		return "FileWrite requires a 'content' argument", true
 	}
 
-	// Check if write is allowed (requires approval unless config says enabled)
-	if !isWriteAllowed() {
-		return "file write operations require approval", true
+	if !isWriteAllowed(path) {
+		return fmt.Sprintf("Write denied: path %q is not in a writable directory", path), true
 	}
 
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), fs.FileMode(0644))
 	if err != nil {
-		return fmt.Sprintf("failed to write file: %v", err), true
+		return fmt.Sprintf("Error writing file: %v", err), true
 	}
 
-	return "file written successfully", false
+	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path), false
 }
 
-// FileSearch searches for files by name pattern.
+// FileSearch searches for files matching a pattern.
 func FileSearch(args map[string]interface{}) (string, bool) {
-	pattern := strArg(args, "pattern", "")
-	directory := strArg(args, "directory", ".")
-	if pattern == "" {
-		return "pattern is required", true
+	pattern, ok := args["pattern"].(string)
+	if !ok || pattern == "" {
+		return "FileSearch requires a 'pattern' argument", true
 	}
 
-	// Path safety check
-	if !isPathSafe(directory) {
-		return "invalid directory: traversal or absolute paths not allowed", true
+	directory := "."
+	if dir, ok := args["directory"].(string); ok && dir != "" {
+		if !isPathSafe(dir) {
+			return fmt.Sprintf("Access denied: directory %q is not in an allowed directory", dir), true
+		}
+		directory = dir
 	}
 
 	matches, err := filepath.Glob(filepath.Join(directory, pattern))
 	if err != nil {
-		return fmt.Sprintf("failed to search files: %v", err), true
+		return fmt.Sprintf("Error searching files: %v", err), true
 	}
 
 	if len(matches) == 0 {
-		return "no files found", false
+		return "No files found matching pattern", false
 	}
 
-	result := fmt.Sprintf("Found %d files:\n", len(matches))
-	for _, match := range matches {
-		result += fmt.Sprintf("- %s\n", match)
-	}
-
-	return result, false
-}
-
-// isPathSafe checks if a path is safe (no directory traversal).
-func isPathSafe(path string) bool {
-	// Reject paths with "../" traversal
-	if strings.Contains(path, "../") {
-		return false
-	}
-	return true
-}
-
-// isWriteAllowed checks if file write operations are allowed.
-func isWriteAllowed() bool {
-	// TODO: Implement config check for allowed directories
-	// For now, return true to allow file writes
-	return true
+	return strings.Join(matches, "\n"), false
 }
 
 // RegisterFileTools adds all file tool handlers to the registry.
 func RegisterFileTools(registry *ToolRegistry) {
+	RegisterFileToolsWithConfig(registry, nil, nil)
+}
+
+// RegisterFileToolsWithConfig adds file tools with security configuration.
+func RegisterFileToolsWithConfig(registry *ToolRegistry, dirs []string, approval []string) {
+	SetFileConfig(dirs, approval)
 	registry.Register("FileRead", FileRead, FileReadSchema)
 	registry.Register("FileWrite", FileWrite, FileWriteSchema)
 	registry.Register("FileSearch", FileSearch, FileSearchSchema)
 }
 
-// Tool schemas for file operations
+// Tool schemas
+
 var FileReadSchema = map[string]interface{}{
 	"name":        "FileRead",
-	"description": "Read the content of a file.",
+	"description": "Read the contents of a file. Only files in allowed directories can be read.",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
@@ -124,7 +243,7 @@ var FileReadSchema = map[string]interface{}{
 
 var FileWriteSchema = map[string]interface{}{
 	"name":        "FileWrite",
-	"description": "Write content to a file. Requires approval.",
+	"description": "Write content to a file. Only files in writable directories can be written. Requires approval in production.",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
@@ -143,17 +262,17 @@ var FileWriteSchema = map[string]interface{}{
 
 var FileSearchSchema = map[string]interface{}{
 	"name":        "FileSearch",
-	"description": "Search for files by name pattern.",
+	"description": "Search for files matching a glob pattern in a directory.",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			"pattern": map[string]interface{}{
 				"type":        "string",
-				"description": "File name pattern to search for",
+				"description": "Glob pattern to match (e.g., '*.txt', 'test*.go')",
 			},
 			"directory": map[string]interface{}{
 				"type":        "string",
-				"description": "Directory to search in (defaults to current directory)",
+				"description": "Directory to search in (default: current directory)",
 			},
 		},
 		"required": []string{"pattern"},

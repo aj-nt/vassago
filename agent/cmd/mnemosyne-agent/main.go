@@ -128,7 +128,7 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 	// If no tools.enabled specified, register all tools (backward compatible)
 	if len(enabled) == 0 {
 		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
-		tools.RegisterFileTools(toolReg)
+		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
 		return toolReg
 	}
@@ -138,7 +138,7 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
 	}
 	if anyEnabled(enabled, "FileRead", "FileSearch", "FileWrite") {
-		tools.RegisterFileTools(toolReg)
+		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
 	}
 	if anyEnabled(enabled, "Execute") {
 		tools.RegisterTerminalTools(toolReg)
