@@ -202,16 +202,18 @@ func formatResponse(text string, agentName string) string {
 
 	var b strings.Builder
 
-	// Top border: ╭── ⚕ name ──────╮
-	// Visual width = totalWidth
+	// Top border: ╭─ ⚕ name ─╮
+	// Visual width must equal totalWidth (contentWidth + 4)
+	// Layout: ╭(1) + ─(1) + header + fill(─) + ─(1) + ╮(1) = totalWidth
+	// So header + fill + 4 = totalWidth → fill = contentWidth - headerLen
 	b.WriteString(colorize(dim, boxTL))
-	b.WriteString(colorize(dim, strings.Repeat(boxH, 2))) // "──"
-	b.WriteString(colorize(brightCyan+bold, header))        // " ⚕ name "
+	b.WriteString(colorize(dim, boxH))
+	b.WriteString(colorize(brightCyan+bold, header))
 	rightFill := contentWidth - headerLen
 	if rightFill > 0 {
-		b.WriteString(colorize(dim, strings.Repeat(boxH, rightFill))) // "────"
+		b.WriteString(colorize(dim, strings.Repeat(boxH, rightFill)))
 	}
-	b.WriteString(colorize(dim, strings.Repeat(boxH, 2))) // "──"
+	b.WriteString(colorize(dim, boxH))
 	b.WriteString(colorize(dim, boxTR))
 	b.WriteString("\n")
 
