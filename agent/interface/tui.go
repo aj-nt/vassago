@@ -181,7 +181,7 @@ func formatResponse(text string, agentName string) string {
 	}
 
 	// Word-wrap the text to a reasonable width
-	maxWidth := 78 // leaves room for │ borders
+	maxWidth := 74 // leaves room for "│ " and " │" borders
 	wrapped := wrapText(text, maxWidth)
 	lines := strings.Split(wrapped, "\n")
 
@@ -196,17 +196,22 @@ func formatResponse(text string, agentName string) string {
 		}
 	}
 
+	// Total visual width of each line (borders included)
+	// Content: │ text... │  = 2 + contentWidth + 2 = contentWidth + 4
+	totalWidth := contentWidth + 4
+
 	var b strings.Builder
 
-	// Top border: ╭──── ⚕ name ────╮
+	// Top border: ╭── ⚕ name ──────╮
+	// Visual width = totalWidth
 	b.WriteString(colorize(dim, boxTL))
-	b.WriteString(colorize(dim, strings.Repeat(boxH, 2)))          // "──"
-	b.WriteString(colorize(brightCyan+bold, header))                // " ⚕ name "
-	rightHeaderFill := contentWidth - headerLen
-	if rightHeaderFill > 0 {
-		b.WriteString(colorize(dim, strings.Repeat(boxH, rightHeaderFill))) // "────"
+	b.WriteString(colorize(dim, strings.Repeat(boxH, 2))) // "──"
+	b.WriteString(colorize(brightCyan+bold, header))        // " ⚕ name "
+	rightFill := contentWidth - headerLen
+	if rightFill > 0 {
+		b.WriteString(colorize(dim, strings.Repeat(boxH, rightFill))) // "────"
 	}
-	b.WriteString(colorize(dim, strings.Repeat(boxH, 2)))          // "──"
+	b.WriteString(colorize(dim, strings.Repeat(boxH, 2))) // "──"
 	b.WriteString(colorize(dim, boxTR))
 	b.WriteString("\n")
 
@@ -225,7 +230,7 @@ func formatResponse(text string, agentName string) string {
 
 	// Bottom border: ╰──────────────╯
 	b.WriteString(colorize(dim, boxBL))
-	b.WriteString(colorize(dim, strings.Repeat(boxH, contentWidth+4))) // +4 for "  " borders
+	b.WriteString(colorize(dim, strings.Repeat(boxH, totalWidth-2))) // -2 for ╰ and ╯
 	b.WriteString(colorize(dim, boxBR))
 
 	return b.String()
