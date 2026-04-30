@@ -5,16 +5,24 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aj-nt/mnemosyne/agent/provider"
 	"gopkg.in/yaml.v3"
 )
 
 // AgentConfig is the full agent configuration from YAML.
 type AgentConfig struct {
-	Agent     AgentSection     `yaml:"agent"`
-	Provider  ProviderSection  `yaml:"provider"`
-	Mnemosyne MnemosyneSection `yaml:"mnemosyne"`
-	HotBlock  HotBlockSection  `yaml:"hot_block"`
-	Tools     ToolsSection     `yaml:"tools"`
+	Agent            AgentSection     `yaml:"agent"`
+	Provider         ProviderSection  `yaml:"provider"`
+	Routing          RoutingSection   `yaml:"routing"`
+	Mnemosyne        MnemosyneSection `yaml:"mnemosyne"`
+	HotBlock         HotBlockSection  `yaml:"hot_block"`
+	Tools            ToolsSection     `yaml:"tools"`
+}
+
+// RoutingSection configures the model routing strategy and model definitions.
+type RoutingSection struct {
+	Strategy string                `yaml:"strategy"` // "always-primary", "cost-optimized", "quality-optimized", "smart"
+	Models   []provider.ModelConfig `yaml:"models"`
 }
 
 type AgentSection struct {

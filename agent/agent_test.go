@@ -128,7 +128,7 @@ func TestAgentLoop_maxIterations(t *testing.T) {
 	cfg := Config{
 		AgentID:          "test-agent",
 		MaxTurns:         3,
-		MaxContextTokens:  128000,
+		MaxContextTokens: 128000,
 	}
 	a := NewAgent(cfg, registry, toolReg, nil)
 	defer a.Close()
@@ -139,5 +139,118 @@ func TestAgentLoop_maxIterations(t *testing.T) {
 	}
 	if !result.MaxIterationsHit {
 		t.Error("Expected max iterations to be hit")
+	}
+}
+
+func TestAgentWithRouter(t *testing.T) {
+	mockResponses := []provider.CannedResponse{
+		{
+			Response: agentctx.ParsedResponse{
+				Text:         "Hello from router!",
+				FinishReason: "stop",
+				Usage:        &agentctx.UsageInfo{PromptTokens: 100, CompletionTokens: 50, TotalTokens: 150},
+			},
+		},
+	}
+	mockProvider := provider.NewMockProvider("mock", mockResponses)
+	registry := provider.NewProviderRegistry()
+	registry.Register("mock", mockProvider)
+	registry.SetPrimary("mock")
+
+	// Set up router
+	router := provider.NewModelRouter(provider.StrategyAlwaysPrimary)
+	router.Register(provider.ModelConfig{
+		Name:          "mock-model",
+		Provider:      "mock",
+		InputCost:     3.00,
+		OutputCost:    15.00,
+		ContextWindow: 128000,
+		ToolUse:       true,
+	})
+	if err := router.SetPrimary("mock-model"); err != nil {
+		t.Fatal(err)
+	}
+
+	toolReg := tools.NewToolRegistry()
+	cfg := Config{
+		AgentID:          "test-agent",
+		MaxTurns:         50,
+		MaxContextTokens: 128000,
+	}
+	a := NewAgentWithRouter(cfg, registry, router, toolReg, nil)
+	defer a.Close()
+
+	if a.Router == nil {
+		t.Fatal("expected router to be set")
+	}
+
+	result, err := a.Run(context.Background(), "Hello!")
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if result.Response == nil {
+		t.Fatal("Expected a response")
+	}
+	if result.Response.Text != "Hello from router!" {
+		t.Errorf("Expected 'Hello from router!', got %q", result.Response.Text)
+	}
+}
+
+func TestSelectProvider(t *testing.T) {
+	mockResponses := []provider.CannedResponse{
+		{Response: agentctx.ParsedResponse{Text: "hi", FinishReason: "stop"}},
+	}
+	mockP := provider.NewMockProvider("mock", mockResponses)
+	registry := provider.NewProviderRegistry()
+	registry.Register("mock", mockP)
+	registry.SetPrimary("mock")
+
+	// Without router — should fall back to primary
+	a := &Agent{
+		Config:   Config{AgentID: "test"},
+		Registry: registry,
+	}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{{Role: "user", Content: "hello"}},
+	}
+	p, err := a.selectProvider(convCtx)
+	if err != nil {
+		t.Fatalf("selectProvider error: %v", err)
+	}
+	if p.Name() != "mock" {
+		t.Errorf("expected mock, got %s", p.Name())
+	}
+}
+
+func TestSelectProviderWithRouter(t *testing.T) {
+	mockResponses := []provider.CannedResponse{
+		{Response: agentctx.ParsedResponse{Text: "hi", FinishReason: "stop"}},
+	}
+	mockP := provider.NewMockProvider("mock", mockResponses)
+	registry := provider.NewProviderRegistry()
+	registry.Register("mock", mockP)
+
+	router := provider.NewModelRouter(provider.StrategyCostOptimized)
+	router.Register(provider.ModelConfig{
+		Name:     "cheap",
+		Provider: "mock",
+		ToolUse:  true,
+	})
+	router.SetPrimary("cheap") //nolint:errcheck // test: model is registered above
+
+	a := &Agent{
+		Config:   Config{AgentID: "test"},
+		Registry: registry,
+		Router:   router,
+	}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{{Role: "user", Content: "hello"}},
+	}
+	p, err := a.selectProvider(convCtx)
+	if err != nil {
+		t.Fatalf("selectProvider error: %v", err)
+	}
+	if p.Name() != "mock" {
+		t.Errorf("expected mock, got %s", p.Name())
 	}
 }

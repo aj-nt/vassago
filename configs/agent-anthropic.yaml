@@ -17,6 +17,49 @@ provider:
   openai_base_url: "http://localhost:11434/v1"
   openai_api_key_env: "OLLAMA_API_KEY"
 
+# Model routing: defines models with cost/capability metadata.
+# When present, the agent uses these definitions to choose which
+# model to use per-turn. Strategy options:
+#   - "always-primary": use primary model for every turn (default)
+#   - "cost-optimized": pick cheapest capable model
+#   - "quality-optimized": pick best reasoning model
+#   - "smart": heuristic task-based routing (recommended)
+routing:
+  strategy: "smart"
+  models:
+    - name: "claude-sonnet-4-6"
+      provider: "anthropic"
+      input_cost: 3.00      # $/M tokens
+      output_cost: 15.00
+      context_window: 200000
+      reasoning: "high"
+      code: "high"
+      tool_use: true
+      vision: false
+      speed: "medium"
+
+    - name: "gpt-4o-mini"
+      provider: "openai"
+      input_cost: 0.15
+      output_cost: 0.60
+      context_window: 128000
+      reasoning: "medium"
+      code: "medium"
+      tool_use: true
+      vision: false
+      speed: "fast"
+
+    - name: "glm-5.1:cloud"
+      provider: "openai"
+      input_cost: 0.00       # Local Ollama — free
+      output_cost: 0.00
+      context_window: 32000
+      reasoning: "low"
+      code: "medium"
+      tool_use: true
+      vision: false
+      speed: "fast"
+
 mnemosyne:
   address: "localhost:50051"
 

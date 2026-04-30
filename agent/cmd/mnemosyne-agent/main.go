@@ -40,9 +40,17 @@ func main() {
 	registry := setupProviders(&cfg.Provider)
 	toolReg := setupTools(&cfg.Tools, mnemo, cfg.Agent.ID)
 
-	// Create agent
+	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
-	a := agent.NewAgent(agentCfg, registry, toolReg, mnemo)
+	var a *agent.Agent
+	if len(cfg.Routing.Models) > 0 {
+		router := setupRouter(&cfg.Routing, registry)
+		a = agent.NewAgentWithRouter(agentCfg, registry, router, toolReg, mnemo)
+		log.Printf("Model routing enabled: strategy=%s, primary=%s, models=%v",
+			cfg.Routing.Strategy, router.Primary(), router.List())
+	} else {
+		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
+	}
 	defer a.Close()
 
 	log.Printf("Starting agent %q with primary provider %q (model: %s)",
@@ -157,6 +165,25 @@ func anyEnabled(enabled []string, names ...string) bool {
 		}
 	}
 	return false
+}
+
+// setupRouter creates and configures the model router from config.
+func setupRouter(cfg *agent.RoutingSection, registry *provider.ProviderRegistry) *provider.ModelRouter {
+	strategy := provider.RoutingStrategy(cfg.Strategy)
+	router := provider.NewModelRouter(strategy)
+
+	for _, m := range cfg.Models {
+		router.Register(m)
+	}
+
+	// Set primary to the first model, or to the provider's primary model name
+	if len(cfg.Models) > 0 {
+		if err := router.SetPrimary(cfg.Models[0].Name); err != nil {
+			log.Printf("Warning: failed to set primary model to %q: %v", cfg.Models[0].Name, err)
+		}
+	}
+
+	return router
 }
 
 // firstNonEmpty returns the first non-empty string from the arguments.
