@@ -83,6 +83,21 @@ func LoadConfig(path string) (*AgentConfig, error) {
 		cfg.HotBlock.MinPriority = 2
 	}
 
+	// Validate tool names in tools.enabled (#16)
+	if len(cfg.Tools.Enabled) > 0 {
+		knownTools := map[string]bool{
+			"AddMemory": true, "SearchMemories": true, "ReplaceMemory": true,
+			"RemoveMemory": true, "Consolidate": true, "GetHotBlock": true,
+			"FileRead": true, "FileWrite": true, "FileSearch": true,
+			"Execute": true,
+		}
+		for _, name := range cfg.Tools.Enabled {
+			if !knownTools[name] {
+				fmt.Fprintf(os.Stderr, "Warning: unknown tool name %q in tools.enabled — will be ignored\n", name)
+			}
+		}
+	}
+
 	// Load personality from file if specified
 	if cfg.Agent.PersonalityFile != "" {
 		personalityPath := cfg.Agent.PersonalityFile

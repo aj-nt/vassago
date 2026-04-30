@@ -8,10 +8,31 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"unicode/utf8"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
+
+// sanitizeUTF8 replaces invalid UTF-8 bytes with the Unicode replacement character.
+// This prevents gRPC protobuf marshaling errors and Anthropic API rejections.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size == 1 {
+			b.WriteString("\ufffd")
+		} else {
+			b.WriteRune(r)
+		}
+		i += size
+	}
+	return b.String()
+}
 
 // CLI provides a terminal interface for the agent.
 type CLI struct {
@@ -47,6 +68,8 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not get hot block: %v\n", err)
 		hotBlock = ""
 	}
+	// Sanitize UTF-8 on read — belt and suspenders with the daemon-side fix (#17)
+	hotBlock = sanitizeUTF8(hotBlock)
 
 	// Persistent conversation context across turns
 	messages := []agentctx.Message{}
