@@ -232,6 +232,12 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		stats.Turns++
 		stats.ToolCalls += toolCalls
 
+		// Track cost from router
+		if c.Agent.Router != nil {
+			cost, _, _ := c.Agent.Router.SessionCost()
+			stats.CostUSD = cost
+		}
+
 		// Update message history from the context
 		messages = convCtx.Messages
 
