@@ -19,6 +19,7 @@ import (
 type Agent struct {
 	Config      Config
 	Registry   *provider.ProviderRegistry
+	Router     *provider.ModelRouter // Optional: nil = always-primary (backward compatible)
 	ToolRegistry *tools.ToolRegistry
 	EventBus    *eventbus.EventBus
 	Mnemo       *memoclient.Client
@@ -74,9 +75,95 @@ func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.To
 	return a
 }
 
+// NewAgentWithRouter creates a new agent with model routing.
+func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router *provider.ModelRouter, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *Agent {
+	bus := eventbus.NewEventBus()
+
+	a := &Agent{
+		Config:       cfg,
+		Registry:     registry,
+		Router:       router,
+		ToolRegistry: toolReg,
+		EventBus:     bus,
+		Mnemo:        mnemo,
+	}
+
+	// Wire pipeline stages
+	a.Stage1 = pipeline.NewRequestPrepStage(cfg.Personality)
+	a.Stage2 = pipeline.NewProviderCallStageWithRouter(registry, router)
+	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
+	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
+	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
+
+	return a
+}
+
 // Close cleans up agent resources.
 func (a *Agent) Close() {
 	a.EventBus.Close()
+}
+
+// selectProvider picks the provider for this turn using the model router.
+// Falls back to the registry's primary if no router is configured.
+func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.Provider, error) {
+	if a.Router == nil {
+		return a.Registry.GetPrimary()
+	}
+
+	// Build routing context from conversation state
+	routingCtx := provider.RoutingContext{
+		Iteration:       convCtx.Iteration,
+		UserMessage:     firstUserMessage(convCtx.Messages),
+		HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
+		ToolCallCount:   countToolResults(convCtx.Messages),
+		PromptCharCount: convCtx.TokenCount() * 4, // Rough: tokens→chars
+	}
+
+	modelCfg, err := a.Router.Select(routingCtx)
+	if err != nil {
+		// Fallback to primary provider on routing error
+		return a.Registry.GetPrimary()
+	}
+
+	p, err := a.Registry.Get(modelCfg.Provider)
+	if err != nil {
+		// Model's provider not registered — try primary
+		p, err2 := a.Registry.GetPrimary()
+		if err2 != nil {
+			return nil, fmt.Errorf("model router selected %q (provider %q not found): %w", modelCfg.Name, modelCfg.Provider, err)
+		}
+		return p, nil
+	}
+	return p, nil
+}
+
+// firstUserMessage returns the first user message content.
+func firstUserMessage(msgs []agentctx.Message) string {
+	for _, m := range msgs {
+		if m.Role == "user" {
+			return m.Content
+		}
+	}
+	return ""
+}
+
+// lastMessageIsToolResult checks if the last message is a tool result.
+func lastMessageIsToolResult(msgs []agentctx.Message) bool {
+	if len(msgs) == 0 {
+		return false
+	}
+	return msgs[len(msgs)-1].Role == "tool"
+}
+
+// countToolResults counts tool result messages.
+func countToolResults(msgs []agentctx.Message) int {
+	count := 0
+	for _, m := range msgs {
+		if m.Role == "tool" {
+			count++
+		}
+	}
+	return count
 }
 
 // Run executes the agent loop for a user message.
@@ -281,24 +368,24 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		// Stage 1: Request Preparation
 		prepared := a.Stage1.Process(convCtx)
 
-		// Stage 2: Try streaming with the primary provider
-		provider, err := a.Registry.GetPrimary()
+		// Stage 2: Try streaming with the router-selected provider
+		p, err := a.selectProvider(convCtx)
 		if err != nil {
 			out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
 			return
 		}
 
-		req, err := provider.Prepare(ctx, convCtx, prepared)
+		req, err := p.Prepare(ctx, convCtx, prepared)
 		if err != nil {
 			out <- StreamEvent{Error: fmt.Errorf("prepare error: %w", err)}
 			return
 		}
 
 		// Try streaming
-		streamCh, streamErr := provider.Stream(ctx, req)
+		streamCh, streamErr := p.Stream(ctx, req)
 		if streamErr != nil {
 			// Streaming not supported — fall back to non-streaming
-			a.runTurnNonStreaming(ctx, convCtx, out, prepared, provider, sessionID)
+			a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID)
 			if convCtx.Iteration >= convCtx.MaxIterations {
 				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 				return
@@ -312,6 +399,7 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		var currentToolID string
 		var currentToolName string
 		var currentToolInput strings.Builder
+		var lastUsage *agentctx.UsageInfo
 
 		for event := range streamCh {
 			switch event.Type {
@@ -335,7 +423,8 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 				out <- StreamEvent{Error: event.Error}
 				return
 			case agentctx.StreamDone:
-				// Forward usage info from provider
+				// Forward usage info from provider and track cost
+				lastUsage = event.Usage
 				out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
 			}
 		}
@@ -349,6 +438,16 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			parsed.FinishReason = "stop"
 		} else {
 			parsed.FinishReason = "tool_use"
+		}
+
+		// Track cost for this turn
+		if a.Router != nil && lastUsage != nil {
+			a.Router.RecordTurnCost(p.Name(), lastUsage.PromptTokens, lastUsage.CompletionTokens, convCtx.Iteration)
+		}
+
+		// Record success (reset failure counter)
+		if a.Router != nil {
+			a.Router.RecordSuccess(p.Name())
 		}
 
 		// Emit tool execution events before dispatch
