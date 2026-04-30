@@ -45,7 +45,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req interface{}) (<-chan
 	}
 
 	ch := make(chan agentctx.StreamEvent, 64)
-	go p.readSSEStream(resp, ch)
+	go p.readSSEStream(ctx, resp, ch)
 
 	return ch, nil
 }
@@ -71,7 +71,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req interface{}) (<-chan
 //
 //   event: message_stop
 //   data: {"type":"message_stop"}
-func (p *AnthropicProvider) readSSEStream(resp *http.Response, ch chan<- agentctx.StreamEvent) {
+func (p *AnthropicProvider) readSSEStream(ctx context.Context, resp *http.Response, ch chan<- agentctx.StreamEvent) {
 	defer close(ch)
 	defer resp.Body.Close()
 
@@ -82,6 +82,14 @@ func (p *AnthropicProvider) readSSEStream(resp *http.Response, ch chan<- agentct
 	var currentToolName string
 
 	for scanner.Scan() {
+		// Check for context cancellation (timeout, interrupt, etc.)
+		select {
+		case <-ctx.Done():
+			ch <- agentctx.StreamEvent{Type: agentctx.StreamError, Error: ctx.Err()}
+			return
+		default:
+		}
+
 		line := scanner.Text()
 
 		// Only process data: lines

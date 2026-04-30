@@ -31,6 +31,12 @@ func makeAddMemory(mnemo *client.Client, agentID string) ToolHandler {
 			return "key and content are required", true
 		}
 
+		// Reject oversized content — prevents database bloat from accidental large writes
+		const maxContentLen = 100000 // 100KB
+		if len(content) > maxContentLen {
+			return fmt.Sprintf("Content too large (%d chars, max %d). Break into smaller entries.", len(content), maxContentLen), true
+		}
+
 		ctx := context.Background()
 		entry, err := mnemo.AddMemory(ctx, target, category, key, content, int32(priority), agentID)
 		if err != nil {
@@ -48,6 +54,12 @@ func makeSearchMemories(mnemo *client.Client) ToolHandler {
 
 		if query == "" {
 			return "query is required", true
+		}
+
+		// Reject oversized queries — prevents DoS via huge FTS5 MATCH input
+		const maxQueryLen = 4096
+		if len(query) > maxQueryLen {
+			return fmt.Sprintf("Query too long (%d chars, max %d). Use more specific search terms.", len(query), maxQueryLen), true
 		}
 
 		ctx := context.Background()

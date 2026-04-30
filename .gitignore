@@ -4,3 +4,4 @@ bin/
 mnemosyne-agent
 .DS_Store
 mnemosyne-cli
+coverage.out
