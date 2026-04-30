@@ -73,6 +73,13 @@ func New(dbPath string) (*Store, error) {
 	return s, nil
 }
 
+// Ping checks the database connection health.
+func (s *Store) Ping() error {
+	// Simple query to verify database connectivity
+	var result int
+	return s.db.QueryRow("SELECT 1").Scan(&result)
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()

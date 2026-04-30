@@ -8,11 +8,13 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 	"unicode/utf8"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/tools"
+	"github.com/aj-nt/mnemosyne/client"
 )
 
 // sanitizeUTF8 replaces invalid UTF-8 bytes with the Unicode replacement character.
@@ -304,6 +306,22 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		}
 		fmt.Println()
 	}
+
+	// Ensure session is persisted on exit
+	defer func() {
+		if c.Agent.Mnemo != nil && sessionID != "" && len(messages) > 0 {
+			persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			msgs := make([]client.Message, 0, len(messages))
+			for _, m := range messages {
+				msgs = append(msgs, client.Message{Role: m.Role, Content: m.Content})
+			}
+			if err := c.Agent.Mnemo.AddMessages(persistCtx, sessionID, msgs); err != nil {
+				fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("session flush failed: %v", err)))
+			}
+		}
+		fmt.Println(formatGoodbye(stats))
+	}()
 
 	return scanner.Err()
 }

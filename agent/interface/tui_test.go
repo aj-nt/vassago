@@ -413,3 +413,21 @@ func TestFormatPrompt(t *testing.T) {
 		t.Errorf("formatPrompt should contain prompt character: %q", result)
 	}
 }
+
+func TestFormatResumedSession(t *testing.T) {
+	result := formatResumedSession("My Session", 5)
+	if !strings.Contains(result, "My Session") {
+		t.Errorf("expected session title in output, got %q", result)
+	}
+	if !strings.Contains(result, "5 messages") {
+		t.Errorf("expected message count in output, got %q", result)
+	}
+}
+
+func TestFormatResumedSessionNoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	result := formatResumedSession("Test", 10)
+	if !strings.Contains(result, "Resumed session: Test (10 messages)") {
+		t.Errorf("expected plain text format, got %q", result)
+	}
+}

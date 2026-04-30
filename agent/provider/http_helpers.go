@@ -26,7 +26,7 @@ func classifyHTTPResponse(resp *http.Response) agentctx.ProviderResult {
 	case resp.StatusCode >= 500:
 		return agentctx.ProviderResult{
 			ShouldRetry:    resp.StatusCode == 503,
-			ShouldFallback: resp.StatusCode == 429,
+			ShouldFallback: true, // All 5xx errors should trigger fallback to next provider
 			Error:          fmt.Errorf("server error %d: %s", resp.StatusCode, string(body)),
 		}
 	case resp.StatusCode != 200:

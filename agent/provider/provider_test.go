@@ -473,7 +473,7 @@ func TestClassifyHTTPResponse(t *testing.T) {
 			statusCode:     500,
 			body:           `{"error": "server error"}`,
 			expectRetry:    false,
-			expectFallback: false,
+			expectFallback: true, // 5xx should fallback to next provider
 			expectError:    true,
 		},
 		{
@@ -481,7 +481,7 @@ func TestClassifyHTTPResponse(t *testing.T) {
 			statusCode:     502,
 			body:           `{"error": "bad gateway"}`,
 			expectRetry:    false,
-			expectFallback: false,
+			expectFallback: true, // 5xx should fallback to next provider
 			expectError:    true,
 		},
 		{
@@ -489,7 +489,7 @@ func TestClassifyHTTPResponse(t *testing.T) {
 			statusCode:     503,
 			body:           `{"error": "service unavailable"}`,
 			expectRetry:    true,
-			expectFallback: false,
+			expectFallback: true, // 5xx should fallback to next provider
 			expectError:    true,
 		},
 	}

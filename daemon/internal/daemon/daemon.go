@@ -115,11 +115,13 @@ func New(cfg *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
-	// Create gRPC server with interceptors
+	// Create gRPC server with interceptors and hardening options
 	unaryInt, streamInt := daemongrpc.Interceptors(cfg.Daemon.APIKey)
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(daemongrpc.RecoveryInterceptor, unaryInt),
 		grpc.StreamInterceptor(streamInt),
+		grpc.MaxRecvMsgSize(10*1024*1024),     // 10MB max message size
+		grpc.MaxConcurrentStreams(uint32(100)),  // Limit concurrent streams
 	)
 
 	// Create pub/sub hub
