@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: proto/mnemosyne.proto
+// source: mnemosyne.proto
 
 package proto
 
@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	Mnemosyne_Ping_FullMethodName                       = "/mnemosyne.Mnemosyne/Ping"
 	Mnemosyne_AddMemory_FullMethodName                  = "/mnemosyne.Mnemosyne/AddMemory"
 	Mnemosyne_GetMemory_FullMethodName                  = "/mnemosyne.Mnemosyne/GetMemory"
 	Mnemosyne_UpdateMemory_FullMethodName               = "/mnemosyne.Mnemosyne/UpdateMemory"
@@ -43,6 +44,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MnemosyneClient interface {
+	// Health check
+	Ping(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
 	// Memory CRUD
 	AddMemory(ctx context.Context, in *AddMemoryRequest, opts ...grpc.CallOption) (*AddMemoryResponse, error)
 	GetMemory(ctx context.Context, in *GetMemoryRequest, opts ...grpc.CallOption) (*MemoryEntry, error)
@@ -76,6 +79,16 @@ type mnemosyneClient struct {
 
 func NewMnemosyneClient(cc grpc.ClientConnInterface) MnemosyneClient {
 	return &mnemosyneClient{cc}
+}
+
+func (c *mnemosyneClient) Ping(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HealthCheckResponse)
+	err := c.cc.Invoke(ctx, Mnemosyne_Ping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *mnemosyneClient) AddMemory(ctx context.Context, in *AddMemoryRequest, opts ...grpc.CallOption) (*AddMemoryResponse, error) {
@@ -271,6 +284,8 @@ func (c *mnemosyneClient) Heartbeat(ctx context.Context, in *AgentId, opts ...gr
 // All implementations must embed UnimplementedMnemosyneServer
 // for forward compatibility.
 type MnemosyneServer interface {
+	// Health check
+	Ping(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
 	// Memory CRUD
 	AddMemory(context.Context, *AddMemoryRequest) (*AddMemoryResponse, error)
 	GetMemory(context.Context, *GetMemoryRequest) (*MemoryEntry, error)
@@ -306,6 +321,9 @@ type MnemosyneServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMnemosyneServer struct{}
 
+func (UnimplementedMnemosyneServer) Ping(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Ping not implemented")
+}
 func (UnimplementedMnemosyneServer) AddMemory(context.Context, *AddMemoryRequest) (*AddMemoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddMemory not implemented")
 }
@@ -379,6 +397,24 @@ func RegisterMnemosyneServer(s grpc.ServiceRegistrar, srv MnemosyneServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Mnemosyne_ServiceDesc, srv)
+}
+
+func _Mnemosyne_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_Ping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).Ping(ctx, req.(*HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Mnemosyne_AddMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -706,6 +742,10 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MnemosyneServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Ping",
+			Handler:    _Mnemosyne_Ping_Handler,
+		},
+		{
 			MethodName: "AddMemory",
 			Handler:    _Mnemosyne_AddMemory_Handler,
 		},
@@ -781,5 +821,5 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/mnemosyne.proto",
+	Metadata: "mnemosyne.proto",
 }

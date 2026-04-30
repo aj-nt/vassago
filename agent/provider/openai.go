@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
@@ -32,7 +33,7 @@ func NewOpenAIProvider(baseURL, apiKey, model string) *OpenAIProvider {
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		model:   model,
-		client:  &http.Client{},
+		client:  NewHTTPClient(120 * time.Second),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -122,27 +123,31 @@ func (p *OpenAIProvider) Prepare(_ context.Context, convCtx *agentctx.Conversati
 
 // Execute sends the request to the OpenAI-compatible API.
 func (p *OpenAIProvider) Execute(ctx context.Context, req interface{}) (agentctx.ProviderResult, error) {
-	bodyJSON, err := json.Marshal(req)
-	if err != nil {
-		return agentctx.ProviderResult{}, fmt.Errorf("marshal request: %w", err)
-	}
+	config := DefaultRetryConfig()
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewReader(bodyJSON))
-	if err != nil {
-		return agentctx.ProviderResult{ShouldRetry: false, Error: err}, nil
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if p.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
-	}
+	return WithRetry(ctx, config, func() (agentctx.ProviderResult, error) {
+		bodyJSON, err := json.Marshal(req)
+		if err != nil {
+			return agentctx.ProviderResult{}, fmt.Errorf("marshal request: %w", err)
+		}
 
-	resp, err := p.client.Do(httpReq)
-	if err != nil {
-		return agentctx.ProviderResult{ShouldRetry: true, Error: err}, nil
-	}
-	defer resp.Body.Close()
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewReader(bodyJSON))
+		if err != nil {
+			return agentctx.ProviderResult{ShouldRetry: false, Error: err}, nil
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if p.apiKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+		}
 
-	return classifyHTTPResponse(resp), nil
+		resp, err := p.client.Do(httpReq)
+		if err != nil {
+			return agentctx.ProviderResult{ShouldRetry: true, Error: err}, nil
+		}
+		defer resp.Body.Close()
+
+		return classifyHTTPResponse(resp), nil
+	})
 }
 
 // Parse converts the OpenAI response to a canonical ParsedResponse.
