@@ -98,6 +98,7 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"RemoveMemory": true, "Consolidate": true, "GetHotBlock": true,
 			"FileRead": true, "FileWrite": true, "FileSearch": true,
 			"Execute": true,
+			"SearchWeb": true, "FetchURL": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {
