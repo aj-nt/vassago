@@ -35,14 +35,12 @@ const (
 	brightWhite  = "\033[97m"
 
 	// Box-drawing characters
-	boxTL    = "╭"
-	boxTR    = "╮"
-	boxBL    = "╰"
-	boxBR    = "╯"
-	boxH     = "─"
-	boxV     = "│"
-	boxHDown = "┬"
-	boxHUp   = "┴"
+	boxTL = "╭"
+	boxTR = "╮"
+	boxBL = "╰"
+	boxBR = "╯"
+	boxH  = "─"
+	boxV  = "│"
 )
 
 // isTerminal checks if stdout is a TTY. If not, we skip colors.
@@ -182,46 +180,40 @@ func formatResponse(text string, agentName string) string {
 		return text + "\n"
 	}
 
-	// Determine the header
-	header := " ⚕ " + agentName + " "
-	headerLen := utf8.RuneCountInString(header)
-
 	// Word-wrap the text to a reasonable width
-	maxWidth := 80
-	wrapped := wrapText(text, maxWidth-4) // -4 for "│ " prefix and " │" suffix
+	maxWidth := 78 // leaves room for │ borders
+	wrapped := wrapText(text, maxWidth)
 	lines := strings.Split(wrapped, "\n")
 
-	// Calculate box width (minimum: header length)
-	maxLineLen := headerLen
+	// Calculate content width (minimum: header length)
+	header := " ⚕ " + agentName + " "
+	headerLen := utf8.RuneCountInString(header)
+	contentWidth := headerLen
 	for _, line := range lines {
 		l := utf8.RuneCountInString(line)
-		if l > maxLineLen {
-			maxLineLen = l
+		if l > contentWidth {
+			contentWidth = l
 		}
 	}
-	width := maxLineLen + 2 // padding
 
 	var b strings.Builder
 
-	// Top border with header
+	// Top border: ╭──── ⚕ name ────╮
 	b.WriteString(colorize(dim, boxTL))
-	leftBorder := width - headerLen
-	if leftBorder > 1 {
-		b.WriteString(colorize(dim, strings.Repeat(boxH, leftBorder-1)))
+	b.WriteString(colorize(dim, strings.Repeat(boxH, 2)))          // "──"
+	b.WriteString(colorize(brightCyan+bold, header))                // " ⚕ name "
+	rightHeaderFill := contentWidth - headerLen
+	if rightHeaderFill > 0 {
+		b.WriteString(colorize(dim, strings.Repeat(boxH, rightHeaderFill))) // "────"
 	}
-	b.WriteString(colorize(dim, boxHDown))
-	b.WriteString(colorize(brightCyan+bold, header))
-	rightBorder := width - leftBorder - headerLen + 1
-	if rightBorder > 0 {
-		b.WriteString(colorize(dim, strings.Repeat(boxH, rightBorder)))
-	}
+	b.WriteString(colorize(dim, strings.Repeat(boxH, 2)))          // "──"
 	b.WriteString(colorize(dim, boxTR))
 	b.WriteString("\n")
 
-	// Content lines
+	// Content lines: │ text │
 	for _, line := range lines {
 		lineLen := utf8.RuneCountInString(line)
-		padding := width - lineLen - 1
+		padding := contentWidth - lineLen
 		b.WriteString(colorize(dim, boxV+" "))
 		b.WriteString(line)
 		if padding > 0 {
@@ -231,9 +223,9 @@ func formatResponse(text string, agentName string) string {
 		b.WriteString("\n")
 	}
 
-	// Bottom border
+	// Bottom border: ╰──────────────╯
 	b.WriteString(colorize(dim, boxBL))
-	b.WriteString(colorize(dim, strings.Repeat(boxH, width+1)))
+	b.WriteString(colorize(dim, strings.Repeat(boxH, contentWidth+4))) // +4 for "  " borders
 	b.WriteString(colorize(dim, boxBR))
 
 	return b.String()
