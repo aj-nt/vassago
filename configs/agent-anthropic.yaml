@@ -86,6 +86,8 @@ tools:
     - FileSearch
     - FileWrite
     - Execute
+    - SearchWeb
+    - FetchURL
   approval_required:
     - FileWrite
     - Execute
