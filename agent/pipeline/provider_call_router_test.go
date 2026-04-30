@@ -2,10 +2,13 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/provider"
+	"github.com/aj-nt/mnemosyne/agent/tools"
 )
 
 func TestProviderCallStageWithRouter(t *testing.T) {
@@ -128,5 +131,44 @@ func TestCountToolResults(t *testing.T) {
 	}
 	if got := countToolResults(nil); got != 0 {
 		t.Errorf("expected 0 for nil, got %d", got)
+	}
+}
+
+func TestToolDispatchApproval(t *testing.T) {
+	// Test that the Approver callback is checked before tool execution
+	reg := tools.NewToolRegistry()
+	reg.Register("DangerTool", func(args map[string]interface{}) (string, bool) {
+		return "dangerous result", false
+	}, map[string]interface{}{"name": "DangerTool"})
+
+	var approvalCalled bool
+	stage := NewToolDispatchStage(reg, nil)
+	stage.Approver = func(toolName string, args map[string]interface{}) bool {
+		approvalCalled = true
+		return false // Deny approval
+	}
+
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{{Role: "user", Content: "test"}},
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "call-1", Name: "DangerTool", Arguments: json.RawMessage(`{}`)},
+		},
+		FinishReason: "tool_calls",
+	}
+	result := stage.Process(convCtx, parsed)
+
+	if !approvalCalled {
+		t.Error("expected Approver to be called")
+	}
+	if len(result.ToolResults) != 1 {
+		t.Fatalf("expected 1 tool result, got %d", len(result.ToolResults))
+	}
+	if !result.ToolResults[0].IsError {
+		t.Error("expected error result when approval denied")
+	}
+	if !strings.Contains(result.ToolResults[0].Result, "denied") {
+		t.Errorf("expected 'denied' in result, got %q", result.ToolResults[0].Result)
 	}
 }

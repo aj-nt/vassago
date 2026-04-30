@@ -12,6 +12,7 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/tools"
 )
 
 // sanitizeUTF8 replaces invalid UTF-8 bytes with the Unicode replacement character.
@@ -83,6 +84,22 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 	stats := &SessionStats{}
 
 	scanner := bufio.NewScanner(os.Stdin)
+
+	// Wire approval flow for dangerous tools
+	c.Agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
+		if !tools.IsApprovalRequired(toolName) {
+			return true // No approval needed
+		}
+		// Prompt the user
+		fmt.Println(formatApprovalRequest(toolName, args))
+		fmt.Print("  > ")
+		if !scanner.Scan() {
+			return false
+		}
+		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		return answer == "y" || answer == "yes"
+	}
+
 	for {
 		fmt.Print(formatPrompt(c.Agent.Config.AgentName))
 		if !scanner.Scan() {
@@ -137,6 +154,38 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			}
 			continue
 		}
+
+	// /resume <session-id> — restore a previous session's messages
+	if strings.HasPrefix(input, "/resume") {
+		sessionIDArg, ok := parseResumeCommand(input)
+		if !ok {
+			fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("usage: /resume <session-id>")))
+			continue
+		}
+		if c.Agent.Mnemo == nil {
+			fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("not connected to daemon")))
+			continue
+		}
+		detail, err := c.Agent.Mnemo.GetSession(ctx, sessionIDArg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("resume: %w", err)))
+			continue
+		}
+		// Load messages from the session
+		resumedMsgs := make([]agentctx.Message, 0, len(detail.Messages))
+		for _, m := range detail.Messages {
+			resumedMsgs = append(resumedMsgs, agentctx.Message{Role: m.Role, Content: m.Content})
+		}
+		messages = resumedMsgs
+		// Update session ID to the resumed session
+		sessionID = sessionIDArg
+		title := detail.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Println(formatResumedSession(title, len(messages)))
+		continue
+	}
 
 		// Add user message to history
 		messages = append(messages, agentctx.Message{Role: "user", Content: input})
@@ -245,6 +294,13 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		if responseText.Len() > 0 {
 			fmt.Println()
 			fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
+		}
+
+		// Show context usage
+		tokenCount := convCtx.TokenCount()
+		contextStr := formatContextUsage(tokenCount, c.Agent.Config.MaxContextTokens)
+		if contextStr != "" {
+			fmt.Println(colorize(dim, "  📊 "+contextStr))
 		}
 		fmt.Println()
 	}

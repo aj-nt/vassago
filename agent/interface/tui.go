@@ -109,14 +109,24 @@ func formatPrompt(agentName string) string {
 // formatCommandsHelp returns the help line for available commands.
 func formatCommandsHelp() string {
 	if !useColor() {
-		return "type /quit to exit, /clear to reset, /hot for hot block, /history for context, /sessions for recent"
+		return "type /quit to exit, /clear to reset, /hot for hot block, /history for context, /sessions for recent, /resume to restore"
 	}
 	return dim + "type " +
 		colorize(yellow, "/quit") + dim + " exit · " +
 		colorize(yellow, "/clear") + dim + " reset · " +
 		colorize(yellow, "/hot") + dim + " hot block · " +
 		colorize(yellow, "/history") + dim + " context · " +
-		colorize(yellow, "/sessions") + dim + " recent" + reset
+		colorize(yellow, "/sessions") + dim + " recent · " +
+		colorize(yellow, "/resume") + dim + " restore" + reset
+}
+
+// formatResumedSession shows confirmation of a resumed session.
+func formatResumedSession(title string, msgCount int) string {
+	if !useColor() {
+		return fmt.Sprintf("Resumed session: %s (%d messages)", title, msgCount)
+	}
+	return colorize(brightCyan, "Resumed") + ": " + colorize(bold, title) +
+		colorize(dim, fmt.Sprintf(" (%d messages)", msgCount))
 }
 
 // formatToolStart shows a tool dispatch indicator when a tool call begins.
@@ -394,4 +404,12 @@ func humanizeTokens(n int) string {
 		return fmt.Sprintf("%d tokens", n)
 	}
 	return fmt.Sprintf("%.1fK tokens", float64(n)/1000)
+}
+
+// humanizeTokensCompact converts a token count to a compact string (no "tokens" suffix).
+func humanizeTokensCompact(n int) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("%.0fK", float64(n)/1000)
 }
