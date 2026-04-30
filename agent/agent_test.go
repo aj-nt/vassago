@@ -167,7 +167,9 @@ func TestAgentWithRouter(t *testing.T) {
 		ContextWindow: 128000,
 		ToolUse:       true,
 	})
-	router.SetPrimary("mock-model")
+	if err := router.SetPrimary("mock-model"); err != nil {
+		t.Fatal(err)
+	}
 
 	toolReg := tools.NewToolRegistry()
 	cfg := Config{
@@ -234,7 +236,7 @@ func TestSelectProviderWithRouter(t *testing.T) {
 		Provider: "mock",
 		ToolUse:  true,
 	})
-	router.SetPrimary("cheap")
+	router.SetPrimary("cheap") //nolint:errcheck // test: model is registered above
 
 	a := &Agent{
 		Config:   Config{AgentID: "test"},
