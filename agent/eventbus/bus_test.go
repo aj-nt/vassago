@@ -8,7 +8,7 @@ import (
 func TestNewEventBus(t *testing.T) {
 	bus := NewEventBus()
 	if bus == nil {
-		t.Error("NewEventBus should return a non-nil bus")
+		t.Fatal("NewEventBus should return a non-nil bus")
 	}
 	if bus.closed {
 		t.Error("New event bus should not be closed")

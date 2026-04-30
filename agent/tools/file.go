@@ -14,7 +14,18 @@ import (
 var allowedDirs []string
 
 // approvalRequired is the list of tools that require user approval before execution.
+// Used by the CLI to prompt the user before executing tools like FileWrite and Execute.
 var approvalRequired []string
+
+// IsApprovalRequired returns whether a tool requires human approval before execution.
+func IsApprovalRequired(toolName string) bool {
+	for _, name := range approvalRequired {
+		if name == toolName {
+			return true
+		}
+	}
+	return false
+}
 
 // SetFileConfig configures file tools with security constraints.
 func SetFileConfig(dirs []string, approval []string) {

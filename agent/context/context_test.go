@@ -33,7 +33,7 @@ func TestConversationContext_LastAssistantMessage(t *testing.T) {
 
 	last := ctx.LastAssistantMessage()
 	if last == nil {
-		t.Error("Expected to find last assistant message")
+		t.Fatal("Expected to find last assistant message")
 	}
 	if last.Content != "second" {
 		t.Errorf("Expected 'second', got %q", last.Content)
