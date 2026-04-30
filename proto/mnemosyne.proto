@@ -8,6 +8,9 @@ option go_package = "github.com/aj-nt/mnemosyne/proto";
 // gRPC service definition
 
 service Mnemosyne {
+  // Health check
+  rpc Ping(HealthCheckRequest) returns (HealthCheckResponse);
+
   // Memory CRUD
   rpc AddMemory(AddMemoryRequest) returns (AddMemoryResponse);
   rpc GetMemory(GetMemoryRequest) returns (MemoryEntry);
@@ -272,6 +275,17 @@ message RegisterAgentResponse {
 
 message AgentId {
   string agent_id = 1;
+}
+
+// Health check messages
+message HealthCheckRequest {
+  // Empty request
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+  int64 timestamp = 3;
 }
 
 message Empty {}
