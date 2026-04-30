@@ -1204,6 +1204,7 @@ type Session struct {
 	CreatedAt     int64                  `protobuf:"varint,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastActiveAt  int64                  `protobuf:"varint,6,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	MessageCount  int32                  `protobuf:"varint,7,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`
+	Messages      []*Message             `protobuf:"bytes,8,rep,name=messages,proto3" json:"messages,omitempty"` // Only populated when include_messages = true
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1285,6 +1286,13 @@ func (x *Session) GetMessageCount() int32 {
 		return x.MessageCount
 	}
 	return 0
+}
+
+func (x *Session) GetMessages() []*Message {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
 }
 
 type Message struct {
@@ -2340,7 +2348,7 @@ const file_proto_mnemosyne_proto_rawDesc = "" +
 	"\ventry_count\x18\x03 \x01(\x05R\n" +
 	"entryCount\x12\x1f\n" +
 	"\vcomputed_at\x18\x04 \x01(\x03R\n" +
-	"computedAt\"\xcc\x01\n" +
+	"computedAt\"\xfc\x01\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x16\n" +
@@ -2349,7 +2357,8 @@ const file_proto_mnemosyne_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\x03R\tcreatedAt\x12$\n" +
 	"\x0elast_active_at\x18\x06 \x01(\x03R\flastActiveAt\x12#\n" +
-	"\rmessage_count\x18\a \x01(\x05R\fmessageCount\"\x94\x01\n" +
+	"\rmessage_count\x18\a \x01(\x05R\fmessageCount\x12.\n" +
+	"\bmessages\x18\b \x03(\v2\x12.mnemosyne.MessageR\bmessages\"\x94\x01\n" +
 	"\aMessage\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12 \n" +
@@ -2522,55 +2531,56 @@ var file_proto_mnemosyne_proto_depIdxs = []int32{
 	20, // 3: mnemosyne.SearchSessionsResponse.sessions:type_name -> mnemosyne.Session
 	20, // 4: mnemosyne.ListSessionsResponse.sessions:type_name -> mnemosyne.Session
 	17, // 5: mnemosyne.HotBlockRequest.config:type_name -> mnemosyne.HotBlockConfig
-	21, // 6: mnemosyne.AddMessagesRequest.messages:type_name -> mnemosyne.Message
-	0,  // 7: mnemosyne.ConsolidateRequest.scope:type_name -> mnemosyne.ConsolidateScope
-	0,  // 8: mnemosyne.GetConsolidationCandidatesRequest.scope:type_name -> mnemosyne.ConsolidateScope
-	2,  // 9: mnemosyne.ConsolidationCandidate.entry:type_name -> mnemosyne.MemoryEntry
-	30, // 10: mnemosyne.ConsolidationCandidatesResponse.candidates:type_name -> mnemosyne.ConsolidationCandidate
-	1,  // 11: mnemosyne.UpdateEvent.event_type:type_name -> mnemosyne.UpdateEvent.EventType
-	2,  // 12: mnemosyne.UpdateEvent.entry:type_name -> mnemosyne.MemoryEntry
-	19, // 13: mnemosyne.UpdateEvent.hot_block:type_name -> mnemosyne.HotBlockResponse
-	3,  // 14: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
-	5,  // 15: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
-	6,  // 16: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
-	7,  // 17: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
-	9,  // 18: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
-	11, // 19: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
-	13, // 20: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
-	15, // 21: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
-	18, // 22: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
-	22, // 23: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
-	23, // 24: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
-	24, // 25: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
-	26, // 26: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
-	27, // 27: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
-	29, // 28: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
-	32, // 29: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
-	34, // 30: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
-	36, // 31: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
-	4,  // 32: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
-	2,  // 33: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
-	2,  // 34: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
-	8,  // 35: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
-	10, // 36: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
-	12, // 37: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
-	14, // 38: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
-	16, // 39: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
-	19, // 40: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
-	20, // 41: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
-	20, // 42: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
-	25, // 43: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
-	20, // 44: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
-	28, // 45: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
-	31, // 46: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
-	33, // 47: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
-	35, // 48: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
-	37, // 49: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
-	32, // [32:50] is the sub-list for method output_type
-	14, // [14:32] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	21, // 6: mnemosyne.Session.messages:type_name -> mnemosyne.Message
+	21, // 7: mnemosyne.AddMessagesRequest.messages:type_name -> mnemosyne.Message
+	0,  // 8: mnemosyne.ConsolidateRequest.scope:type_name -> mnemosyne.ConsolidateScope
+	0,  // 9: mnemosyne.GetConsolidationCandidatesRequest.scope:type_name -> mnemosyne.ConsolidateScope
+	2,  // 10: mnemosyne.ConsolidationCandidate.entry:type_name -> mnemosyne.MemoryEntry
+	30, // 11: mnemosyne.ConsolidationCandidatesResponse.candidates:type_name -> mnemosyne.ConsolidationCandidate
+	1,  // 12: mnemosyne.UpdateEvent.event_type:type_name -> mnemosyne.UpdateEvent.EventType
+	2,  // 13: mnemosyne.UpdateEvent.entry:type_name -> mnemosyne.MemoryEntry
+	19, // 14: mnemosyne.UpdateEvent.hot_block:type_name -> mnemosyne.HotBlockResponse
+	3,  // 15: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
+	5,  // 16: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
+	6,  // 17: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
+	7,  // 18: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
+	9,  // 19: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
+	11, // 20: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
+	13, // 21: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
+	15, // 22: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
+	18, // 23: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
+	22, // 24: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
+	23, // 25: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
+	24, // 26: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
+	26, // 27: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
+	27, // 28: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
+	29, // 29: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
+	32, // 30: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
+	34, // 31: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
+	36, // 32: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
+	4,  // 33: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
+	2,  // 34: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
+	2,  // 35: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
+	8,  // 36: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
+	10, // 37: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
+	12, // 38: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
+	14, // 39: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
+	16, // 40: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
+	19, // 41: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
+	20, // 42: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
+	20, // 43: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
+	25, // 44: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
+	20, // 45: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
+	28, // 46: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
+	31, // 47: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
+	33, // 48: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
+	35, // 49: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
+	37, // 50: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
+	33, // [33:51] is the sub-list for method output_type
+	15, // [15:33] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_proto_mnemosyne_proto_init() }

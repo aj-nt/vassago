@@ -13,6 +13,9 @@ import (
 type ToolDispatchStage struct {
 	Registry *tools.ToolRegistry
 	EventBus *eventbus.EventBus
+	// Approver is called before executing a tool. Return false to skip.
+	// This is used by the CLI to prompt the user for approval of dangerous tools.
+	Approver func(toolName string, args map[string]interface{}) bool
 }
 
 // NewToolDispatchStage creates a new Stage 4.
@@ -55,6 +58,20 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 				Result:  fmt.Sprintf("invalid arguments: %v", err),
 				IsError: true,
 			})
+			continue
+		}
+
+		// Check approval if an approver is set
+		if s.Approver != nil && !s.Approver(tc.Name, args) {
+			toolResults = append(toolResults, agentctx.ToolResult{
+				CallID:  tc.ID,
+				Name:    tc.Name,
+				Result:  "tool execution skipped: user denied approval",
+				IsError: true,
+			})
+			if s.EventBus != nil {
+				s.EventBus.Emit(eventbus.Event{Kind: "tool_denied", Data: tc.Name})
+			}
 			continue
 		}
 

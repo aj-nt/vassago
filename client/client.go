@@ -255,3 +255,40 @@ func (c *Client) ListRecentSessions(ctx context.Context, limit int32) ([]Session
 	}
 	return result, nil
 }
+
+// GetSession retrieves a session with its messages.
+func (c *Client) GetSession(ctx context.Context, sessionID string) (*SessionDetail, error) {
+	includeMsgs := true
+	resp, err := c.api.GetSession(ctx, &pb.GetSessionRequest{
+		SessionId:       sessionID,
+		IncludeMessages: &includeMsgs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("GetSession: %w", err)
+	}
+
+	detail := &SessionDetail{
+		ID:           resp.Id,
+		Title:        resp.Title,
+		Source:       resp.Source,
+		MessageCount: resp.MessageCount,
+	}
+
+	for _, m := range resp.Messages {
+		detail.Messages = append(detail.Messages, Message{
+			Role:    m.Role,
+			Content: m.Content,
+		})
+	}
+
+	return detail, nil
+}
+
+// SessionDetail is a session with its messages.
+type SessionDetail struct {
+	ID           string
+	Title        string
+	Source       string
+	MessageCount int32
+	Messages     []Message
+}

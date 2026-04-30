@@ -222,6 +222,33 @@ func scanSession(rows *sql.Rows) (*Session, error) {
 	return sess, nil
 }
 
+// GetSessionMessages retrieves all messages for a session.
+func (s *Store) GetSessionMessages(sessionID string) ([]Message, error) {
+	rows, err := s.db.Query(`
+		SELECT id, session_id, role, content, tool_call_id, tool_name, timestamp
+		FROM messages WHERE session_id = ?
+		ORDER BY timestamp ASC, id ASC`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("get session messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []Message
+	for rows.Next() {
+		var m Message
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.ToolCallID, &m.ToolName, &m.Timestamp); err != nil {
+			return nil, fmt.Errorf("scan message: %w", err)
+		}
+		messages = append(messages, m)
+	}
+	return messages, rows.Err()
+}
+
+// AddMessage adds a single message to a session.
+func (s *Store) AddMessage(m Message) error {
+	return s.AddMessages(m.SessionID, []Message{m})
+}
+
 // Agent represents a connected agent.
 type Agent struct {
 	ID         string
