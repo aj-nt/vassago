@@ -11,6 +11,26 @@ import (
 func TestAnthropicParse(t *testing.T) {
 	provider := NewAnthropicProvider("test-key", "claude-test")
 
+	// Also test basic accessor methods
+	t.Run("Name", func(t *testing.T) {
+		if provider.Name() != "anthropic" {
+			t.Errorf("Expected Name() = 'anthropic', got '%s'", provider.Name())
+		}
+	})
+
+	t.Run("Capabilities", func(t *testing.T) {
+		caps := provider.Capabilities()
+		if !caps.SupportsStreaming {
+			t.Error("Expected SupportsStreaming = true")
+		}
+		if !caps.SupportsFunctionCalling {
+			t.Error("Expected SupportsFunctionCalling = true")
+		}
+		if !caps.SupportsPromptCaching {
+			t.Error("Expected SupportsPromptCaching = true")
+		}
+	})
+
 	// Test response with text content
 	textResponse := map[string]interface{}{
 		"content": []map[string]interface{}{

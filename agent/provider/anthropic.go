@@ -14,6 +14,7 @@ import (
 type AnthropicProvider struct {
 	apiKey       string
 	model        string
+	baseURL      string // defaults to "https://api.anthropic.com/v1/messages"
 	client       *http.Client
 	capabilities agentctx.ProviderCapabilities
 }
@@ -24,9 +25,10 @@ func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 		model = "claude-sonnet-4-6"
 	}
 	return &AnthropicProvider{
-		apiKey: apiKey,
-		model:  model,
-		client: &http.Client{},
+		apiKey:  apiKey,
+		model:   model,
+		baseURL: "https://api.anthropic.com/v1/messages",
+		client:  &http.Client{},
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -151,7 +153,7 @@ func (p *AnthropicProvider) Execute(ctx context.Context, req interface{}) (agent
 		return agentctx.ProviderResult{}, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(bodyJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return agentctx.ProviderResult{ShouldRetry: false, Error: err}, nil
 	}
