@@ -63,11 +63,7 @@ func useColor() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
-	term := os.Getenv("TERM")
-	if term == "dumb" {
-		return false
-	}
-	return true
+	return os.Getenv("TERM") != "dumb"
 }
 
 // --- Output formatters ---
