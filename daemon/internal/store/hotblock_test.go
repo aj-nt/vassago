@@ -11,7 +11,7 @@ func TestComputeHotBlock_basic(t *testing.T) {
 
 	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0)  //nolint:errcheck
 	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)       //nolint:errcheck
-	addMemory(s, "user", "user", "name", "AJ Flinton", 4, testAgentHotBlock, 0)                          //nolint:errcheck
+	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                          //nolint:errcheck
 
 	// Memory hot block
 	result, err := s.ComputeHotBlock("memory", HotBlockConfig{

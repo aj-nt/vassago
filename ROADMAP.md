@@ -72,7 +72,7 @@ Don't refactor code that's about to be replaced in the next phase.
 ### Branch Structure
 
 ```
-main (protected)     ← CI must be green + AJ approves merge
+main (protected)     ← CI must be green + maintainer approves merge
   ↑
   PR (automated + manual gate)
   ↑
@@ -89,7 +89,7 @@ phase-N/feature      ← work happens here, push often, CI runs on every push
    - Run Manual Red Team Pass (try to break it, see criteria above)
    - Run Refactoring Pass (Fowler discipline, max 5-8 transformations)
 5. **Create PR to `main`** — CI must be green before review
-6. **AJ approves** — merge to main
+6. **Maintainer approves** — merge to main
 7. **Pull to other machines** — `git pull` on Studio, verify tests pass
 
 ### CI Workflows (automated on every push)
@@ -103,7 +103,7 @@ phase-N/feature      ← work happens here, push often, CI runs on every push
 
 **`main` branch:**
 - Require PR before merging
-- Require 1 approval (AJ)
+- Require 1 approval (maintainer)
 - Require status checks: test, lint, security (from ci.yml)
 - Require linear history (no merge commits)
 
@@ -118,10 +118,10 @@ Tag the commit: `hotfix: <description>`
 
 | Host | Role | Mnemosyne Daemon | Agent |
 |---|---|---|---|
-| QMM (AJ's personal M4 Mini) | Development, personal machine | No (connects to Studio) | CLI for ad-hoc dev |
-| Studio (AJ's Mac Studio, always-on) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
+| QMM (dev machine) | Development | No (connects to Studio) | CLI for ad-hoc dev |
+| Studio (always-on server) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
 
-QMM is AJ's personal computer. Studio is the always-on test bed.
+QMM is the development machine. Studio is the always-on test bed.
 
 ---
 
@@ -368,7 +368,7 @@ memories. Anthropic provider works. Fallback chain works.
 - [ ] Rebuild FTS5 indexes after import (runs on store init)
 
 ### 6.2 Validation
-- [ ] Import AJ's real state.db (~34 memories, ~824 sessions)
+- [ ] Import a real Hermes state.db (~34 memories, ~824 sessions)
 - [ ] Compare hot block rendering character-by-character against Hermes
 - [ ] Verify all memories searchable via Mnemosyne
 - [ ] Verify session search works
@@ -376,7 +376,7 @@ memories. Anthropic provider works. Fallback chain works.
 **Deliverable:** `mnemosyne import --source ~/.hermes/state.db` produces a
 Mnemosyne database with all Hermes memories intact.
 
-**QA Pass:** Import AJ's real state.db. Verify 34 memories, 824 sessions present
+**QA Pass:** Import a real Hermes state.db. Verify 34 memories, 824 sessions present
 and searchable. Zero data loss.
 
 **Red Team QA Pass:** Import a corrupt state.db (missing table, wrong schema version, NULL in NOT NULL column). Verify graceful error, no partial import left behind. Import twice — second run rejected with clear message (or idempotent with no duplicates).

@@ -11,7 +11,7 @@ import (
 // within the current agentic loop (the model needs them to form its next response),
 // but sending them again on subsequent turns causes the model to re-read and
 // re-state information from prior tool calls — producing the repetition bug where
-// the agent re-asserts facts it already mentioned (e.g., "Your name is Paul Flinton,
+// the agent re-asserts facts it already mentioned (e.g., "Your name is AJ,
 // goes by AJ" in every single response).
 //
 // Strategy:

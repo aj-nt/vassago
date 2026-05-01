@@ -42,7 +42,7 @@ func TestRequestPrepStageProcess_EmptyContext(t *testing.T) {
 
 func TestRequestPrepStageProcess_WithHotBlock(t *testing.T) {
 	stage := NewRequestPrepStage("direct")
-	hotBlock := "[user] name_paul: Paul Flinton. Goes by AJ."
+	hotBlock := "[user] name_aj: AJ. Prefers Go and Python."
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "What's my name?"},
