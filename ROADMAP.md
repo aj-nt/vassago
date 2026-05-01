@@ -545,8 +545,22 @@ register, heartbeat, and subscribe to memory change events.
 - `agent/config.go` — SchedulerSection config struct
 - `agent/cmd/mnemosyne-agent/main.go` — Wiring: start scheduler if enabled
 
-### 14E: Structured Tool Input Validation — TODO
+### 14E: Structured Tool Input Validation — COMPLETE ✅
 
-- [ ] Validate tool call args against JSON Schema before dispatch
-- [ ] Return structured error to LLM on validation failure
+- [x] Validate tool call args against JSON Schema before dispatch
+- [x] Return structured error to LLM on validation failure
+- [x] Required field validation (e.g., key, content for AddMemory)
+- [x] Type checking (string, integer, boolean, array, object)
+- [x] Enum validation (e.g., target must be "memory" or "user")
+- [x] Minimum/maximum bounds (e.g., priority 1-5)
+- [x] Default values applied from schema for missing optional args
+- [x] ValidationError type with Tool/Field/Issue
+- [x] Emit 'tool_validation_error' event on validation failure
+- [x] No external dependencies (lightweight validator)
+- [x] 16 unit tests
+
+**Key files:**
+- `agent/tools/validate.go` — ValidateArgs, ApplyDefaults, ValidationError, toFloat
+- `agent/tools/validate_test.go` — 16 validation unit tests
+- `agent/pipeline/tool_dispatch.go` — Wire validation before handler call
 - [ ] Kills empty-args crash permanently
