@@ -257,25 +257,39 @@ func (r *ModelRouter) selectBest(ctx RoutingContext) (*ModelConfig, error) {
 
 // selectSmart uses heuristic rules for per-turn model selection.
 //
-// Rules (in priority order):
-//  1. Complex reasoning (long prompt with reasoning keywords) → best model
-//  2. Tool-result turns → primary model (needs good reasoning to interpret results)
-//  3. Default → primary model (Claude for quality, GLM-5.1 for cost if routing to cheap)
+// Strategy: Use cheap model (GLM-5.1) for simple turns to save cost,
+// but route to premium model (Claude) for tool calls and complex reasoning
+// where quality matters.
 //
-// Cost note: Claude Sonnet 4.6 costs $3/$15 per MTok. At typical usage this
-// is ~$0.03-0.10/session. Tool-result turns are the most expensive (full context
-// sent) so they should always use the best model.
+// Cost context: Claude Sonnet 4.6 costs $3/$15 per MTok. GLM-5.1 is free.
+// A simple "hello" costs ~$0.003 on Claude but $0 on GLM-5.1.
+// Tool-result turns cost more (full context) and need good reasoning → always Claude.
 func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
-	// Rule 1: Complex reasoning detected
+	// Rule 1: Tool-result turns → primary model (needs good reasoning to interpret)
+	if ctx.HasToolResults && ctx.Iteration > 0 {
+		return r.selectPrimary()
+	}
+
+	// Rule 2: Complex reasoning → best model
 	if isComplexReasoning(ctx.UserMessage, ctx.PromptCharCount) {
 		if m := r.findBestReasoning(true); m != nil && !r.isDemoted(m.Name) {
 			return m, nil
 		}
 	}
 
-	// Rule 2: Default to primary
-	// All turns use primary (Claude) for quality. GLM-5.1 is available as
-	// fallback but not routed to automatically — it's a free safety net.
+	// Rule 3: First turn with tool calls → primary model (tool calls need quality)
+	if ctx.Iteration == 0 && ctx.ToolCallCount > 0 {
+		return r.selectPrimary()
+	}
+
+	// Rule 4: Short/simple prompts → cheap model (saves ~$0.01/turn)
+	if len(ctx.UserMessage) < 200 && ctx.PromptCharCount < 800 {
+		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) && !r.isDemoted(m.Name) {
+			return m, nil
+		}
+	}
+
+	// Rule 5: Default to primary
 	return r.selectPrimary()
 }
 

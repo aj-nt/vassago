@@ -152,18 +152,17 @@ func TestRouterQualityOptimized(t *testing.T) {
 func TestRouterSmartFirstTurn(t *testing.T) {
 	r := newRouterWithModels(StrategySmart)
 
-	// First turn goes to primary model (not cheap model)
-	// Interactive users expect the primary model for their first message
+	// First turn with short prompt → cheap model (saves cost on simple greetings)
 	m, err := r.Select(RoutingContext{
 		Iteration:      0,
-		UserMessage:   "hi",
+		UserMessage:    "hi",
 		PromptCharCount: 2,
 	})
 	if err != nil {
 		t.Fatalf("Select error: %v", err)
 	}
-	if m.Name != "premium" {
-		t.Errorf("expected premium (primary for first turn), got %s", m.Name)
+	if m.Name != "local" {
+		t.Errorf("expected local (cheap for short first turn), got %s", m.Name)
 	}
 }
 
@@ -205,17 +204,17 @@ func TestRouterSmartToolResultFormatting(t *testing.T) {
 func TestRouterSmartMediumPrompt(t *testing.T) {
 	r := newRouterWithModels(StrategySmart)
 
-	// Medium prompt (100-200 chars, no reasoning keywords) → defaults to primary
+	// Medium prompt (100-200 chars, no reasoning keywords) → cheap model (saves cost)
 	m, err := r.Select(RoutingContext{
 		Iteration:      0,
-		UserMessage:   "tell me about the project structure",
+		UserMessage:    "tell me about the project structure",
 		PromptCharCount: 150,
 	})
 	if err != nil {
 		t.Fatalf("Select error: %v", err)
 	}
-	if m.Name != "premium" {
-		t.Errorf("expected premium (default for medium prompt), got %s", m.Name)
+	if m.Name != "local" {
+		t.Errorf("expected local (cheap for medium prompt), got %s", m.Name)
 	}
 }
 
