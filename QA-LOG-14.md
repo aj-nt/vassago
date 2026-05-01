@@ -122,3 +122,50 @@ scheduler:
   enabled: true
   interval: 3600  # 1 hour in seconds
 ```
+
+---
+
+## Red Team QA Pass (2026-05-01)
+
+### Attack Surfaces Tested
+- Daemon store layer: nil/empty fields, oversized content, SQL injection, FTS5 injection, concurrent writes, boundary timestamps, priority overflow, special chars, spoofed agent IDs, hot block starvation, char limit overflow
+- Agent tool validation: SQL injection, type confusion, missing required fields, null bytes, very long input, enum violations
+- Agent tool dispatch: unknown tools, empty/null args, wrong types, SQL injection in tool names, invalid JSON, rapid-fire tool calls
+- gRPC service: stub tests (need real server integration)
+
+### RED TEAM FINDINGS
+
+#### MEDIUM: Empty content accepted by AddMemory
+- The store has no minimum content length. AddMemory with empty string content succeeds.
+- The tool handler does check `content == ""` and returns an error, so the tool-level defense works.
+- The store-level validation rejects it with a content-length check (max 100K chars).
+- **Risk**: LOW — the tool handler catches it before the store. But if called directly via gRPC, empty content is allowed.
+
+#### MEDIUM: Null bytes not rejected by validation
+- ValidateArgs does not reject strings containing `\x00`.
+- SQLite handles null bytes in TEXT columns (stores as-is), but they can cause issues in FTS5 indexing and JSON serialization.
+- **Risk**: MEDIUM — null bytes in category/key could corrupt FTS5 indexes.
+
+#### LOW: ApplyDefaults doesn't apply all optional defaults
+- The AddMemory schema defines `default: 20` for `limit` and `default: 3` for `priority`, but ApplyDefaults only checks for `"default"` keys at the top level of `properties[name]`.
+- Nested defaults (like `limit` inside `properties.limit.default`) ARE applied, but some defaults like `priority` use the handler's fallback instead.
+- **Risk**: LOW — handlers have their own default fallbacks.
+
+#### LOW: Category not marked as required in AddMemory schema
+- AddMemory's schema only marks `key` and `content` as required. `category` and `target` have defaults in the handler.
+- If called via gRPC without category, it gets the handler's default ("environment").
+- **Risk**: LOW — defaults are applied correctly by the handler.
+
+#### INFO: Content size limit exists (100K chars)
+- Store rejects content > 100,000 characters with `validation: content too long: N chars, max 100000`.
+- This is a good defensive control.
+
+#### INFO: Priority validation works (1-5)
+- Store rejects priority 0, -1, and 999 with `validation: invalid priority N: must be 1-5`.
+- Agent tool validation also enforces this range.
+
+### Tests Added
+- `daemon/internal/store/redteam_test.go` — 11 tests
+- `agent/tools/redteam_test.go` — 8 tests
+- `agent/pipeline/redteam_test.go` — 8 tests
+- `daemon/internal/grpc/redteam_test.go` — 9 stub tests (need integration)
