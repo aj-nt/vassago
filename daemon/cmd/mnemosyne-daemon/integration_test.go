@@ -347,3 +347,285 @@ func TestIntegration_DaemonHealthCheck(t *testing.T) {
 		t.Errorf("Ping status = %q, want 'healthy'", resp.Status)
 	}
 }
+
+func TestIntegration_AgentRegistration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, client, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Register an agent
+	regResp, err := client.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "test-agent-001",
+		Name:    "test-agent",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent: %v", err)
+	}
+	if regResp.AgentId != "test-agent-001" {
+		t.Errorf("agent_id = %q, want 'test-agent-001'", regResp.AgentId)
+	}
+
+	// Heartbeat should succeed
+	_, err = client.Heartbeat(ctx, &pb.AgentId{AgentId: "test-agent-001"})
+	if err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+
+	// Re-register should succeed (idempotent upsert)
+	regResp2, err := client.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "test-agent-001",
+		Name:    "test-agent-updated",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("Re-register: %v", err)
+	}
+	if regResp2.AgentId != "test-agent-001" {
+		t.Errorf("re-register agent_id = %q, want 'test-agent-001'", regResp2.AgentId)
+	}
+}
+
+func TestIntegration_AgentSubscription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, client, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Register agent A
+	_, err := client.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "agent-a",
+		Name:    "Agent A",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent A: %v", err)
+	}
+
+	// Agent A subscribes to memory changes
+	stream, err := client.Subscribe(ctx, &pb.SubscribeRequest{
+		AgentId: "agent-a",
+		Targets: []string{"memory"},
+	})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	// Register agent B (the one that will write a memory)
+	_, err = client.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "agent-b",
+		Name:    "Agent B",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent B: %v", err)
+	}
+
+	// Agent B writes a memory — should trigger an event to Agent A
+	_, err = client.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "environment",
+		Key:         "telepathy-test",
+		Content:     "Telepathy integration test memory",
+		Priority:    3,
+		SourceAgent: "agent-b",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory from agent-b: %v", err)
+	}
+
+	// Agent A should receive the event
+	event, err := stream.Recv()
+	if err != nil {
+		t.Fatalf("Recv event: %v", err)
+	}
+
+	if event.Target != "memory" {
+		t.Errorf("event target = %q, want 'memory'", event.Target)
+	}
+	if event.Key != "telepathy-test" {
+		t.Errorf("event key = %q, want 'telepathy-test'", event.Key)
+	}
+	if event.AgentId != "agent-b" {
+		t.Errorf("event agent_id = %q, want 'agent-b' (self-exclusion)", event.AgentId)
+	}
+	if event.EventType != pb.UpdateEvent_ADDED {
+		t.Errorf("event type = %v, want ADDED", event.EventType)
+	}
+}
+
+func TestIntegration_AgentSessionLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, dClient, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Register agent A
+	regResp, err := dClient.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "lifecycle-agent",
+		Name:    "Lifecycle Agent",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent: %v", err)
+	}
+	if regResp.AgentId != "lifecycle-agent" {
+		t.Errorf("agent_id = %q, want 'lifecycle-agent'", regResp.AgentId)
+	}
+
+	// Send heartbeat
+	_, err = dClient.Heartbeat(ctx, &pb.AgentId{AgentId: "lifecycle-agent"})
+	if err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+
+	// Subscribe
+	stream, err := dClient.Subscribe(ctx, &pb.SubscribeRequest{
+		AgentId: "lifecycle-agent",
+		Targets: []string{"memory"},
+	})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	// Write a memory from a different agent — should trigger an event
+	_, err = dClient.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "project",
+		Key:         "lifecycle-event",
+		Content:     "Event from lifecycle test",
+		Priority:    3,
+		SourceAgent: "other-agent",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory: %v", err)
+	}
+
+	// Should receive the telepathy event
+	event, err := stream.Recv()
+	if err != nil {
+		t.Fatalf("Recv: %v", err)
+	}
+	if event.Key != "lifecycle-event" {
+		t.Errorf("event key = %q, want 'lifecycle-event'", event.Key)
+	}
+}
+
+func TestIntegration_TelepathyHotBlockRefresh(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, dClient, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Pre-populate a memory so the hot block isn't empty
+	_, err := dClient.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "environment",
+		Key:         "pre-existing",
+		Content:     "Existing memory before Telepathy test",
+		Priority:    3,
+		SourceAgent: "setup-agent",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory pre-existing: %v", err)
+	}
+
+	// Get initial hot block
+	hbBefore, err := dClient.GetHotBlock(ctx, &pb.HotBlockRequest{
+		Target:    "memory",
+		AgentId:   "agent-a",
+		CharLimit: 4000,
+	})
+	if err != nil {
+		t.Fatalf("GetHotBlock before: %v", err)
+	}
+
+	// Agent A registers
+	_, err = dClient.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "agent-a",
+		Name:    "Agent A",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent A: %v", err)
+	}
+
+	// Agent A subscribes to memory changes
+	stream, err := dClient.Subscribe(ctx, &pb.SubscribeRequest{
+		AgentId: "agent-a",
+		Targets: []string{"memory"},
+	})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	// Agent B writes a new memory — this should trigger a Telepathy event
+	_, err = dClient.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "project",
+		Key:         "telepathy-hotblock-test",
+		Content:     "New memory from Telepathy hot block test",
+		Priority:    4,
+		SourceAgent: "agent-b",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory from agent-b: %v", err)
+	}
+
+	// Agent A should receive the Telepathy event
+	event, err := stream.Recv()
+	if err != nil {
+		t.Fatalf("Recv event: %v", err)
+	}
+	if event.EventType != pb.UpdateEvent_ADDED {
+		t.Errorf("event type = %v, want ADDED", event.EventType)
+	}
+	if event.AgentId != "agent-b" {
+		t.Errorf("event agent_id = %q, want 'agent-b'", event.AgentId)
+	}
+	if event.Key != "telepathy-hotblock-test" {
+		t.Errorf("event key = %q, want 'telepathy-hotblock-test'", event.Key)
+	}
+
+	// After receiving the event, the hot block should now include the new memory
+	hbAfter, err := dClient.GetHotBlock(ctx, &pb.HotBlockRequest{
+		Target:    "memory",
+		AgentId:   "agent-a",
+		CharLimit: 4000,
+	})
+	if err != nil {
+		t.Fatalf("GetHotBlock after: %v", err)
+	}
+
+	// The new hot block should have more entries (or at least include the new key)
+	if hbAfter.EntryCount < hbBefore.EntryCount {
+		t.Errorf("hot block entries: before=%d, after=%d (should be >= before)",
+			hbBefore.EntryCount, hbAfter.EntryCount)
+	}
+
+	// Verify the new content appears in the hot block text
+	if hbAfter.Content == hbBefore.Content && hbBefore.EntryCount > 0 {
+		t.Error("hot block content unchanged after Telepathy event — should reflect new memory")
+	}
+}

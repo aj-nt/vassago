@@ -13,8 +13,32 @@ import (
 
 // Client is a gRPC client for the Mnemosyne daemon.
 type Client struct {
-	conn *grpc.ClientConn
-	api  pb.MnemosyneClient
+    conn *grpc.ClientConn
+    api  pb.MnemosyneClient
+}
+
+// RegisterAgent registers the agent with the daemon.
+func (c *Client) RegisterAgent(ctx context.Context, agentID, name, role string) (returnedAgentID string, isNew bool, err error) {
+	resp, err := c.api.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: agentID,
+		Name:    name,
+		Role:    role,
+	})
+	if err != nil {
+		return "", false, fmt.Errorf("register agent: %w", err)
+	}
+	return resp.AgentId, resp.IsNew, nil
+}
+
+// Heartbeat sends a keep-alive to the daemon.
+func (c *Client) Heartbeat(ctx context.Context, agentID string) error {
+	_, err := c.api.Heartbeat(ctx, &pb.AgentId{AgentId: agentID})
+	return err
+}
+
+// Subscribe opens a server-streaming subscription for memory change events.
+func (c *Client) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+	return c.api.Subscribe(ctx, req)
 }
 
 // Config holds client connection configuration.

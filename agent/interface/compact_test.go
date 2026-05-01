@@ -34,8 +34,8 @@ func TestCompactMessages_StringsOldToolResults(t *testing.T) {
 	messages := []agentctx.Message{
 		{Role: "user", Content: "What's my name?"},
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
-		{Role: "tool", Content: "Found: Paul Flinton, goes by AJ", ToolCallID: "1", Name: "SearchMemories"},
-		{Role: "assistant", Content: "Your name is Paul Flinton. You go by AJ."},
+		{Role: "tool", Content: "Found: AJ", ToolCallID: "1", Name: "SearchMemories"},
+		{Role: "assistant", Content: "Your name is AJ."},
 		{Role: "user", Content: "What's the weather?"},
 		{Role: "assistant", Content: "I don't have weather data."},
 	}
@@ -68,7 +68,7 @@ func TestCompactMessages_StringsOldToolResults(t *testing.T) {
 		// Check if there's a summary with the tool names
 		anySummary := false
 		for _, m := range result {
-			if m.Role == "assistant" && m.Content != "Your name is Paul Flinton. You go by AJ." && m.Content != "I don't have weather data." {
+			if m.Role == "assistant" && m.Content != "Your name is AJ." && m.Content != "I don't have weather data." {
 				anySummary = true
 			}
 		}

@@ -10,9 +10,11 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent"
 	"github.com/aj-nt/mnemosyne/agent/provider"
+	"github.com/aj-nt/mnemosyne/agent/scheduler"
 	"github.com/aj-nt/mnemosyne/agent/tools"
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 func main() {
@@ -36,9 +38,29 @@ func main() {
 	}
 	defer mnemo.Close()
 
+	// Register agent with daemon for identity tracking and heartbeat
+	agentSession := memoclient.NewAgentSession(mnemo, memoclient.AgentConfig{
+		ID:   cfg.Agent.ID,
+		Name: cfg.Agent.Name,
+		Role: cfg.Agent.Role,
+	})
+	if err := agentSession.Register(ctx); err != nil {
+		log.Printf("Warning: agent registration failed (daemon may not support it): %v", err)
+	} else {
+		defer agentSession.Close()
+		// Use the registered agent ID (may be auto-generated if config was empty)
+		cfg.Agent.ID = agentSession.AgentID()
+		log.Printf("Agent registered with daemon: id=%s", cfg.Agent.ID)
+	}
+
 	// Wire providers and tools from config
 	registry := setupProviders(&cfg.Provider)
-	toolReg := setupTools(&cfg.Tools, mnemo, cfg.Agent.ID)
+	subRunner := &agent.SubAgentRunnerImpl{
+		Mnemo:    mnemo,
+		Registry: registry,
+		Router:   nil, // will be set below if routing is configured
+	}
+	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, mnemo, cfg.Agent.ID, subRunner)
 
 	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
@@ -52,6 +74,43 @@ func main() {
 		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
 	}
 	defer a.Close()
+	subRunner.Router = a.Router // set router for sub-agent delegation
+
+	// Set up hot block cache and Telepathy subscription
+	if agentSession.IsRegistered() {
+		// Fetch initial hot block to seed the cache
+		if hotBlock, err := a.GetHotBlock(ctx); err == nil && hotBlock != "" {
+			cache := memoclient.NewHotBlockCache("memory", cfg.Agent.ID, hotBlock, len([]rune(hotBlock)), 0)
+			a.SetHotBlockCache(cache)
+		}
+		// Subscribe to memory changes and invalidate hot block on events
+		agentSession.OnEvent = func(event *pb.UpdateEvent) {
+			a.InvalidateHotBlock()
+			log.Printf("Telepathy: %s event from %s (key=%s)",
+				event.EventType.String(), event.AgentId, event.Key)
+		}
+		subCtx := context.Background()
+		if eventCh, err := agentSession.Subscribe(subCtx, []string{"memory"}, nil); err != nil {
+			log.Printf("Warning: Telepathy subscription failed: %v", err)
+		} else {
+			// Drain events in background (they're handled by OnEvent callback)
+			go func() {
+				for range eventCh {
+				}
+			}()
+		}
+	}
+
+	// Start scheduler for periodic tasks (consolidation, cleanup)
+	if cfg.Scheduler.Enabled && mnemo != nil {
+		sched := scheduler.NewScheduler(mnemo)
+		for _, task := range sched.MnemoTasks() {
+			sched.AddTask(task)
+		}
+		sched.Start(ctx)
+		defer sched.Stop()
+		log.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
+	}
 
 	log.Printf("Starting agent %q with primary provider %q (model: %s)",
 		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
@@ -129,7 +188,7 @@ func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 }
 
 // setupTools creates the tool registry and registers tools per the config's enabled list.
-func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID string) *tools.ToolRegistry {
+func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.Enabled
 
@@ -138,6 +197,13 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
+		if delegateCfg.Enabled {
+			tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
+				Enabled:  delegateCfg.Enabled,
+				MaxDepth: delegateCfg.MaxDepth,
+				MaxTurns: delegateCfg.MaxTurns,
+			})
+		}
 		return toolReg
 	}
 
@@ -153,6 +219,13 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 	}
 	if anyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil) // nil = use default HTTP client
+	}
+	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
+		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
+			Enabled:  delegateCfg.Enabled,
+			MaxDepth: delegateCfg.MaxDepth,
+			MaxTurns: delegateCfg.MaxTurns,
+		})
 	}
 
 	return toolReg

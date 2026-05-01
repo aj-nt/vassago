@@ -153,8 +153,8 @@ func TestContextManagementStageProcess_CompactsOldToolResults(t *testing.T) {
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "What's my name?"},
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
-			{Role: "tool", Content: "Found: Paul Flinton", ToolCallID: "1", Name: "SearchMemories"},
-			{Role: "assistant", Content: "Your name is Paul Flinton."},
+			{Role: "tool", Content: "Found: AJ", ToolCallID: "1", Name: "SearchMemories"},
+			{Role: "assistant", Content: "Your name is AJ."},
 			{Role: "user", Content: "What's the weather?"},
 			{Role: "assistant", Content: "I don't have weather data."},
 		},

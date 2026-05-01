@@ -72,7 +72,7 @@ Don't refactor code that's about to be replaced in the next phase.
 ### Branch Structure
 
 ```
-main (protected)     ← CI must be green + AJ approves merge
+main (protected)     ← CI must be green + maintainer approves merge
   ↑
   PR (automated + manual gate)
   ↑
@@ -89,7 +89,7 @@ phase-N/feature      ← work happens here, push often, CI runs on every push
    - Run Manual Red Team Pass (try to break it, see criteria above)
    - Run Refactoring Pass (Fowler discipline, max 5-8 transformations)
 5. **Create PR to `main`** — CI must be green before review
-6. **AJ approves** — merge to main
+6. **Maintainer approves** — merge to main
 7. **Pull to other machines** — `git pull` on Studio, verify tests pass
 
 ### CI Workflows (automated on every push)
@@ -103,7 +103,7 @@ phase-N/feature      ← work happens here, push often, CI runs on every push
 
 **`main` branch:**
 - Require PR before merging
-- Require 1 approval (AJ)
+- Require 1 approval (maintainer)
 - Require status checks: test, lint, security (from ci.yml)
 - Require linear history (no merge commits)
 
@@ -118,10 +118,10 @@ Tag the commit: `hotfix: <description>`
 
 | Host | Role | Mnemosyne Daemon | Agent |
 |---|---|---|---|
-| QMM (AJ's personal M4 Mini) | Development, personal machine | No (connects to Studio) | CLI for ad-hoc dev |
-| Studio (AJ's Mac Studio, always-on) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
+| QMM (dev machine) | Development | No (connects to Studio) | CLI for ad-hoc dev |
+| Studio (always-on server) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
 
-QMM is AJ's personal computer. Studio is the always-on test bed.
+QMM is the development machine. Studio is the always-on test bed.
 
 ---
 
@@ -141,6 +141,10 @@ Phase 6 (Data Migration) — can start once daemon is stable
 Phase 7 (Client Polish & Validation)
     ↓
 Phase 8 (Hardening)
+    ↓
+Phase 9-13 (Daily-Driver Hardening, E2E, Stress Tests, Operational Maturity)
+    ↓
+Phase 14 (Multi-Agent & Telepathy) — IN PROGRESS
 ```
 
 Phases 3 and 4 run in parallel — different code paths. Phase 6 can start
@@ -364,7 +368,7 @@ memories. Anthropic provider works. Fallback chain works.
 - [ ] Rebuild FTS5 indexes after import (runs on store init)
 
 ### 6.2 Validation
-- [ ] Import AJ's real state.db (~34 memories, ~824 sessions)
+- [ ] Import a real Hermes state.db (~34 memories, ~824 sessions)
 - [ ] Compare hot block rendering character-by-character against Hermes
 - [ ] Verify all memories searchable via Mnemosyne
 - [ ] Verify session search works
@@ -372,7 +376,7 @@ memories. Anthropic provider works. Fallback chain works.
 **Deliverable:** `mnemosyne import --source ~/.hermes/state.db` produces a
 Mnemosyne database with all Hermes memories intact.
 
-**QA Pass:** Import AJ's real state.db. Verify 34 memories, 824 sessions present
+**QA Pass:** Import a real Hermes state.db. Verify 34 memories, 824 sessions present
 and searchable. Zero data loss.
 
 **Red Team QA Pass:** Import a corrupt state.db (missing table, wrong schema version, NULL in NOT NULL column). Verify graceful error, no partial import left behind. Import twice — second run rejected with clear message (or idempotent with no duplicates).
@@ -459,3 +463,90 @@ and searchable. Zero data loss.
 | Agent starts too late → no early feedback | Moved Agent Core to Phase 2. Usable end of Week 4. |
 | Session lifecycle RPCs forgotten | Added to Phase 1 scaffold and schema. |
 | Client library needed before Phase 7 | Basic client written in Phase 2 as part of agent. Phase 7 is polish. |
+
+---
+
+## Phase 14: Multi-Agent & Telepathy — IN PROGRESS
+
+**Goal:** Multiple agents share memories in real-time via Telepathy. Agents
+register, heartbeat, and subscribe to memory change events.
+
+### 14A: Agent Registration & Heartbeat — COMPLETE ✅
+
+- [x] `client/client.go` — `RegisterAgent()`, `Heartbeat()`, `Subscribe()` client methods
+- [x] `client/agent.go` — `AgentSession` lifecycle manager:
+  - Register on startup (calls `RegisterAgent` RPC)
+  - Heartbeat on 30s interval (background goroutine)
+  - Subscribe to memory change events (Telepathy)
+  - Graceful shutdown (stops heartbeat, cancels subscription)
+  - `AgentAPI` interface for testability
+- [x] `client/agent_test.go` — 9 unit tests for AgentSession (mock-based)
+- [x] `agent/cmd/mnemosyne-agent/main.go` — Agent registers on startup
+- [x] `agent/cmd/mnemosyne-agent/main.go` — Registered agent ID propagated to tools
+- [x] `daemon/internal/store/sessions.go` — `EnsureAgent` returns `isNew` flag
+- [x] `daemon/internal/grpc/service.go` — `RegisterAgent` returns `isNew` from store
+- [x] `daemon/cmd/mnemosyne-daemon/integration_test.go` — Agent registration + Telepathy integration tests (3 tests)
+
+**Key files:**
+- `client/agent.go` — `AgentSession`, `AgentAPI`, `AgentConfig`
+- `client/agent_test.go` — Unit tests with mock AgentAPI
+- `client/hotblock_cache.go` — Hot block cache (existing, used by Telepathy subscription)
+
+### 14B: Telepathy Client — Hot Block Subscription — COMPLETE ✅
+
+- [x] Agent subscribes to `Subscribe` stream after registration
+- [x] Hot block refreshes mid-session when telepathy events arrive
+- [x] `Agent.GetHotBlock()` uses cached hot block when available
+- [x] Fresh hot block request on significant events (memory added/removed)
+- [x] `AgentSession.OnEvent` callback for Telepathy event handling
+- [x] `Agent.InvalidateHotBlock()` marks cache stale on incoming events
+- [x] Cache seeded on startup, re-fetched from daemon after invalidation
+- [x] 8 unit tests + 1 integration test for hot block cache + Telepathy
+
+**Key files:**
+- `agent/agent.go` — `hotBlockCache`, `hotBlockStale`, `SetHotBlockCache()`, `InvalidateHotBlock()`, modified `GetHotBlock()`
+- `client/agent.go` — `OnEventFunc` callback on AgentSession
+- `agent/hotblock_cache_test.go` — 5 unit tests for cache behavior
+- `client/hotblock_event_test.go` — 3 OnEvent tests (callback, nil, invalidation pattern)
+- `agent/cmd/mnemosyne-agent/main.go` — Wiring: seed cache, subscribe, invalidate on events
+
+### 14C: Delegation Tool — Sub-Agent Spawning — COMPLETE ✅
+
+- [x] New tool: `Delegate` — spawn sub-agent with scoped prompt
+- [x] Sub-agent shares daemon connection, gets own `agent_id`
+- [x] Sub-agent has restricted toolset: memory tools only (no Delegate, file, terminal, web)
+- [x] `max_depth=1` prevents recursive delegation by default
+- [x] `delegation.enabled`, `delegation.max_depth`, `delegation.max_turns` config
+- [x] 2-minute timeout on sub-agent execution
+- [x] SubAgentRunner interface breaks import cycle between tools and agent packages
+- [x] 10 tests (6 Delegate tool + 4 SubAgentRunner)
+
+**Key files:**
+- `agent/tools/delegate.go` — Delegate tool handler, schema, SubAgentRunner interface, DelegateConfig
+- `agent/tools/delegate_test.go` — 6 unit tests with mock SubAgentRunner
+- `agent/delegate.go` — SubAgentRunnerImpl (creates sub-agent with restricted tools)
+- `agent/delegate_test.go` — 4 integration tests with mock provider
+- `agent/config.go` — DelegationSection config struct
+
+### 14D: Scheduled Tasks — COMPLETE ✅
+
+- [x] Scheduler package: periodic task runner with goroutine-per-task
+- [x] Built-in tasks: consolidate-observations (1h), consolidate-expired (6h)
+- [x] Config: `scheduler.enabled`, `scheduler.interval` (default 3600s)
+- [x] Start/Stop lifecycle: started alongside agent in main.go
+- [x] Task errors are logged but don't stop the scheduler
+- [x] Context cancellation support (stops all tasks on graceful shutdown)
+- [x] MnemoTasks() returns daemon-powered consolidation tasks
+- [x] 8 unit tests
+
+**Key files:**
+- `agent/scheduler/scheduler.go` — Scheduler, Task, TaskFunc, MnemoTasks
+- `agent/scheduler/scheduler_test.go` — 8 unit tests
+- `agent/config.go` — SchedulerSection config struct
+- `agent/cmd/mnemosyne-agent/main.go` — Wiring: start scheduler if enabled
+
+### 14E: Structured Tool Input Validation — TODO
+
+- [ ] Validate tool call args against JSON Schema before dispatch
+- [ ] Return structured error to LLM on validation failure
+- [ ] Kills empty-args crash permanently

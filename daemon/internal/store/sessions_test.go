@@ -101,7 +101,7 @@ func TestEndSession_alreadyEnded(t *testing.T) {
 func TestEnsureAgent(t *testing.T) {
 	s := testStore(t)
 
-	agent, err := s.EnsureAgent("agent-001", "dev-agent", "development")
+	agent, isNew, err := s.EnsureAgent("agent-001", "dev-agent", "development")
 	if err != nil {
 		t.Fatalf("ensure agent: %v", err)
 	}
@@ -111,13 +111,19 @@ func TestEnsureAgent(t *testing.T) {
 	if agent.Name != "dev-agent" {
 		t.Errorf("name = %q, want %q", agent.Name, "dev-agent")
 	}
+	if !isNew {
+		t.Error("expected isNew=true for first registration")
+	}
 
-	// Ensure idempotent
-	agent2, err := s.EnsureAgent("agent-001", "dev-agent", "development")
+	// Ensure idempotent — second call should return isNew=false
+	agent2, isNew2, err := s.EnsureAgent("agent-001", "dev-agent", "development")
 	if err != nil {
 		t.Fatalf("ensure agent again: %v", err)
 	}
 	if agent2.ID != agent.ID {
 		t.Error("idempotent ensure changed agent ID")
+	}
+	if isNew2 {
+		t.Error("expected isNew=false for re-registration")
 	}
 }

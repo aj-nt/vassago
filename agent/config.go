@@ -11,12 +11,14 @@ import (
 
 // AgentConfig is the full agent configuration from YAML.
 type AgentConfig struct {
-	Agent            AgentSection     `yaml:"agent"`
-	Provider         ProviderSection  `yaml:"provider"`
-	Routing          RoutingSection   `yaml:"routing"`
-	Mnemosyne        MnemosyneSection `yaml:"mnemosyne"`
-	HotBlock         HotBlockSection  `yaml:"hot_block"`
-	Tools            ToolsSection     `yaml:"tools"`
+	Agent            AgentSection      `yaml:"agent"`
+	Provider         ProviderSection   `yaml:"provider"`
+	Routing          RoutingSection    `yaml:"routing"`
+	Mnemosyne        MnemosyneSection  `yaml:"mnemosyne"`
+	HotBlock         HotBlockSection   `yaml:"hot_block"`
+	Tools            ToolsSection      `yaml:"tools"`
+	Delegation       DelegationSection `yaml:"delegation"`
+	Scheduler        SchedulerSection  `yaml:"scheduler"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -67,6 +69,19 @@ type ToolsSection struct {
 	AllowedDirs     []string `yaml:"allowed_dirs"`
 }
 
+// DelegationSection configures sub-agent spawning.
+type DelegationSection struct {
+	Enabled  bool `yaml:"enabled"`
+	MaxDepth int  `yaml:"max_depth"` // Max nesting depth (1 = sub-agents can't delegate)
+	MaxTurns int  `yaml:"max_turns"` // Max turns for sub-agent (default: 10)
+}
+
+// SchedulerSection configures periodic scheduled tasks.
+type SchedulerSection struct {
+	Enabled  bool `yaml:"enabled"`   // Whether to run scheduled tasks
+	Interval int  `yaml:"interval"` // Base interval in seconds for consolidation (default: 3600 = 1h)
+}
+
 // LoadConfig reads agent config from a YAML file.
 func LoadConfig(path string) (*AgentConfig, error) {
 	data, err := os.ReadFile(path)
@@ -90,6 +105,15 @@ func LoadConfig(path string) (*AgentConfig, error) {
 	if cfg.HotBlock.MinPriority == 0 {
 		cfg.HotBlock.MinPriority = 2
 	}
+	if cfg.Delegation.MaxDepth == 0 {
+		cfg.Delegation.MaxDepth = 1
+	}
+	if cfg.Delegation.MaxTurns == 0 {
+		cfg.Delegation.MaxTurns = 10
+	}
+	if cfg.Scheduler.Interval == 0 {
+		cfg.Scheduler.Interval = 3600 // 1 hour
+	}
 
 	// Validate tool names in tools.enabled (#16)
 	if len(cfg.Tools.Enabled) > 0 {
@@ -99,6 +123,7 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"FileRead": true, "FileWrite": true, "FileSearch": true,
 			"Execute": true,
 			"SearchWeb": true, "FetchURL": true,
+			"Delegate": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {

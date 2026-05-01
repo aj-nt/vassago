@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
@@ -23,6 +24,10 @@ type Agent struct {
 	ToolRegistry *tools.ToolRegistry
 	EventBus    *eventbus.EventBus
 	Mnemo       *memoclient.Client
+
+	// Hot block cache — updated by Telepathy events, used by GetHotBlock()
+	hotBlockCache *memoclient.HotBlockCache
+	hotBlockStale int32 // atomic: 1 = stale, needs refetch
 
 	// Pipeline stages — overridable for testing
 	Stage1 *pipeline.RequestPrepStage
@@ -275,12 +280,33 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 	}
 }
 
-// GetHotBlock retrieves the hot block from the daemon.
+// SetHotBlockCache sets the hot block cache for Telepathy-driven updates.
+func (a *Agent) SetHotBlockCache(cache *memoclient.HotBlockCache) {
+	a.hotBlockCache = cache
+}
+
+// InvalidateHotBlock marks the cached hot block as stale so the next
+// GetHotBlock call re-fetches from the daemon. Called by Telepathy events.
+func (a *Agent) InvalidateHotBlock() {
+	atomic.StoreInt32(&a.hotBlockStale, 1)
+}
+
+// GetHotBlock retrieves the hot block from the daemon, using the cached
+// version when available and fresh.
 func (a *Agent) GetHotBlock(ctx context.Context) (string, error) {
+	// If cache exists and not stale, return cached content (even if Mnemo is nil)
+	if a.hotBlockCache != nil && atomic.LoadInt32(&a.hotBlockStale) == 0 {
+		if content := a.hotBlockCache.Content(); content != "" {
+			return content, nil
+		}
+	}
+
 	if a.Mnemo == nil {
 		return "", nil
 	}
-	return a.Mnemo.GetHotBlock(
+
+	// Fetch fresh hot block from daemon
+	result, err := a.Mnemo.GetHotBlock(
 		ctx,
 		"memory",
 		a.Config.AgentID,
@@ -289,6 +315,17 @@ func (a *Agent) GetHotBlock(ctx context.Context) (string, error) {
 		a.Config.HotBlockConfig.SuppressCategories,
 		a.Config.HotBlockConfig.BoostPriority,
 	)
+	if err != nil {
+		return "", err
+	}
+
+	// Update cache and mark as fresh
+	if a.hotBlockCache != nil {
+		a.hotBlockCache.Update(result, len([]rune(result)), 0) // entryCount unknown from RPC
+	}
+	atomic.StoreInt32(&a.hotBlockStale, 0)
+
+	return result, nil
 }
 
 // BuildToolDefinitions creates ToolDefinitions from the registry schemas.
