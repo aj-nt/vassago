@@ -628,7 +628,7 @@ The agent core doesn't change. Only the interface layer does.
 ### 7.1 Development (Current)
 
 ```
-QMM (AJ's M4 Mini) — personal machine
+QMM (dev machine) — personal machine
 ├── mnemosyne-daemon    (Unix socket, connects to Studio daemon for integration)
 ├── mnemosyne-agent     (CLI, connects to local daemon for dev)
 └── go test ./...       (TDD)
@@ -637,7 +637,7 @@ QMM (AJ's M4 Mini) — personal machine
 ### 7.2 Testing
 
 ```
-AJ's Mac Studio ("studio")
+Always-on server ("studio")
 ├── mnemosyne-daemon    (TCP :50051, always-on)
 ├── mnemosyne-agent     (CLI, for ad-hoc testing)
 └── Integration tests   (continuous)
@@ -662,7 +662,7 @@ These are explicitly out of scope for the initial phases:
 | Feature | Why Not Now |
 |---|---|
 | Web UI | CLI first. Web adds complexity without adding agent functionality. |
-| Multi-user auth | Single user (AJ) for now. ACL system later. |
+| Multi-user auth | Single user for now. ACL system later. |
 | MCP (Model Context Protocol) | Interesting but premature. gRPC is simpler and sufficient. |
 | Browser tool | Complex, adds dependencies. Terminal and files are enough for v1. |
 | Delegation (sub-agents) | Needs solid single-agent first. Telepathy makes this natural later. |
@@ -720,11 +720,11 @@ Without ever calling OpenAI.
 
 | Host | Role | Mnemosyne Daemon | Agent |
 |---|---|---|---|
-| QMM (AJ's personal M4 Mini) | Development | No (connects to Studio) | CLI for ad-hoc dev |
-| Studio (AJ's Mac Studio, always-on) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
+| QMM (dev machine) | Development | No (connects to daemon host) | CLI for ad-hoc dev |
+| Studio (always-on server) | Testing + always-on daemon | Yes (Unix socket + TCP :50051) | CLI for testing, cron agents |
 | Future (LAN/Internet) | Production | Yes (TCP + TLS) | Multiple agents |
 
-QMM is your personal machine. Studio is the always-on test bed. The daemon
+QMM is the development machine. Studio is the always-on test bed. The daemon
 runs on Studio so it's always available, and agents on any machine can connect
 via gRPC.
 

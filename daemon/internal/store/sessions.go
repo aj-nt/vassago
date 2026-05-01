@@ -65,7 +65,7 @@ func (s *Store) CreateSession(agentID, source, title string) (*Session, error) {
 	}
 
 	// Ensure agent exists (has its own lock)
-	_, err := s.EnsureAgent(agentID, "", "")
+	_, _, err := s.EnsureAgent(agentID, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("ensure agent: %w", err)
 	}
@@ -179,18 +179,27 @@ func (s *Store) GetSession(sessionID string) (*Session, error) {
 }
 
 // EnsureAgent creates an agent record if it doesn't exist.
-func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, error) {
+// Returns the agent and whether it was newly created.
+func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, bool, error) {
 	if agentID == "" {
-		return nil, fmt.Errorf("agent_id must not be empty")
+		return nil, false, fmt.Errorf("agent_id must not be empty")
 	}
 	if len(agentID) > MaxIDLength {
-		return nil, fmt.Errorf("agent_id too long: %d chars, max %d", len(agentID), MaxIDLength)
+		return nil, false, fmt.Errorf("agent_id too long: %d chars, max %d", len(agentID), MaxIDLength)
 	}
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
 	now := time.Now().Unix()
+
+	// Check if agent already exists
+	var existingCount int
+	row := s.db.QueryRow("SELECT COUNT(*) FROM agents WHERE id = ?", agentID)
+	if err := row.Scan(&existingCount); err != nil {
+		return nil, false, fmt.Errorf("check agent existence: %w", err)
+	}
+	isNew := existingCount == 0
 
 	_, err := s.db.Exec(`
 		INSERT INTO agents (id, name, role, created_at, last_seen_at)
@@ -199,16 +208,23 @@ func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, error) {
 		agentID, name, role, now, now,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("ensure agent: %w", err)
+		return nil, false, fmt.Errorf("ensure agent: %w", err)
+	}
+
+	// Read the actual created_at (preserved on update)
+	var createdAt int64
+	row = s.db.QueryRow("SELECT created_at FROM agents WHERE id = ?", agentID)
+	if err := row.Scan(&createdAt); err != nil {
+		return nil, false, fmt.Errorf("read agent: %w", err)
 	}
 
 	return &Agent{
 		ID:         agentID,
 		Name:       name,
 		Role:       role,
-		CreatedAt:  now,
+		CreatedAt:  createdAt,
 		LastSeenAt: now,
-	}, nil
+	}, isNew, nil
 }
 
 // scanSession scans a single row into a Session.

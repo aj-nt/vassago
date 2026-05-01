@@ -247,13 +247,13 @@ categories. An agent doing personal assistant work might boost `user` and
 
 ```
 [memories]
-● Environment: AJ's Mac Studio (192.168.86.27) — always-on daemon host. Ollama on localhost.
+● Environment: dev-server (192.168.1.100) — always-on daemon host. Ollama on localhost.
 ● Project: Mnemosyne rewrite — Go daemon, gRPC, SQLite, pub/sub for telepathy.
 ● Project: Dogfood fork independent from upstream. 561 tests green.
 ● Quirk: FTS5 doesn't support * as wildcard. Use real search terms.
 
 [user profile]
-● Name: Paul Flinton. Goes by AJ. Prefers Python, codes in C# for 20 yrs.
+● Name: AJ. Prefers Go, codes in Python for years.
 ● AJ values being considerate to open source maintainers.
 ● AJ is pragmatic about upstream — dogfood fork is real production.
 ```
