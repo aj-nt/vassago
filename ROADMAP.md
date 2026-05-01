@@ -528,10 +528,22 @@ register, heartbeat, and subscribe to memory change events.
 - `agent/delegate_test.go` — 4 integration tests with mock provider
 - `agent/config.go` — DelegationSection config struct
 
-### 14D: Scheduled Tasks — TODO
+### 14D: Scheduled Tasks — COMPLETE ✅
 
-- [ ] System crontab integration or daemon-side scheduler
-- [ ] Cron agent runs periodic tasks (cleanup, review, reports)
+- [x] Scheduler package: periodic task runner with goroutine-per-task
+- [x] Built-in tasks: consolidate-observations (1h), consolidate-expired (6h)
+- [x] Config: `scheduler.enabled`, `scheduler.interval` (default 3600s)
+- [x] Start/Stop lifecycle: started alongside agent in main.go
+- [x] Task errors are logged but don't stop the scheduler
+- [x] Context cancellation support (stops all tasks on graceful shutdown)
+- [x] MnemoTasks() returns daemon-powered consolidation tasks
+- [x] 8 unit tests
+
+**Key files:**
+- `agent/scheduler/scheduler.go` — Scheduler, Task, TaskFunc, MnemoTasks
+- `agent/scheduler/scheduler_test.go` — 8 unit tests
+- `agent/config.go` — SchedulerSection config struct
+- `agent/cmd/mnemosyne-agent/main.go` — Wiring: start scheduler if enabled
 
 ### 14E: Structured Tool Input Validation — TODO
 
