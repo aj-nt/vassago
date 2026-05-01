@@ -455,6 +455,13 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		var lastUsage *agentctx.UsageInfo
 
 		for event := range streamCh {
+			// Check interrupt during streaming — allows Ctrl+C to break
+			// out of a streaming response mid-turn, not just between iterations.
+			if convCtx.Interrupt.IsSet() {
+				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+				return
+			}
+
 			switch event.Type {
 			case agentctx.StreamText:
 				out <- StreamEvent{Type: agentctx.StreamText, Text: event.Text}

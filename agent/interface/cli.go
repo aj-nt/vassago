@@ -215,15 +215,26 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 			Temperature:     c.Agent.Config.Temperature,
 		}
 
-		// Handle Ctrl+C gracefully
+		// Handle Ctrl+C gracefully — first press interrupts the agent,
+		// second press within 2 seconds force-quits the process.
 		turnCtx, cancel := context.WithCancel(ctx)
 		go func() {
-			select {
-			case <-sigCh:
-				fmt.Println(formatInterruptSignal())
-				interrupt.Set()
-				cancel()
-			case <-turnCtx.Done():
+			interruptCount := 0
+			for {
+				select {
+				case <-sigCh:
+					interruptCount++
+					if interruptCount >= 2 {
+						// Double Ctrl+C — force quit
+						fmt.Println("\nForce quit.")
+						os.Exit(130)
+					}
+					fmt.Println(formatInterruptSignal())
+					interrupt.Set()
+					cancel()
+				case <-turnCtx.Done():
+					return
+				}
 			}
 		}()
 

@@ -1,12 +1,15 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Execute runs a terminal command and returns its output.
+// If a context is provided via the "context" key, the command can be cancelled.
 func Execute(args map[string]interface{}) (string, bool) {
 	command, ok := args["command"].(string)
 	if !ok || command == "" {
@@ -23,8 +26,33 @@ func Execute(args map[string]interface{}) (string, bool) {
 	}
 
 	cmd := exec.Command("sh", "-c", command)
+
+	// Support context cancellation if provided
+	if ctx, ok := args["_context"].(context.Context); ok {
+		cmd.Cancel = func() error {
+			return cmd.Process.Kill()
+		}
+		if deadline, ok := args["_deadline"].(time.Time); ok {
+			timeout := time.Until(deadline)
+			if timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, timeout)
+				defer cancel()
+			}
+		}
+		cmd.WaitDelay = 3 * time.Second // Give process 3s to clean up after Kill
+	}
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		// Distinguish between signal-killed and other errors
+		if ctx, ok := args["_context"].(context.Context); ok {
+			select {
+			case <-ctx.Done():
+				return "Command interrupted", true
+			default:
+			}
+		}
 		return fmt.Sprintf("Error: %v\nOutput: %s", err, string(output)), true
 	}
 
