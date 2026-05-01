@@ -561,16 +561,16 @@ func (s *Service) RegisterAgent(ctx context.Context, req *pb.RegisterAgentReques
 		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
 	}
 
-	_, err := s.store.EnsureAgent(agentID, req.Name, req.Role)
+	_, isNew, err := s.store.EnsureAgent(agentID, req.Name, req.Role)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ensure agent: %v", err)
 	}
 
-	slog.Info("agent registered", "agent_id", agentID, "name", req.Name, "role", req.Role)
+	slog.Info("agent registered", "agent_id", agentID, "name", req.Name, "role", req.Role, "is_new", isNew)
 
 	return &pb.RegisterAgentResponse{
 		AgentId: agentID,
-		IsNew:   false, // TODO: track first-seen vs returning agent
+		IsNew:   isNew,
 	}, nil
 }
 

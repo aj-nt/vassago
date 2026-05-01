@@ -141,6 +141,10 @@ Phase 6 (Data Migration) — can start once daemon is stable
 Phase 7 (Client Polish & Validation)
     ↓
 Phase 8 (Hardening)
+    ↓
+Phase 9-13 (Daily-Driver Hardening, E2E, Stress Tests, Operational Maturity)
+    ↓
+Phase 14 (Multi-Agent & Telepathy) — IN PROGRESS
 ```
 
 Phases 3 and 4 run in parallel — different code paths. Phase 6 can start
@@ -459,3 +463,57 @@ and searchable. Zero data loss.
 | Agent starts too late → no early feedback | Moved Agent Core to Phase 2. Usable end of Week 4. |
 | Session lifecycle RPCs forgotten | Added to Phase 1 scaffold and schema. |
 | Client library needed before Phase 7 | Basic client written in Phase 2 as part of agent. Phase 7 is polish. |
+
+---
+
+## Phase 14: Multi-Agent & Telepathy — IN PROGRESS
+
+**Goal:** Multiple agents share memories in real-time via Telepathy. Agents
+register, heartbeat, and subscribe to memory change events.
+
+### 14A: Agent Registration & Heartbeat — COMPLETE ✅
+
+- [x] `client/client.go` — `RegisterAgent()`, `Heartbeat()`, `Subscribe()` client methods
+- [x] `client/agent.go` — `AgentSession` lifecycle manager:
+  - Register on startup (calls `RegisterAgent` RPC)
+  - Heartbeat on 30s interval (background goroutine)
+  - Subscribe to memory change events (Telepathy)
+  - Graceful shutdown (stops heartbeat, cancels subscription)
+  - `AgentAPI` interface for testability
+- [x] `client/agent_test.go` — 9 unit tests for AgentSession (mock-based)
+- [x] `agent/cmd/mnemosyne-agent/main.go` — Agent registers on startup
+- [x] `agent/cmd/mnemosyne-agent/main.go` — Registered agent ID propagated to tools
+- [x] `daemon/internal/store/sessions.go` — `EnsureAgent` returns `isNew` flag
+- [x] `daemon/internal/grpc/service.go` — `RegisterAgent` returns `isNew` from store
+- [x] `daemon/cmd/mnemosyne-daemon/integration_test.go` — Agent registration + Telepathy integration tests (3 tests)
+
+**Key files:**
+- `client/agent.go` — `AgentSession`, `AgentAPI`, `AgentConfig`
+- `client/agent_test.go` — Unit tests with mock AgentAPI
+- `client/hotblock_cache.go` — Hot block cache (existing, used by Telepathy subscription)
+
+### 14B: Telepathy Client — Hot Block Subscription — TODO
+
+- [ ] Agent subscribes to `Subscribe` stream after registration
+- [ ] Hot block refreshes mid-session when telepathy events arrive
+- [ ] `Agent.GetHotBlock()` uses cached hot block when available
+- [ ] Fresh hot block request on significant events (memory added/removed)
+- [ ] Subscription integrated into CLI interactive loop
+
+### 14C: Delegation Tool — Sub-Agent Spawning — TODO
+
+- [ ] New tool: `Delegate` — spawn sub-agent with scoped prompt
+- [ ] Sub-agent shares daemon connection, gets own `agent_id`
+- [ ] Results flow back as tool result
+- [ ] Config: `delegation.max_depth: 1`
+
+### 14D: Scheduled Tasks — TODO
+
+- [ ] System crontab integration or daemon-side scheduler
+- [ ] Cron agent runs periodic tasks (cleanup, review, reports)
+
+### 14E: Structured Tool Input Validation — TODO
+
+- [ ] Validate tool call args against JSON Schema before dispatch
+- [ ] Return structured error to LLM on validation failure
+- [ ] Kills empty-args crash permanently
