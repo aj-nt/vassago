@@ -258,32 +258,23 @@ func (r *ModelRouter) selectBest(ctx RoutingContext) (*ModelConfig, error) {
 // selectSmart uses heuristic rules for per-turn model selection.
 //
 // Rules (in priority order):
-//  1. If this is a continuation of a tool chain (iteration > 0 with tool results),
-//     use a cheap model — the LLM is just formatting tool results.
-//  2. If the user prompt is long (>200 chars) with reasoning keywords,
+//  1. If the user prompt is long (>200 chars) with reasoning keywords,
 //     use the best model — complex reasoning needed.
-//  3. If only simple tool calls are in context, use the cheapest model.
-//  4. Default: use the primary model.
+//  2. Default: use the primary model.
+//
+// Note: Tool-result turns always use the primary model. The cheap model
+// used to handle tool-result formatting, but tool results require good
+// reasoning to interpret correctly — cheaper models produce worse summaries
+// and more hallucinations.
 func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
-	// Rule 1: Tool result formatting — cheap model is fine IF reachable AND not demoted
-	if ctx.HasToolResults && ctx.Iteration > 0 {
-		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) && !r.isDemoted(m.Name) {
-			return m, nil
-		}
-		// Cheap model not available — fall through to primary
-	}
-
-	// Rule 2: Complex reasoning detected
+	// Rule 1: Complex reasoning detected
 	if isComplexReasoning(ctx.UserMessage, ctx.PromptCharCount) {
 		if m := r.findBestReasoning(true); m != nil && !r.isDemoted(m.Name) {
 			return m, nil
 		}
 	}
 
-	// Rule 3: Default to primary
-	// (Removed "short prompt → cheap model" rule — interactive users
-	// expect the primary model for their first message regardless of length.
-	// Cheap model routing only applies to tool-result followup turns.)
+	// Rule 2: Default to primary
 	return r.selectPrimary()
 }
 

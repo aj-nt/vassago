@@ -187,18 +187,18 @@ func TestRouterSmartComplexReasoning(t *testing.T) {
 func TestRouterSmartToolResultFormatting(t *testing.T) {
 	r := newRouterWithModels(StrategySmart)
 
-	// Iteration > 0 with tool results → cheap model
+	// Tool result turns → primary model (cheap models produce worse summaries)
 	m, err := r.Select(RoutingContext{
 		Iteration:      2,
 		HasToolResults: true,
-		UserMessage:   "search for project files",
+		UserMessage:     "search for project files",
 		PromptCharCount: 25,
 	})
 	if err != nil {
 		t.Fatalf("Select error: %v", err)
 	}
-	if m.Name != "local" {
-		t.Errorf("expected local (cheap for tool result formatting), got %s", m.Name)
+	if m.Name != "premium" {
+		t.Errorf("expected premium (primary for tool result interpretation), got %s", m.Name)
 	}
 }
 
