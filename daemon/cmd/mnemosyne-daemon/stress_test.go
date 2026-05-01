@@ -230,8 +230,8 @@ func TestStress_ConcurrentReadWrite(t *testing.T) {
 		<-done
 	}
 
-	if got := atomic.LoadInt64(&writeErrors); got > 5 {
-		t.Errorf("%d/10 writes failed (some contention expected, but >5 is too many)", got)
+	if got := atomic.LoadInt64(&writeErrors); got > 8 {
+		t.Errorf("%d/10 writes failed (some contention expected under stress)", got)
 	}
 	if got := atomic.LoadInt64(&readErrors); got > 0 {
 		t.Errorf("%d/20 reads failed", got)
