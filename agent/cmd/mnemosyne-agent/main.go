@@ -36,6 +36,21 @@ func main() {
 	}
 	defer mnemo.Close()
 
+	// Register agent with daemon for identity tracking and heartbeat
+	agentSession := memoclient.NewAgentSession(mnemo, memoclient.AgentConfig{
+		ID:   cfg.Agent.ID,
+		Name: cfg.Agent.Name,
+		Role: cfg.Agent.Role,
+	})
+	if err := agentSession.Register(ctx); err != nil {
+		log.Printf("Warning: agent registration failed (daemon may not support it): %v", err)
+	} else {
+		defer agentSession.Close()
+		// Use the registered agent ID (may be auto-generated if config was empty)
+		cfg.Agent.ID = agentSession.AgentID()
+		log.Printf("Agent registered with daemon: id=%s", cfg.Agent.ID)
+	}
+
 	// Wire providers and tools from config
 	registry := setupProviders(&cfg.Provider)
 	toolReg := setupTools(&cfg.Tools, mnemo, cfg.Agent.ID)

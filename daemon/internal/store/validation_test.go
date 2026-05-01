@@ -133,7 +133,7 @@ func TestAddMemory_transactionAtomicity(t *testing.T) {
 func TestEnsureAgent_validation(t *testing.T) {
 	s := testStore(t)
 
-	_, err := s.EnsureAgent("", "name", "role")
+	_, _, err := s.EnsureAgent("", "name", "role")
 	if err == nil {
 		t.Error("expected error for empty agent_id")
 	}
