@@ -56,6 +56,9 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 	defer close(ch)
 	defer resp.Body.Close()
 
+	var currentToolID string
+	var currentToolInput strings.Builder
+
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 
@@ -115,13 +118,22 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 		// Tool call deltas
 		for _, tc := range choice.Delta.ToolCalls {
 			if tc.ID != "" {
+				// If there's a pending tool call being accumulated, emit ToolEnd before starting a new one
+				if currentToolID != "" {
+					ch <- agentctx.StreamEvent{
+						Type: agentctx.StreamToolEnd,
+					}
+				}
+				currentToolID = tc.ID
+				currentToolInput.Reset()
 				ch <- agentctx.StreamEvent{
-					Type:      agentctx.StreamToolStart,
+					Type:       agentctx.StreamToolStart,
 					ToolCallID: tc.ID,
-					ToolName:  tc.Function.Name,
+					ToolName:   tc.Function.Name,
 				}
 			}
 			if tc.Function.Arguments != "" {
+				currentToolInput.WriteString(tc.Function.Arguments)
 				ch <- agentctx.StreamEvent{
 					Type:           agentctx.StreamToolDelta,
 					ToolCallID:     tc.ID,
@@ -132,6 +144,12 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 
 		// Finish
 		if choice.FinishReason != nil {
+			// Emit ToolEnd for any pending tool call before closing the stream
+			if currentToolID != "" {
+				ch <- agentctx.StreamEvent{
+					Type: agentctx.StreamToolEnd,
+				}
+			}
 			doneEvent := agentctx.StreamEvent{Type: agentctx.StreamDone, Done: true}
 			if chunk.Usage != nil {
 				doneEvent.Usage = &agentctx.UsageInfo{
