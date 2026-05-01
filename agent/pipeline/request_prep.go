@@ -54,7 +54,7 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 	// where tool results from prior turns get compacted into summaries.
 	// Without this, models tend to re-assert information from old tool outputs.
 	parts = append(parts, "")
-	parts = append(parts, "Do NOT repeat information you've already stated in earlier messages. If you already told the user their name, preferences, or any other fact, do not re-state it unless they ask again. Each response should add new information or address only the current question.")
+	parts = append(parts, "Do NOT repeat information you've already stated in earlier messages. If you already told the user something — their name, what provider you're using, a typo correction, a comparison — do NOT state it again. Each response should address ONLY the current question and add new information. Do not prefix responses with self-identification (e.g., 'Claude', 'I'm running on X provider') unless explicitly asked which model you are.")
 	parts = append(parts, "")
 	parts = append(parts, "Proactive memory usage: When the user mentions a specific topic, bug, project, or past event, SEARCH your memories with SearchMemories before asking the user to explain it. Your memory may already contain the full context. Do NOT ask the user for ticket numbers, repo names, or background that you can look up yourself — look it up first, then ask only if you still need clarification.")
 
