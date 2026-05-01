@@ -31,6 +31,12 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionYIELD
 	}
 
+	// Detect cross-tool loop: if there have been 5+ consecutive iterations with ANY tool calls,
+	// break the loop to prevent agents from looping across different tools.
+	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
+		return agentctx.StageActionYIELD
+	}
+
 	// Append assistant message with tool calls
 	assistantMsg := agentctx.Message{
 		Role:      "assistant",
@@ -202,5 +208,41 @@ func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.T
 			return true
 		}
 	}
+	return false
+}
+
+// isConsecutiveToolIterationLoop checks if there have been 5+ consecutive iterations with ANY tool calls
+func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
+	count := 0
+
+	// Walk backwards through messages
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role != "assistant" {
+			continue
+		}
+
+		// Text-only message breaks the loop
+		if len(msg.ToolCalls) == 0 && msg.Content != "" {
+			break
+		}
+
+		// Count consecutive iterations with tool calls
+		if len(msg.ToolCalls) > 0 {
+			count++
+			if count >= 5 {
+				return true
+			}
+		}
+	}
+
+	// Include current calls in the count
+	if len(currentCalls) > 0 {
+		count++
+		if count >= 5 {
+			return true
+		}
+	}
+
 	return false
 }

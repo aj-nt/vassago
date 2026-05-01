@@ -480,8 +480,23 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 					}
 					a.Router.RecordFailure(failName)
 				}
-				out <- StreamEvent{Error: event.Error}
-				return
+				
+				// If this is not the primary provider, try the primary as immediate fallback
+				if p.Name() != a.Registry.Primary() {
+					if primary, err := a.Registry.GetPrimary(); err == nil {
+						log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
+						// Execute with primary provider (non-streaming)
+						a.runTurnNonStreaming(ctx, convCtx, out, prepared, primary, sessionID, modelName)
+						continue
+					} else {
+						out <- StreamEvent{Error: fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)}
+						return
+					}
+				} else {
+					// Primary provider failed, no fallback possible
+					out <- StreamEvent{Error: fmt.Errorf("primary provider streaming failed: %w", event.Error)}
+					return
+				}
 			case agentctx.StreamDone:
 				// Forward usage info from provider and track cost
 				lastUsage = event.Usage

@@ -311,3 +311,88 @@ func TestAgentLoop_multipleToolCalls(t *testing.T) {
 		t.Errorf("Expected 2 iterations, got %d", result.Iterations)
 	}
 }
+
+// TestAgentStreaming_FallbackOnStreamError tests that when a provider returns a StreamError,
+// the agent falls back to the primary provider if the failed provider is not primary.
+func TestAgentStreaming_FallbackOnStreamError(t *testing.T) {
+	// Create a custom mock provider that supports streaming and returns a StreamError
+	streamErrorProvider := &StreamErrorMockProvider{}
+
+	// Create a primary provider that works
+	primaryProvider := provider.NewMockProvider("primary", []provider.CannedResponse{
+		{
+			Response: agentctx.ParsedResponse{
+				Text:         "Fallback response from primary",
+				FinishReason: "stop",
+			},
+		},
+	})
+
+	registry := provider.NewProviderRegistry()
+	registry.Register("stream-error", streamErrorProvider)
+	registry.Register("primary", primaryProvider)
+	registry.SetPrimary("primary")
+
+	toolReg := tools.NewToolRegistry()
+	cfg := Config{
+		AgentID:          "test",
+		MaxTurns:         10,
+		MaxContextTokens: 128000,
+	}
+	a := NewAgent(cfg, registry, toolReg, nil)
+	defer a.Close()
+
+	// Run should succeed with fallback
+	result, err := a.Run(context.Background(), "test fallback")
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	// Should have completed successfully with fallback
+	if result.Iterations != 1 {
+		t.Errorf("Expected 1 iteration with fallback, got %d", result.Iterations)
+	}
+}
+
+// StreamErrorMockProvider is a mock provider that supports streaming and returns StreamError
+type StreamErrorMockProvider struct{}
+
+func (s *StreamErrorMockProvider) Name() string {
+	return "stream-error"
+}
+
+func (s *StreamErrorMockProvider) Capabilities() agentctx.ProviderCapabilities {
+	return agentctx.ProviderCapabilities{
+		SupportsStreaming:       true,
+		SupportsFunctionCalling: true,
+		SupportsPromptCaching:  false,
+		SupportsVision:         false,
+		MaxContextTokens:       128000,
+	}
+}
+
+func (s *StreamErrorMockProvider) Prepare(_ context.Context, _ *agentctx.ConversationContext, prepared agentctx.PreparedRequest) (interface{}, error) {
+	return prepared, nil
+}
+
+func (s *StreamErrorMockProvider) Execute(_ context.Context, _ interface{}) (agentctx.ProviderResult, error) {
+	return agentctx.ProviderResult{}, fmt.Errorf("streaming provider does not support non-streaming execute")
+}
+
+func (s *StreamErrorMockProvider) Parse(_ context.Context, result agentctx.ProviderResult) (agentctx.ParsedResponse, error) {
+	return agentctx.ParsedResponse{}, fmt.Errorf("streaming provider does not support parse")
+}
+
+func (s *StreamErrorMockProvider) Stream(_ context.Context, _ interface{}) (<-chan agentctx.StreamEvent, error) {
+	resultCh := make(chan agentctx.StreamEvent, 1)
+	resultCh <- agentctx.StreamEvent{
+		Type:  agentctx.StreamError,
+		Error: fmt.Errorf("streaming failed"),
+	}
+	close(resultCh)
+	return resultCh, nil
+}
+
+func (s *StreamErrorMockProvider) EndpointURL() string {
+	return ""
+}

@@ -351,3 +351,64 @@ func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
 		t.Errorf("Expected YIELD (break loop), got %v", action)
 	}
 }
+
+func TestIsConsecutiveToolIterationLoop_DifferentTools(t *testing.T) {
+	// Test that 5+ consecutive iterations with different tools should be detected
+	messages := []agentctx.Message{
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "search results", Name: "FileSearch", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "file content", Name: "FileRead", ToolCallID: "2"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "execution result", Name: "Execute", ToolCallID: "3"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "search results", Name: "FileSearch", ToolCallID: "4"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "5", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+		}},
+	}
+
+	currentCalls := []agentctx.ToolCall{
+		{ID: "6", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+	}
+
+	// Should detect the loop (5 consecutive tool iterations)
+	if !isConsecutiveToolIterationLoop(messages, currentCalls) {
+		t.Error("Expected to detect consecutive tool iteration loop with different tools")
+	}
+}
+
+func TestIsConsecutiveToolLoop_TextBreaksLoop(t *testing.T) {
+	// Test that a text-only response should reset the counter
+	messages := []agentctx.Message{
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "search results", Name: "FileSearch", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "file content", Name: "FileRead", ToolCallID: "2"},
+		{Role: "assistant", Content: "Here's what I found: ...", ToolCalls: nil}, // Text-only breaks the loop
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+		}},
+	}
+
+	currentCalls := []agentctx.ToolCall{
+		{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
+	}
+
+	// Should NOT detect a loop because text response broke it
+	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+		t.Error("Expected text-only response to break the loop")
+	}
+}
