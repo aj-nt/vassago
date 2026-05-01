@@ -526,3 +526,106 @@ func TestIntegration_AgentSessionLifecycle(t *testing.T) {
 		t.Errorf("event key = %q, want 'lifecycle-event'", event.Key)
 	}
 }
+
+func TestIntegration_TelepathyHotBlockRefresh(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	_, dClient, cleanup := startTestDaemon(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Pre-populate a memory so the hot block isn't empty
+	_, err := dClient.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "environment",
+		Key:         "pre-existing",
+		Content:     "Existing memory before Telepathy test",
+		Priority:    3,
+		SourceAgent: "setup-agent",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory pre-existing: %v", err)
+	}
+
+	// Get initial hot block
+	hbBefore, err := dClient.GetHotBlock(ctx, &pb.HotBlockRequest{
+		Target:    "memory",
+		AgentId:   "agent-a",
+		CharLimit: 4000,
+	})
+	if err != nil {
+		t.Fatalf("GetHotBlock before: %v", err)
+	}
+
+	// Agent A registers
+	_, err = dClient.RegisterAgent(ctx, &pb.RegisterAgentRequest{
+		AgentId: "agent-a",
+		Name:    "Agent A",
+		Role:    "dev",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAgent A: %v", err)
+	}
+
+	// Agent A subscribes to memory changes
+	stream, err := dClient.Subscribe(ctx, &pb.SubscribeRequest{
+		AgentId: "agent-a",
+		Targets: []string{"memory"},
+	})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	// Agent B writes a new memory — this should trigger a Telepathy event
+	_, err = dClient.AddMemory(ctx, &pb.AddMemoryRequest{
+		Target:      "memory",
+		Category:    "project",
+		Key:         "telepathy-hotblock-test",
+		Content:     "New memory from Telepathy hot block test",
+		Priority:    4,
+		SourceAgent: "agent-b",
+	})
+	if err != nil {
+		t.Fatalf("AddMemory from agent-b: %v", err)
+	}
+
+	// Agent A should receive the Telepathy event
+	event, err := stream.Recv()
+	if err != nil {
+		t.Fatalf("Recv event: %v", err)
+	}
+	if event.EventType != pb.UpdateEvent_ADDED {
+		t.Errorf("event type = %v, want ADDED", event.EventType)
+	}
+	if event.AgentId != "agent-b" {
+		t.Errorf("event agent_id = %q, want 'agent-b'", event.AgentId)
+	}
+	if event.Key != "telepathy-hotblock-test" {
+		t.Errorf("event key = %q, want 'telepathy-hotblock-test'", event.Key)
+	}
+
+	// After receiving the event, the hot block should now include the new memory
+	hbAfter, err := dClient.GetHotBlock(ctx, &pb.HotBlockRequest{
+		Target:    "memory",
+		AgentId:   "agent-a",
+		CharLimit: 4000,
+	})
+	if err != nil {
+		t.Fatalf("GetHotBlock after: %v", err)
+	}
+
+	// The new hot block should have more entries (or at least include the new key)
+	if hbAfter.EntryCount < hbBefore.EntryCount {
+		t.Errorf("hot block entries: before=%d, after=%d (should be >= before)",
+			hbBefore.EntryCount, hbAfter.EntryCount)
+	}
+
+	// Verify the new content appears in the hot block text
+	if hbAfter.Content == hbBefore.Content && hbBefore.EntryCount > 0 {
+		t.Error("hot block content unchanged after Telepathy event — should reflect new memory")
+	}
+}

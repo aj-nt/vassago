@@ -25,12 +25,18 @@ type AgentAPI interface {
 	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error)
 }
 
+// OnEventFunc is called when a Telepathy event arrives.
+// The callback is invoked in the subscription goroutine, so it must be
+// thread-safe and non-blocking.
+type OnEventFunc func(event *pb.UpdateEvent)
+
 // AgentSession manages an agent's lifecycle with the Mnemosyne daemon:
 // registration, heartbeat, and subscription.
 type AgentSession struct {
 	api              AgentAPI
 	config           AgentConfig
 	HeartbeatInterval time.Duration
+	OnEvent          OnEventFunc // Optional callback for Telepathy events
 
 	mu         sync.Mutex
 	registered bool
@@ -104,7 +110,7 @@ func (as *AgentSession) Subscribe(ctx context.Context, targets, categories []str
 	}
 	as.stream = stream
 
-	// Read events from stream and forward to channel
+	// Read events from stream and forward to channel + callback
 	eventCh := make(chan *pb.UpdateEvent, 50)
 	go func() {
 		defer close(eventCh)
@@ -113,6 +119,10 @@ func (as *AgentSession) Subscribe(ctx context.Context, targets, categories []str
 			if err != nil {
 				// Stream ended (disconnect, cancel, etc.)
 				return
+			}
+			// Invoke callback if set (e.g., to invalidate hot block cache)
+			if as.OnEvent != nil {
+				as.OnEvent(event)
 			}
 			select {
 			case eventCh <- event:

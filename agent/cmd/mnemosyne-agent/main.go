@@ -13,6 +13,7 @@ import (
 	"github.com/aj-nt/mnemosyne/agent/tools"
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 func main() {
@@ -67,6 +68,31 @@ func main() {
 		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
 	}
 	defer a.Close()
+
+	// Set up hot block cache and Telepathy subscription
+	if agentSession.IsRegistered() {
+		// Fetch initial hot block to seed the cache
+		if hotBlock, err := a.GetHotBlock(ctx); err == nil && hotBlock != "" {
+			cache := memoclient.NewHotBlockCache("memory", cfg.Agent.ID, hotBlock, len([]rune(hotBlock)), 0)
+			a.SetHotBlockCache(cache)
+		}
+		// Subscribe to memory changes and invalidate hot block on events
+		agentSession.OnEvent = func(event *pb.UpdateEvent) {
+			a.InvalidateHotBlock()
+			log.Printf("Telepathy: %s event from %s (key=%s)",
+				event.EventType.String(), event.AgentId, event.Key)
+		}
+		subCtx := context.Background()
+		if eventCh, err := agentSession.Subscribe(subCtx, []string{"memory"}, nil); err != nil {
+			log.Printf("Warning: Telepathy subscription failed: %v", err)
+		} else {
+			// Drain events in background (they're handled by OnEvent callback)
+			go func() {
+				for range eventCh {
+				}
+			}()
+		}
+	}
 
 	log.Printf("Starting agent %q with primary provider %q (model: %s)",
 		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
