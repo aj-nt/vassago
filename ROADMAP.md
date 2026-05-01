@@ -163,7 +163,7 @@ foundation everything else depends on.
 - [x] `proto/mnemosyne.proto` — full service definition (memory CRUD + hot block + session lifecycle)
 - [x] Generate Go code from proto (`protoc`)
 - [x] `Makefile` — build, test, lint, generate targets
-- [ ] CI: `go test -race ./...` on push
+- [x] CI: `go test -race ./...` on push
 
 ### 1.2 Store Layer
 - [x] `daemon/internal/store/schema.go` — CREATE TABLE statements, version tracking
@@ -216,7 +216,7 @@ us validate the entire system end-to-end while we build the fancier features.
 
 ### 2.2 Client Library (basic)
 - [x] `client/client.go` — Connect, AddMemory, SearchMemories, ReplaceMemory, RemoveMemory, GetHotBlock, CreateSession, AddMessages
-- [ ] `client/hotblock_cache.go` — Local cache (no subscription yet — that's Phase 3)
+- [x] `client/hotblock_cache.go` — Local cache with Telepathy subscription (Phase 14B)
 
 ### 2.3 Pipeline Stages
 - [x] `agent/pipeline/request_prep.go` — Stage 1: Build system prompt, inject hot block, prepare API kwargs
@@ -342,7 +342,7 @@ Anthropic provider support.
 
 ### 5.4 More Tools (Priority-Sorted)
 - [ ] `agent/tools/browser.go` — Web browsing (if needed)
-- [ ] `agent/tools/delegate.go` — Sub-agent delegation (future)
+- [x] `agent/tools/delegate.go` — Sub-agent delegation (built in Phase 14C)
 - [x] Tool registry: pluggable, enable/disable per agent config
 
 **Deliverable:** Agent can read/write files, run shell commands, and search
@@ -466,7 +466,7 @@ and searchable. Zero data loss.
 
 ---
 
-## Phase 14: Multi-Agent & Telepathy — IN PROGRESS
+## Phase 14: Multi-Agent & Telepathy — COMPLETE ✅
 
 **Goal:** Multiple agents share memories in real-time via Telepathy. Agents
 register, heartbeat, and subscribe to memory change events.
@@ -563,4 +563,4 @@ register, heartbeat, and subscribe to memory change events.
 - `agent/tools/validate.go` — ValidateArgs, ApplyDefaults, ValidationError, toFloat
 - `agent/tools/validate_test.go` — 16 validation unit tests
 - `agent/pipeline/tool_dispatch.go` — Wire validation before handler call
-- [ ] Kills empty-args crash permanently
+- [x] Kills empty-args crash permanently
