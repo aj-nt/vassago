@@ -281,6 +281,7 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 }
 
 // SetHotBlockCache sets the hot block cache for Telepathy-driven updates.
+// Must be called before the agent starts processing (before Run).
 func (a *Agent) SetHotBlockCache(cache *memoclient.HotBlockCache) {
 	a.hotBlockCache = cache
 }
