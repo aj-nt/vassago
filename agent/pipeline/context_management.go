@@ -167,31 +167,36 @@ func joinNames(names []string) string {
 }
 
 // isRepetitiveToolLoop detects if the same tool is being called repeatedly
-// without any substantive text response between iterations. This breaks infinite
+// without a meaningful text response between iterations. This breaks infinite
 // loops where the agent calls GetHotBlock (or similar tools) on every iteration.
 //
 // Returns true if any tool name in the current call appears 3+ times consecutively
-// in the conversation, with no intervening text-only assistant responses.
+// in the conversation. An assistant message with ONLY text (no tool calls)
+// resets the counter, because that represents a genuine turn where the model
+// responded to the user before deciding to use a tool again.
+// An assistant message with BOTH text and tool calls does NOT reset the counter,
+// because that's the loop pattern: model says something, calls GetHotBlock, gets
+// the result, says something slightly different, calls GetHotBlock again.
 func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
-	// Count consecutive same-tool calls backward through the message history
 	for _, call := range currentCalls {
 		count := 1 // current call
-		// Walk backward through messages
 		for i := len(messages) - 1; i >= 0; i-- {
 			msg := messages[i]
-			if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
-				// Check if this assistant message called the same tool
+			if msg.Role == "assistant" {
+				if len(msg.ToolCalls) == 0 && msg.Content != "" {
+					// Text-only response: the model gave a real answer before
+					// deciding to use a tool again. This breaks the loop.
+					break
+				}
+				// Assistant message with tool calls (or empty): check for same tool
 				for _, tc := range msg.ToolCalls {
 					if tc.Name == call.Name {
 						count++
 						break // one match per message is enough
 					}
 				}
-			} else if msg.Role == "assistant" && msg.Content != "" && len(msg.ToolCalls) == 0 {
-				// Text-only assistant response breaks the loop
-				break
 			}
-			// tool and user messages don't break the count
+			// tool and user messages don't affect the count
 		}
 		if count >= 3 {
 			return true

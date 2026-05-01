@@ -271,12 +271,14 @@ func TestIsRepetitiveToolLoop_ThreeCalls_BreaksLoop(t *testing.T) {
 }
 
 func TestIsRepetitiveToolLoop_TextBreaksLoop(t *testing.T) {
-	// Text-only assistant response between tool calls breaks the loop
+	// Text-only assistant response (no tool calls) between iterations breaks the loop.
+	// The model gave a real answer, then later decided to use the tool again — that's fine.
 	messages := []agentctx.Message{
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
 			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 		}},
 		{Role: "tool", Content: "hot block data 1", ToolCallID: "1"},
+		// Text-only response BREAKS the loop — model answered before calling tool again
 		{Role: "assistant", Content: "Here's what I found:", ToolCalls: nil},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
 			{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
@@ -286,8 +288,34 @@ func TestIsRepetitiveToolLoop_TextBreaksLoop(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 	}
+	// Count walks backwards: finds #2 in messages, then hits text-only assistant
+	// → breaks. Count = 2 (current + #2), NOT 3+ → not a loop.
 	if isRepetitiveToolLoop(messages, currentCalls) {
-		t.Error("Text-only response between tool calls should break the loop")
+		t.Error("Text-only response between iterations should break the loop counter")
+	}
+}
+
+func TestIsRepetitiveToolLoop_TextWithToolDoesNotBreakLoop(t *testing.T) {
+	// Assistant message with BOTH text and tool calls does NOT break the loop.
+	// This is the actual loop pattern from production: model says something,
+	// calls GetHotBlock, gets result, says something slightly different,
+	// calls GetHotBlock again.
+	messages := []agentctx.Message{
+		{Role: "assistant", Content: "Let me check.", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 1", ToolCallID: "1"},
+		{Role: "assistant", Content: "Sharp.", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 2", ToolCallID: "2"},
+	}
+	currentCalls := []agentctx.ToolCall{
+		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+	}
+	// 3 consecutive GetHotBlock calls (with text between) = loop detected
+	if !isRepetitiveToolLoop(messages, currentCalls) {
+		t.Error("Text+tool pattern should still be detected as a repeating loop")
 	}
 }
 
