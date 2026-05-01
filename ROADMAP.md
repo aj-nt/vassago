@@ -572,12 +572,15 @@ Goal: Send and receive messages through external platforms. This is the highest-
 
 ### 15A: Discord Bot
 
-- [ ] gRPC MessagingService definition: SendMessage, ListChannels, GetChannelInfo
-- [ ] Discord adapter: connect to Discord gateway, listen for messages in allowed channels
-- [ ] Incoming message flow: Discord message → daemon → agent → response → Discord
-- [ ] Config: `discord.token`, `discord.guilds`, `discord.allowed_channels`
-- [ ] Rate limiting and message splitting (Discord 2000 char limit)
-- [ ] Mock Discord gateway, message round-trip tests, rate limit tests
+- [x] gRPC MessagingService definition: SendMessage, ListChannels, SubscribeToMessages
+- [x] Discord adapter: connect to Discord gateway, listen for messages in allowed channels
+- [x] Incoming message flow: Discord message → daemon → agent → response → Discord
+- [x] Config: `messaging.discord.token`, `messaging.discord.guilds`, `messaging.allowed_channels`
+- [x] Rate limiting and message splitting (Discord 2000 char limit)
+- [x] Mock Discord gateway, message round-trip tests, rate limit tests
+- [x] Agent tool: SendMessage with platform/target/message args
+- [x] Client methods: SendMessage(), ListChannels()
+- [x] Daemon startup wiring with MessagingService
 - [ ] QA pass + Red Team pass
 
 ### 15B: Telegram Bot
