@@ -18,6 +18,7 @@ type AgentConfig struct {
 	HotBlock         HotBlockSection   `yaml:"hot_block"`
 	Tools            ToolsSection      `yaml:"tools"`
 	Delegation       DelegationSection `yaml:"delegation"`
+	Scheduler        SchedulerSection  `yaml:"scheduler"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -75,6 +76,12 @@ type DelegationSection struct {
 	MaxTurns int  `yaml:"max_turns"` // Max turns for sub-agent (default: 10)
 }
 
+// SchedulerSection configures periodic scheduled tasks.
+type SchedulerSection struct {
+	Enabled  bool `yaml:"enabled"`   // Whether to run scheduled tasks
+	Interval int  `yaml:"interval"` // Base interval in seconds for consolidation (default: 3600 = 1h)
+}
+
 // LoadConfig reads agent config from a YAML file.
 func LoadConfig(path string) (*AgentConfig, error) {
 	data, err := os.ReadFile(path)
@@ -103,6 +110,9 @@ func LoadConfig(path string) (*AgentConfig, error) {
 	}
 	if cfg.Delegation.MaxTurns == 0 {
 		cfg.Delegation.MaxTurns = 10
+	}
+	if cfg.Scheduler.Interval == 0 {
+		cfg.Scheduler.Interval = 3600 // 1 hour
 	}
 
 	// Validate tool names in tools.enabled (#16)

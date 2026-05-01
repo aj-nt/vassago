@@ -10,6 +10,7 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent"
 	"github.com/aj-nt/mnemosyne/agent/provider"
+	"github.com/aj-nt/mnemosyne/agent/scheduler"
 	"github.com/aj-nt/mnemosyne/agent/tools"
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
@@ -98,6 +99,17 @@ func main() {
 				}
 			}()
 		}
+	}
+
+	// Start scheduler for periodic tasks (consolidation, cleanup)
+	if cfg.Scheduler.Enabled && mnemo != nil {
+		sched := scheduler.NewScheduler(mnemo)
+		for _, task := range sched.MnemoTasks() {
+			sched.AddTask(task)
+		}
+		sched.Start(ctx)
+		defer sched.Stop()
+		log.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
 	}
 
 	log.Printf("Starting agent %q with primary provider %q (model: %s)",
