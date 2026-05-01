@@ -13,7 +13,7 @@ provider:
   anthropic_api_key_env: "ANTHROPIC_API_KEY"
   temperature: 0.7
   fallback1: "openai"
-  openai_model: "glm-5.1:cloud"
+  openai_model: "minimax-m2.7:cloud"
   openai_base_url: "http://localhost:11434/v1"
   openai_api_key_env: "OLLAMA_API_KEY"
 
@@ -30,7 +30,7 @@ routing:
       tool_use: true
       speed: "medium"
 
-    - name: "glm-5.1:cloud"
+    - name: "minimax-m2.7:cloud"
       provider: "openai"
       input_cost: 0.00
       output_cost: 0.00
@@ -41,11 +41,11 @@ routing:
       speed: "fast"
 
 mnemosyne:
-  address: "localhost:15051"
+  address: "localhost:50051"
 
 hot_block:
-  memory_char_limit: 4000
-  user_char_limit: 2000
+  memory_char_limit: 8000
+  user_char_limit: 3000
   min_priority: 2
   boost_categories:
     - project
@@ -66,6 +66,8 @@ tools:
     - FileSearch
     - FileWrite
     - Execute
+    - SearchWeb
+    - FetchURL
   approval_required:
     - FileWrite
     - Execute
