@@ -2,6 +2,7 @@ package iface
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
@@ -14,14 +15,38 @@ import (
 // the agent re-asserts facts it already mentioned (e.g., "Your name is AJ,
 // goes by AJ" in every single response).
 //
+// Additionally, old assistant text responses are truncated to prevent the model from
+// pattern-matching prior verbose responses and regurgitating them. The model tends
+// to see "I said X before, so I should say X again" — even with the anti-repetition
+// directive in the system prompt.
+//
 // Strategy:
-//   - Keep all user and assistant text messages intact
+//   - Keep all user messages intact
 //   - Replace old assistant messages that contained tool calls with a summary:
 //     "[Called {tool1}, {tool2}, ...]" — preserving the fact that tools were called
 //     without the full input/output
+//   - Truncate old assistant text responses to a maximum length, adding "..."
+//     if they were longer. This prevents the model from seeing and re-stating
+//     verbose prior responses.
 //   - Remove the corresponding tool result messages entirely
 //   - Keep the most recent assistant message and its tool calls/results intact if
 //     the model is still in a tool-calling loop (no final text response yet)
+const (
+	// maxOldAssistantChars is the maximum number of characters to keep from
+	// old assistant text responses. Responses longer than this are truncated
+	// with "..." to prevent the model from re-reading and re-stating verbose
+	// prior responses.
+	//
+	// 300 chars ≈ 75 tokens — enough to preserve the gist of what was said
+	// without giving the model enough context to parrot it back verbatim.
+	maxOldAssistantChars = 300
+
+	// maxOldAssistantLines is the maximum number of lines to keep from old
+	// assistant responses. Even if under the char limit, very long multi-line
+	// responses (like comparison tables) trigger repetition.
+	maxOldAssistantLines = 5
+)
+
 func compactMessagesForNextTurn(messages []agentctx.Message) []agentctx.Message {
 	if len(messages) == 0 {
 		return messages
@@ -48,6 +73,17 @@ func compactMessagesForNextTurn(messages []agentctx.Message) []agentctx.Message 
 		if lastMsg.Role == "tool" || (lastMsg.Role == "assistant" && len(lastMsg.ToolCalls) > 0) {
 			// Mid-loop: don't compact, let the agent finish its loop
 			return messages
+		}
+	}
+
+	// Find the SECOND-to-last yield point. Everything before it is "old"
+	// and can have its assistant text truncated. The most recent exchange
+	// (from second-to-last yield to end) keeps full text.
+	secondYieldIdx := -1
+	for i := lastYieldIdx - 1; i >= 0; i-- {
+		if messages[i].Role == "assistant" && len(messages[i].ToolCalls) == 0 && messages[i].Content != "" {
+			secondYieldIdx = i
+			break
 		}
 	}
 
@@ -80,8 +116,17 @@ func compactMessagesForNextTurn(messages []agentctx.Message) []agentctx.Message 
 					result = append(result, msg)
 				}
 			} else {
-				// Plain text response — keep it
-				result = append(result, msg)
+				// Plain text response
+				if secondYieldIdx >= 0 && i < secondYieldIdx {
+					// OLD assistant text — truncate to prevent repetition
+					result = append(result, agentctx.Message{
+						Role:    "assistant",
+						Content: truncateAssistantText(msg.Content),
+					})
+				} else {
+					// Recent assistant text — keep intact
+					result = append(result, msg)
+				}
 			}
 
 		case "tool":
@@ -98,4 +143,35 @@ func compactMessagesForNextTurn(messages []agentctx.Message) []agentctx.Message 
 	}
 
 	return result
+}
+
+// truncateAssistantText shortens old assistant text responses to prevent
+// the model from re-reading and re-stating verbose prior responses.
+// It limits both character count and line count, whichever limit is hit first.
+func truncateAssistantText(text string) string {
+	if utf8.RuneCountInString(text) <= maxOldAssistantChars && strings.Count(text, "\n")+1 <= maxOldAssistantLines {
+		return text
+	}
+
+	// Split into lines and keep only the first (maxOldAssistantLines - 1)
+	// so the "..." suffix fits within the line budget.
+	maxLines := maxOldAssistantLines - 1
+	if maxLines < 1 {
+		maxLines = 1
+	}
+	lines := strings.SplitN(text, "\n", maxLines+1)
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+	}
+
+	result := strings.Join(lines, "\n")
+	if utf8.RuneCountInString(result) > maxOldAssistantChars {
+		// Truncate to maxOldAssistantChars, being careful not to split mid-rune
+		runes := []rune(result)
+		if len(runes) > maxOldAssistantChars {
+			result = string(runes[:maxOldAssistantChars])
+		}
+	}
+
+	return result + "\n..."
 }
