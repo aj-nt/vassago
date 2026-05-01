@@ -19,6 +19,7 @@ type AgentConfig struct {
 	Tools            ToolsSection      `yaml:"tools"`
 	Delegation       DelegationSection `yaml:"delegation"`
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
+	Messaging        MessagingSection  `yaml:"messaging"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -53,6 +54,14 @@ type ProviderSection struct {
 
 type MnemosyneSection struct {
 	Address string `yaml:"address"`
+}
+
+type MessagingSection struct {
+	Discord DiscordMessagingConfig `yaml:"discord"`
+}
+
+type DiscordMessagingConfig struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 type HotBlockSection struct {

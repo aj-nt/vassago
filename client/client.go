@@ -13,8 +13,9 @@ import (
 
 // Client is a gRPC client for the Mnemosyne daemon.
 type Client struct {
-    conn *grpc.ClientConn
-    api  pb.MnemosyneClient
+    conn      *grpc.ClientConn
+    api       pb.MnemosyneClient
+    messaging pb.MessagingClient
 }
 
 // RegisterAgent registers the agent with the daemon.
@@ -68,7 +69,7 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("health check: %w", err)
 	}
 
-	return &Client{conn: conn, api: c}, nil
+	return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn)}, nil
 }
 
 // Close closes the connection to the daemon.
@@ -306,6 +307,30 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (*SessionDeta
 	}
 
 	return detail, nil
+}
+
+// SendMessage sends a message via the messaging service.
+func (c *Client) SendMessage(ctx context.Context, platform, target, message string) (string, error) {
+	resp, err := c.messaging.SendMessage(ctx, &pb.SendMessageRequest{
+		Platform: platform,
+		Target:   target,
+		Message:  message,
+	})
+	if err != nil {
+		return "", fmt.Errorf("SendMessage: %w", err)
+	}
+	return resp.MessageId, nil
+}
+
+// ListChannels lists available channels for a platform.
+func (c *Client) ListChannels(ctx context.Context, platform string) ([]*pb.Channel, error) {
+	resp, err := c.messaging.ListChannels(ctx, &pb.ListChannelsRequest{
+		Platform: platform,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListChannels: %w", err)
+	}
+	return resp.Channels, nil
 }
 
 // SessionDetail is a session with its messages.

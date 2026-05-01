@@ -32,13 +32,14 @@ func protoToConsolidateScope(scope pb.ConsolidateScope) store.ConsolidationScope
 // Service implements the Mnemosyne gRPC service.
 type Service struct {
 	pb.UnimplementedMnemosyneServer
-	store *store.Store
-	hub  *pubsub.Hub
+	store    *store.Store
+	hub      *pubsub.Hub
+	messaging *MessagingService
 }
 
 // NewService creates a new gRPC service backed by the given store.
-func NewService(s *store.Store, h *pubsub.Hub) *Service {
-	return &Service{store: s, hub: h}
+func NewService(s *store.Store, h *pubsub.Hub, m *MessagingService) *Service {
+	return &Service{store: s, hub: h, messaging: m}
 }
 
 // checkDB verifies database connectivity before critical operations.

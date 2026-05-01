@@ -220,6 +220,9 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, m
 	if anyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil) // nil = use default HTTP client
 	}
+	if anyEnabled(enabled, "SendMessage") {
+		tools.RegisterMessagingTools(toolReg, mnemo, agentID)
+	}
 	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
 		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
 			Enabled:  delegateCfg.Enabled,

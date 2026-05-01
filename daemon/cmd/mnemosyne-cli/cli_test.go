@@ -29,7 +29,7 @@ func startTestDaemon(t *testing.T) (string, func()) {
 		t.Fatalf("create store: %v", err)
 	}
 
-	svc := daemongrpc.NewService(st, nil)
+	svc := daemongrpc.NewService(st, nil, nil)
 	server := grpc.NewServer()
 	pb.RegisterMnemosyneServer(server, svc)
 
