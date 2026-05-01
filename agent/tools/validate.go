@@ -94,6 +94,15 @@ func validateField(tool, key string, value interface{}, schema map[string]interf
 		}
 	}
 
+	// Null byte check — reject strings containing \x00
+	if strVal, ok := value.(string); ok && strings.ContainsRune(strVal, 0) {
+		return &ValidationError{
+			Tool:  tool,
+			Field: key,
+			Issue: "value contains null bytes",
+		}
+	}
+
 	// Enum check
 	if enumVals, ok := schema["enum"].([]string); ok && len(enumVals) > 0 {
 		strVal, _ := value.(string)

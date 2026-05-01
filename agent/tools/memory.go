@@ -209,7 +209,7 @@ var AddMemorySchema = map[string]interface{}{
 			"content":  map[string]interface{}{"type": "string"},
 			"priority": map[string]interface{}{"type": "integer", "minimum": 1, "maximum": 5, "default": 3},
 		},
-		"required": []string{"key", "content"},
+		"required": []string{"key", "content", "category"},
 	},
 }
 

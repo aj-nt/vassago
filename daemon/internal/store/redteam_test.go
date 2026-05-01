@@ -36,7 +36,7 @@ func TestRedTeam_NilEmptyRequiredFields(t *testing.T) {
 		{"EmptyTarget", AddMemoryParams{Target: "", Category: "cat", Key: "k", Content: "c", Priority: 3, SourceAgent: "agent"}, true},
 		{"EmptyCategory", AddMemoryParams{Target: "memory", Category: "", Key: "k", Content: "c", Priority: 3, SourceAgent: "agent"}, true},
 		{"EmptyKey", AddMemoryParams{Target: "", Category: "cat", Key: "k", Content: "c", Priority: 3, SourceAgent: "agent"}, true},
-		{"EmptyContent", AddMemoryParams{Target: "memory", Category: "cat", Key: "k", Content: "", Priority: 3, SourceAgent: "agent"}, false}, // RED TEAM FINDING: empty content is accepted
+		{"EmptyContent", AddMemoryParams{Target: "memory", Category: "cat", Key: "k", Content: "", Priority: 3, SourceAgent: "agent"}, true},
 		{"ZeroPriority", AddMemoryParams{Target: "memory", Category: "cat", Key: "k", Content: "c", Priority: 0, SourceAgent: "agent"}, true},
 		{"NegativePriority", AddMemoryParams{Target: "memory", Category: "cat", Key: "k", Content: "c", Priority: -1, SourceAgent: "agent"}, true},
 		{"HighPriority", AddMemoryParams{Target: "memory", Category: "cat", Key: "k", Content: "c", Priority: 999, SourceAgent: "agent"}, true},

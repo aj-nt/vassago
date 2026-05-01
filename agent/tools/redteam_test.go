@@ -114,7 +114,7 @@ func TestRedTeam_Validation_MissingRequired(t *testing.T) {
 		{"NoKey", map[string]interface{}{"content": "c", "category": "project", "target": "memory"}, true},
 		{"NoContent", map[string]interface{}{"key": "k", "category": "project", "target": "memory"}, true},
 		{"NoTarget", map[string]interface{}{"key": "k", "content": "c", "category": "project"}, false}, // target is optional (default: "memory")
-		{"NoCategory", map[string]interface{}{"key": "k", "content": "c", "target": "memory"}, false}, // FINDING: category not marked required in schema
+		{"NoCategory", map[string]interface{}{"key": "k", "content": "c", "target": "memory"}, true},
 		{"EmptyArgs", map[string]interface{}{}, true},
 		{"NilArgs", nil, true},
 	}
@@ -155,7 +155,7 @@ func TestRedTeam_Validation_DefaultsApplied(t *testing.T) {
 	}
 
 	if limit, ok := args["limit"]; !ok {
-		t.Log("FINDING: ApplyDefaults does not add default limit (schema default: 20)")
+		t.Log("AddMemory schema has no 'limit' property (limit is on SearchMemories)")
 	} else {
 		t.Logf("Default limit: %v", limit)
 	}
@@ -169,15 +169,15 @@ func TestRedTeam_Validation_NullBytes(t *testing.T) {
 	args := map[string]interface{}{
 		"key":      "test\x00key",
 		"content":  "content with\x00null bytes",
-		"category": "test\x00cat",
+		"category": "project",
 		"target":   "memory",
 	}
 
 	err := ValidateArgs("AddMemory", args, schema)
-	if err != nil {
-		t.Logf("Validation rejected null bytes: %v (acceptable)", err)
+	if err == nil {
+		t.Error("FINDING: Validation allows null bytes in key/content/category — they should be rejected")
 	} else {
-		t.Log("FINDING: Validation allows null bytes in key/content/category")
+		t.Logf("Validation correctly rejected null bytes: %v", err)
 	}
 }
 
