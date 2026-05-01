@@ -221,3 +221,105 @@ func TestContextManagementStageProcess_CompactionContinuesInsteadOfTerminate(t *
 		t.Error("Expected CONTINUE after compaction, got TERMINATE")
 	}
 }
+
+// --- Same-tool loop detection ---
+
+func TestIsRepetitiveToolLoop_NoHistory(t *testing.T) {
+	// First call — no history, never a loop
+	currentCalls := []agentctx.ToolCall{
+		{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+	}
+	if isRepetitiveToolLoop(nil, currentCalls) {
+		t.Error("First tool call should not be detected as a loop")
+	}
+}
+
+func TestIsRepetitiveToolLoop_TwoCalls(t *testing.T) {
+	// Two consecutive same-tool calls — not yet a loop (need 3+)
+	messages := []agentctx.Message{
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data", ToolCallID: "1"},
+	}
+	currentCalls := []agentctx.ToolCall{
+		{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+	}
+	if isRepetitiveToolLoop(messages, currentCalls) {
+		t.Error("Two consecutive same-tool calls should not be detected as a loop")
+	}
+}
+
+func TestIsRepetitiveToolLoop_ThreeCalls_BreaksLoop(t *testing.T) {
+	// Three+ consecutive same-tool calls — IS a loop
+	messages := []agentctx.Message{
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 1", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 2", ToolCallID: "2"},
+	}
+	currentCalls := []agentctx.ToolCall{
+		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+	}
+	if !isRepetitiveToolLoop(messages, currentCalls) {
+		t.Error("Three consecutive same-tool calls should be detected as a loop")
+	}
+}
+
+func TestIsRepetitiveToolLoop_TextBreaksLoop(t *testing.T) {
+	// Text-only assistant response between tool calls breaks the loop
+	messages := []agentctx.Message{
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 1", ToolCallID: "1"},
+		{Role: "assistant", Content: "Here's what I found:", ToolCalls: nil},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "hot block data 2", ToolCallID: "2"},
+	}
+	currentCalls := []agentctx.ToolCall{
+		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+	}
+	if isRepetitiveToolLoop(messages, currentCalls) {
+		t.Error("Text-only response between tool calls should break the loop")
+	}
+}
+
+func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "check memory"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+			}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+			}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
+		},
+		MaxIterations: 20,
+		Iteration:     3,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
+		},
+		FinishReason: "tool_use",
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "3", Name: "GetHotBlock", Result: "hot block data", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD (break loop), got %v", action)
+	}
+}

@@ -25,6 +25,12 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionYIELD
 	}
 
+	// Detect same-tool loop: if the same tool name appears 3+ times consecutively
+	// in tool calls with no text response between iterations, break the loop.
+	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
+		return agentctx.StageActionYIELD
+	}
+
 	// Append assistant message with tool calls
 	assistantMsg := agentctx.Message{
 		Role:      "assistant",
@@ -158,4 +164,38 @@ func joinNames(names []string) string {
 		result += ", " + n
 	}
 	return result
+}
+
+// isRepetitiveToolLoop detects if the same tool is being called repeatedly
+// without any substantive text response between iterations. This breaks infinite
+// loops where the agent calls GetHotBlock (or similar tools) on every iteration.
+//
+// Returns true if any tool name in the current call appears 3+ times consecutively
+// in the conversation, with no intervening text-only assistant responses.
+func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
+	// Count consecutive same-tool calls backward through the message history
+	for _, call := range currentCalls {
+		count := 1 // current call
+		// Walk backward through messages
+		for i := len(messages) - 1; i >= 0; i-- {
+			msg := messages[i]
+			if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+				// Check if this assistant message called the same tool
+				for _, tc := range msg.ToolCalls {
+					if tc.Name == call.Name {
+						count++
+						break // one match per message is enough
+					}
+				}
+			} else if msg.Role == "assistant" && msg.Content != "" && len(msg.ToolCalls) == 0 {
+				// Text-only assistant response breaks the loop
+				break
+			}
+			// tool and user messages don't break the count
+		}
+		if count >= 3 {
+			return true
+		}
+	}
+	return false
 }

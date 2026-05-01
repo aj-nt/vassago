@@ -265,12 +265,12 @@ func (r *ModelRouter) selectBest(ctx RoutingContext) (*ModelConfig, error) {
 //  3. If only simple tool calls are in context, use the cheapest model.
 //  4. Default: use the primary model.
 func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
-	// Rule 1: Tool result formatting — cheap model is fine IF reachable
+	// Rule 1: Tool result formatting — cheap model is fine IF reachable AND not demoted
 	if ctx.HasToolResults && ctx.Iteration > 0 {
-		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) {
+		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) && !r.isDemoted(m.Name) {
 			return m, nil
 		}
-		// Cheap model not reachable — fall through to primary
+		// Cheap model not available — fall through to primary
 	}
 
 	// Rule 2: Complex reasoning detected
