@@ -256,7 +256,7 @@ func TestUnit_ServiceWiring(t *testing.T) {
 	}
 	defer st.Close()
 
-	svc := daemongrpc.NewService(st, nil)
+	svc := daemongrpc.NewService(st, nil, nil)
 	resp, err := svc.AddMemory(context.Background(), &pb.AddMemoryRequest{
 		Target: "memory", Category: "test", Key: "wiring",
 		Content: "wiring test", Priority: 3, SourceAgent: "tester",

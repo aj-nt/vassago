@@ -14,6 +14,7 @@ import (
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
+	"github.com/aj-nt/mnemosyne/daemon/internal/messaging"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"google.golang.org/grpc"
@@ -23,9 +24,20 @@ import (
 // Config holds the daemon configuration.
 // One file. One source of truth. No deep merge. No fallback chains.
 type Config struct {
-	Daemon   DaemonConfig  `yaml:"daemon"`
-	Store    StoreConfig   `yaml:"database"`
-	HotBlock HotBlockConfig `yaml:"hot_block"`
+	Daemon     DaemonConfig      `yaml:"daemon"`
+	Store      StoreConfig       `yaml:"database"`
+	HotBlock   HotBlockConfig    `yaml:"hot_block"`
+	Messaging  MessagingConfig   `yaml:"messaging"`
+}
+
+type MessagingConfig struct {
+	Discord DiscordMessagingConfig `yaml:"discord"`
+}
+
+type DiscordMessagingConfig struct {
+	Token           string   `yaml:"token"`
+	Guilds          []string `yaml:"guilds"`
+	AllowedChannels []string `yaml:"allowed_channels"`
 }
 
 type DaemonConfig struct {
@@ -127,8 +139,22 @@ func New(cfg *Config) (*Daemon, error) {
 	// Create pub/sub hub
 	hub := pubsub.NewHub()
 
-	// Register service
-	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub))
+	// Create messaging service
+	messagingService := daemongrpc.NewMessagingService()
+
+	// Add Discord adapter if token is configured
+	if cfg.Messaging.Discord.Token != "" {
+		discordAdapter := messaging.NewDiscordAdapter(messaging.DiscordConfig{
+			Token:           cfg.Messaging.Discord.Token,
+			Guilds:          cfg.Messaging.Discord.Guilds,
+			AllowedChannels: cfg.Messaging.Discord.AllowedChannels,
+		})
+		messagingService.AddAdapter("discord", discordAdapter)
+	}
+
+	// Register services
+	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub, messagingService))
+	pb.RegisterMessagingServer(server, messagingService)
 
 	return &Daemon{
 		config: cfg,

@@ -18,7 +18,7 @@ func TestTelepathy_agentReceivesUpdate(t *testing.T) {
 	// Set up daemon with store + pub/sub hub
 	s := testStoreTelepathy(t)
 	hub := pubsub.NewHub()
-	svc := daemongrpc.NewService(s, hub)
+	svc := daemongrpc.NewService(s, hub, nil)
 
 	// Start gRPC server on random port
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -87,7 +87,7 @@ func TestTelepathy_agentReceivesUpdate(t *testing.T) {
 func TestTelepathy_noSelfNotification(t *testing.T) {
 	s := testStoreTelepathy(t)
 	hub := pubsub.NewHub()
-	svc := daemongrpc.NewService(s, hub)
+	svc := daemongrpc.NewService(s, hub, nil)
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

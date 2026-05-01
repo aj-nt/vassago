@@ -15,7 +15,7 @@ func newTestService(t *testing.T) (*Service, func()) {
 	if err != nil {
 		t.Fatalf("create test store: %v", err)
 	}
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	return svc, func() { s.Close() }
 }
 
