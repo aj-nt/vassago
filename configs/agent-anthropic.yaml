@@ -94,6 +94,7 @@ tools:
     - Execute
   allowed_dirs:
     - /tmp
+    - ~/Documents/repos
     - .
 
 # Delegation: spawn focused sub-agents for scoped tasks
