@@ -353,36 +353,23 @@ func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
 }
 
 func TestIsConsecutiveToolIterationLoop_DifferentTools(t *testing.T) {
-	// Test that 5+ consecutive iterations with different tools should be detected
+	// 3+ consecutive iterations with different tools — IS a loop
 	messages := []agentctx.Message{
+		{Role: "user", Content: "check this"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
 			{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
 		}},
-		{Role: "tool", Content: "search results", Name: "FileSearch", ToolCallID: "1"},
+		{Role: "tool", Content: "found files", ToolCallID: "1"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
-			{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+			{ID: "2", Name: "Execute", Arguments: json.RawMessage(`{}`)},
 		}},
-		{Role: "tool", Content: "file content", Name: "FileRead", ToolCallID: "2"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
-			{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
-		}},
-		{Role: "tool", Content: "execution result", Name: "Execute", ToolCallID: "3"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
-			{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
-		}},
-		{Role: "tool", Content: "search results", Name: "FileSearch", ToolCallID: "4"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
-			{ID: "5", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
-		}},
+		{Role: "tool", Content: "output", ToolCallID: "2"},
 	}
-
 	currentCalls := []agentctx.ToolCall{
-		{ID: "6", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+		{ID: "3", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
 	}
-
-	// Should detect the loop (5 consecutive tool iterations)
 	if !isConsecutiveToolIterationLoop(messages, currentCalls) {
-		t.Error("Expected to detect consecutive tool iteration loop with different tools")
+		t.Error("3+ consecutive tool iterations with different tools should be detected as a loop")
 	}
 }
 
