@@ -510,12 +510,23 @@ register, heartbeat, and subscribe to memory change events.
 - `client/hotblock_event_test.go` — 3 OnEvent tests (callback, nil, invalidation pattern)
 - `agent/cmd/mnemosyne-agent/main.go` — Wiring: seed cache, subscribe, invalidate on events
 
-### 14C: Delegation Tool — Sub-Agent Spawning — TODO
+### 14C: Delegation Tool — Sub-Agent Spawning — COMPLETE ✅
 
-- [ ] New tool: `Delegate` — spawn sub-agent with scoped prompt
-- [ ] Sub-agent shares daemon connection, gets own `agent_id`
-- [ ] Results flow back as tool result
-- [ ] Config: `delegation.max_depth: 1`
+- [x] New tool: `Delegate` — spawn sub-agent with scoped prompt
+- [x] Sub-agent shares daemon connection, gets own `agent_id`
+- [x] Sub-agent has restricted toolset: memory tools only (no Delegate, file, terminal, web)
+- [x] `max_depth=1` prevents recursive delegation by default
+- [x] `delegation.enabled`, `delegation.max_depth`, `delegation.max_turns` config
+- [x] 2-minute timeout on sub-agent execution
+- [x] SubAgentRunner interface breaks import cycle between tools and agent packages
+- [x] 10 tests (6 Delegate tool + 4 SubAgentRunner)
+
+**Key files:**
+- `agent/tools/delegate.go` — Delegate tool handler, schema, SubAgentRunner interface, DelegateConfig
+- `agent/tools/delegate_test.go` — 6 unit tests with mock SubAgentRunner
+- `agent/delegate.go` — SubAgentRunnerImpl (creates sub-agent with restricted tools)
+- `agent/delegate_test.go` — 4 integration tests with mock provider
+- `agent/config.go` — DelegationSection config struct
 
 ### 14D: Scheduled Tasks — TODO
 
