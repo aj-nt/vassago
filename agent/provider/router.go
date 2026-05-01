@@ -398,9 +398,11 @@ func (r *ModelRouter) findFallback() (*ModelConfig, error) {
 }
 
 // isDemoted checks if a model has been temporarily demoted due to failures.
+// A model is demoted after 1 failure (immediate demotion for wrong-format responses,
+// unreachable endpoints, etc. — there's no point retrying a model that just failed).
 func (r *ModelRouter) isDemoted(name string) bool {
 	count := r.failures[name]
-	if count < 3 {
+	if count < 1 {
 		return false
 	}
 	// Auto-recover after 5 minutes
@@ -413,7 +415,7 @@ func (r *ModelRouter) isDemoted(name string) bool {
 	return true
 }
 
-// RecordFailure records a model failure. After 3 consecutive failures, the model is demoted.
+// RecordFailure records a model failure. After 1 failure, the model is immediately demoted.
 func (r *ModelRouter) RecordFailure(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

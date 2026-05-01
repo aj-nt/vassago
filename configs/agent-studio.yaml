@@ -17,6 +17,29 @@ provider:
   openai_base_url: "http://localhost:11434/v1"
   openai_api_key_env: "OLLAMA_API_KEY"
 
+routing:
+  strategy: "smart"
+  models:
+    - name: "claude-sonnet-4-6"
+      provider: "anthropic"
+      input_cost: 3.00
+      output_cost: 15.00
+      context_window: 200000
+      reasoning: "high"
+      code: "high"
+      tool_use: true
+      speed: "medium"
+
+    - name: "glm-5.1:cloud"
+      provider: "openai"
+      input_cost: 0.00
+      output_cost: 0.00
+      context_window: 32000
+      reasoning: "low"
+      code: "medium"
+      tool_use: true
+      speed: "fast"
+
 mnemosyne:
   address: "localhost:15051"
 

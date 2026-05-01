@@ -86,12 +86,18 @@ func (p *OpenAIProvider) Prepare(_ context.Context, convCtx *agentctx.Conversati
 		if len(msg.ToolCalls) > 0 {
 			tcs := make([]interface{}, len(msg.ToolCalls))
 			for i, tc := range msg.ToolCalls {
+				// Normalize empty arguments to valid JSON object —
+				// Ollama rejects "arguments": "" as invalid.
+				args := string(tc.Arguments)
+				if args == "" {
+					args = "{}"
+				}
 				tcs[i] = map[string]interface{}{
 					"id":   tc.ID,
 					"type": "function",
 					"function": map[string]interface{}{
 						"name":      tc.Name,
-						"arguments": string(tc.Arguments),
+						"arguments": args,
 					},
 				}
 			}
