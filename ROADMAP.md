@@ -564,3 +564,177 @@ register, heartbeat, and subscribe to memory change events.
 - `agent/tools/validate_test.go` — 16 validation unit tests
 - `agent/pipeline/tool_dispatch.go` — Wire validation before handler call
 - [x] Kills empty-args crash permanently
+---
+
+## Phase 15: Messaging Gateway
+
+Goal: Send and receive messages through external platforms. This is the highest-value gap — it turns Mnemosyne from a CLI tool into a real assistant that can reach AJ wherever he is.
+
+### 15A: Discord Bot
+
+- [ ] gRPC MessagingService definition: SendMessage, ListChannels, GetChannelInfo
+- [ ] Discord adapter: connect to Discord gateway, listen for messages in allowed channels
+- [ ] Incoming message flow: Discord message → daemon → agent → response → Discord
+- [ ] Config: `discord.token`, `discord.guilds`, `discord.allowed_channels`
+- [ ] Rate limiting and message splitting (Discord 2000 char limit)
+- [ ] Mock Discord gateway, message round-trip tests, rate limit tests
+- [ ] QA pass + Red Team pass
+
+### 15B: Telegram Bot
+
+- [ ] Telegram Bot API adapter: long-polling or webhook
+- [ ] Same gRPC MessagingService interface (platform-agnostic)
+- [ ] Config: `telegram.token`, `telegram.allowed_chats`
+- [ ] Markdown formatting for Telegram (HTML mode)
+- [ ] Mock Telegram API tests, message round-trip tests
+- [ ] QA pass + Red Team pass
+
+### 15C: iMessage (macOS)
+
+- [ ] iMessage adapter via AppleScript bridge or BlueBabilities
+- [ ] Send/receive through macOS Messages.app
+- [ ] Config: `imessage.enabled`, `imessage.allowed_recipients`
+- [ ] Handle macOS 26 Launch Constraint issue (daemon stays running, applescript sends)
+- [ ] Mock iMessage bridge tests
+- [ ] QA pass + Red Team pass
+
+### 15D: Email (Proton Mail Bridge)
+
+- [ ] IMAP adapter for reading email via Proton Bridge or himalaya
+- [ ] SMTP adapter for sending notifications
+- [ ] Config: `email.imap_host`, `email.smtp_host`, `email.folders`
+- [ ] Polling-based email checking (no webhook available for IMAP)
+- [ ] Mock IMAP/SMTP tests
+- [ ] QA pass + Red Team pass
+
+### 15E: Messaging Gateway Unification
+
+- [ ] Unified MessagingService daemon endpoint (single gRPC service for all platforms)
+- [ ] Platform routing: agent specifies target platform, daemon routes to adapter
+- [ ] Message formatting per platform (markdown → Discord embeds, Telegram HTML, plain text for iMessage)
+- [ ] Agent tool: `SendMessage` — "send a message to AJ on Discord" or "iMessage AJ about the build"
+- [ ] Cross-platform message routing tests
+- [ ] QA pass + Red Team pass + refactor pass
+
+---
+
+## Phase 16: Proactive Agent & Notifications
+
+Goal: Agent can initiate contact, not just respond to questions.
+
+### 16A: Agent-Managed Cron Jobs
+
+- [ ] CronService gRPC endpoint: CreateCronJob, ListCronJobs, DeleteCronJob
+- [ ] Agent tool: `ScheduleCron` — create/manage scheduled tasks from conversation
+- [ ] Cron runner in daemon: fires events at scheduled times, triggers agent
+- [ ] Config: `cron.enabled`, `cron.max_jobs`
+- [ ] Tests: job CRUD, firing on schedule, disabling, persistence across restarts
+- [ ] QA pass + Red Team pass
+
+### 16B: Proactive Notifications
+
+- [ ] NotificationService: send a message to a specific platform at a specific time
+- [ ] Agent tool: `Notify` — "send me a message on Discord at 3pm" or "iMessage me when the build finishes"
+- [ ] Integration with Phase 15 messaging: cron job triggers notification via messaging gateway
+- [ ] Tests: notification delivery, scheduling, cancellation, timezone handling
+- [ ] QA pass + Red Team pass
+
+### 16C: Health Monitoring & Self-Healing
+
+- [ ] Agent monitors daemon health, test results, deployment status
+- [ ] Automatic notifications when things break (test failures, daemon down, disk full)
+- [ ] Config: `health.check_interval`, `health.notification_platform`
+- [ ] Tests: health check loop, failure detection, notification triggering
+- [ ] QA pass + Red Team pass
+
+### 16D: Event-Driven Triggers (Webhooks)
+
+- [ ] WebhookService: receive webhooks (GitHub, CI, etc.) → trigger agent action
+- [ ] GitHub webhook: PR opened → agent review, issue created → agent notify
+- [ ] CI webhook: build fails → agent reports failure via messaging
+- [ ] Config: `webhooks.enabled`, `webhooks.endpoints`, `webhooks.secret`
+- [ ] Tests: webhook parsing, trigger dispatch, HMAC verification
+- [ ] QA pass + Red Team pass + refactor pass
+
+---
+
+## Phase 17: Agent Polish & Robustness
+
+Goal: Fix bugs found in conversation test, improve quality and coverage.
+
+### 17A: Conversation Quality
+
+- [ ] Fix tool-listing repetition (model keeps listing capabilities instead of answering)
+- [ ] Fix Delegate tool empty output bug (sub-agent returns nothing)
+- [ ] Fix agent getting stuck when file search fails (graceful fallback, don't loop)
+- [ ] Better anti-repetition heuristics (detect and suppress tool-list re-statement)
+- [ ] Conversation simulation tests
+- [ ] QA pass + Red Team pass
+
+### 17B: Session Persistence & Search
+
+- [ ] Session search as an agent tool: `SearchSessions` query past conversations
+- [ ] Agent can query past conversations without `/sessions` CLI command
+- [ ] Session auto-titling based on conversation content
+- [ ] Tests: session search, titling, resume
+- [ ] QA pass
+
+### 17C: Todo Management
+
+- [ ] TodoService gRPC endpoint: AddTodo, ListTodos, CompleteTodo, RemoveTodo
+- [ ] Agent tools: `AddTodo`, `ListTodos`, `CompleteTodo`, `RemoveTodo`
+- [ ] Persistence in SQLite (todos table)
+- [ ] Tests: todo CRUD, completion tracking, priority sorting
+- [ ] QA pass + Red Team pass
+
+### 17D: Architecture Cleanup
+
+- [ ] Extract MnemoClient interface from client.Client (testability)
+- [ ] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
+- [ ] Fix circular dependency (agent ↔ agent/interface) — extract interface package
+- [ ] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs
+- [ ] Increase test coverage targets: agent 60%, client 50%, daemon 40%
+- [ ] Config validation (reject invalid values, not silent defaults)
+- [ ] Refactor pass per Fowler
+
+---
+
+## Phase 18: Advanced Capabilities
+
+Goal: Catch up to Hermes feature parity and exceed it.
+
+### 18A: Browser Automation
+
+- [ ] Playwright or similar headless browser integration
+- [ ] Agent tool: `Browse` — navigate, screenshot, extract text, click
+- [ ] Config: `browser.enabled`, `browser.headless`
+- [ ] Tests: mock browser, page navigation, content extraction
+- [ ] QA pass + Red Team pass
+
+### 18B: Vision & Image Generation
+
+- [ ] Image analysis tool (using existing provider APIs — Claude, GPT-4V)
+- [ ] Image generation tool (DALL-E, Stability, etc.)
+- [ ] Config: `vision.provider`, `image_gen.provider`
+- [ ] Tests: mock provider calls
+- [ ] QA pass
+
+### 18C: Multi-Agent Orchestration
+
+- [ ] Agent registry: agents register name, capabilities, and role
+- [ ] Cross-agent task routing (not just delegation — broadcast, scoped queries)
+- [ ] Agent discovery: "which agent can handle X?"
+- [ ] Config: `agents.registry` (list of known agents and their endpoints)
+- [ ] Tests: agent registration, capability routing, broadcast
+- [ ] QA pass + Red Team pass
+
+### 18D: Production Hardening
+
+- [ ] CI pipeline (go test on push — Phase 1 open item)
+- [ ] E2E validation against Hermes data (Phase 7 open item)
+- [ ] Performance testing (memory store under load, 10K+ memories)
+- [ ] Deployment automation (auto-deploy to Studio on main merge)
+- [ ] Config validation (reject invalid values at startup)
+- [ ] Graceful scheduler shutdown on SIGINT/SIGTERM
+- [ ] gRPC reflection for service discovery
+- [ ] Refactor pass per Fowler
