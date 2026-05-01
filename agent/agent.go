@@ -368,12 +368,27 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		// Stage 1: Request Preparation
 		prepared := a.Stage1.Process(convCtx)
 
-		// Stage 2: Try streaming with the router-selected provider
-		p, err := a.selectProvider(convCtx)
-		if err != nil {
-			out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
-			return
+	// Stage 2: Try streaming with the router-selected provider
+	p, err := a.selectProvider(convCtx)
+	if err != nil {
+		out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
+		return
+	}
+
+	// Track the model name for failure demotion (provider name ≠ model name)
+	modelName := ""
+	if a.Router != nil {
+		modelCfg, selectErr := a.Router.Select(provider.RoutingContext{
+			Iteration:      convCtx.Iteration,
+			UserMessage:     firstUserMessage(convCtx.Messages),
+			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
+			ToolCallCount:   countToolResults(convCtx.Messages),
+			PromptCharCount: convCtx.TokenCount() * 4,
+		})
+		if selectErr == nil {
+			modelName = modelCfg.Name
 		}
+	}
 
 		req, err := p.Prepare(ctx, convCtx, prepared)
 		if err != nil {
@@ -385,7 +400,7 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		streamCh, streamErr := p.Stream(ctx, req)
 		if streamErr != nil {
 			// Streaming not supported — fall back to non-streaming
-			a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID)
+			a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID, modelName)
 			if convCtx.Iteration >= convCtx.MaxIterations {
 				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 				return
@@ -421,7 +436,11 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 				})
 			case agentctx.StreamError:
 				if a.Router != nil {
-					a.Router.RecordFailure(p.Name())
+					failName := p.Name()
+					if modelName != "" {
+						failName = modelName
+					}
+					a.Router.RecordFailure(failName)
 				}
 				out <- StreamEvent{Error: event.Error}
 				return
@@ -483,12 +502,16 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 }
 
 // runTurnNonStreaming executes a single turn without streaming (fallback).
-func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string) {
+func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string, modelName string) {
 	result := a.Stage2.Process(ctx, convCtx, prepared)
 	if result.Error != nil {
-		// Record failure for routing demotion
+		// Record failure for routing demotion — use model name if available
 		if a.Router != nil {
-			a.Router.RecordFailure(p.Name())
+			failName := p.Name()
+			if modelName != "" {
+				failName = modelName
+			}
+			a.Router.RecordFailure(failName)
 		}
 		// If this is not the primary provider, try the primary as immediate fallback
 		if p.Name() != a.Registry.Primary() {
