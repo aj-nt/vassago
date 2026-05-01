@@ -150,7 +150,8 @@ func TestRouterQualityOptimized(t *testing.T) {
 func TestRouterSmartFirstTurn(t *testing.T) {
 	r := newRouterWithModels(StrategySmart)
 
-	// Short simple question on first turn → cheapest
+	// First turn goes to primary model (not cheap model)
+	// Interactive users expect the primary model for their first message
 	m, err := r.Select(RoutingContext{
 		Iteration:      0,
 		UserMessage:   "hi",
@@ -159,8 +160,8 @@ func TestRouterSmartFirstTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select error: %v", err)
 	}
-	if m.Name != "local" {
-		t.Errorf("expected local (cheap for simple first turn), got %s", m.Name)
+	if m.Name != "premium" {
+		t.Errorf("expected premium (primary for first turn), got %s", m.Name)
 	}
 }
 

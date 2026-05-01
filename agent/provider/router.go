@@ -273,14 +273,10 @@ func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
 		}
 	}
 
-	// Rule 3: Short simple turn — cheap model
-	if ctx.Iteration == 0 && ctx.PromptCharCount < 100 && !ctx.HasToolResults {
-		if m := r.findCheapestCapable(true); m != nil {
-			return m, nil
-		}
-	}
-
-	// Rule 4: Default to primary
+	// Rule 3: Default to primary
+	// (Removed "short prompt → cheap model" rule — interactive users
+	// expect the primary model for their first message regardless of length.
+	// Cheap model routing only applies to tool-result followup turns.)
 	return r.selectPrimary()
 }
 
