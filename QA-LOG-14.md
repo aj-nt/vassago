@@ -136,25 +136,18 @@ scheduler:
 ### RED TEAM FINDINGS
 
 #### MEDIUM: Empty content accepted by AddMemory
-- The store has no minimum content length. AddMemory with empty string content succeeds.
-- The tool handler does check `content == ""` and returns an error, so the tool-level defense works.
-- The store-level validation rejects it with a content-length check (max 100K chars).
-- **Risk**: LOW — the tool handler catches it before the store. But if called directly via gRPC, empty content is allowed.
+- **FIXED**: Store now rejects empty/whitespace-only content with `content must not be empty`.
+- Tool handler already caught this, but the store is now defense-in-depth for direct gRPC callers.
 
 #### MEDIUM: Null bytes not rejected by validation
-- ValidateArgs does not reject strings containing `\x00`.
-- SQLite handles null bytes in TEXT columns (stores as-is), but they can cause issues in FTS5 indexing and JSON serialization.
-- **Risk**: MEDIUM — null bytes in category/key could corrupt FTS5 indexes.
+- **FIXED**: ValidateArgs now rejects strings containing `\x00` with "value contains null bytes".
+- Prevents FTS5 index corruption and JSON serialization issues.
 
 #### LOW: ApplyDefaults doesn't apply all optional defaults
-- The AddMemory schema defines `default: 20` for `limit` and `default: 3` for `priority`, but ApplyDefaults only checks for `"default"` keys at the top level of `properties[name]`.
-- Nested defaults (like `limit` inside `properties.limit.default`) ARE applied, but some defaults like `priority` use the handler's fallback instead.
-- **Risk**: LOW — handlers have their own default fallbacks.
+- **NOT A BUG**: ApplyDefaults correctly applies `priority: 3` default. The test was checking for `limit` which is a SearchMemories property, not AddMemory.
 
 #### LOW: Category not marked as required in AddMemory schema
-- AddMemory's schema only marks `key` and `content` as required. `category` and `target` have defaults in the handler.
-- If called via gRPC without category, it gets the handler's default ("environment").
-- **Risk**: LOW — defaults are applied correctly by the handler.
+- **FIXED**: Added `category` to the required fields list in AddMemorySchema. ReplaceMemory keeps category optional since upsert preserves the old value.
 
 #### INFO: Content size limit exists (100K chars)
 - Store rejects content > 100,000 characters with `validation: content too long: N chars, max 100000`.
