@@ -54,7 +54,12 @@ func main() {
 
 	// Wire providers and tools from config
 	registry := setupProviders(&cfg.Provider)
-	toolReg := setupTools(&cfg.Tools, mnemo, cfg.Agent.ID)
+	subRunner := &agent.SubAgentRunnerImpl{
+		Mnemo:    mnemo,
+		Registry: registry,
+		Router:   nil, // will be set below if routing is configured
+	}
+	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, mnemo, cfg.Agent.ID, subRunner)
 
 	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
@@ -68,6 +73,7 @@ func main() {
 		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
 	}
 	defer a.Close()
+	subRunner.Router = a.Router // set router for sub-agent delegation
 
 	// Set up hot block cache and Telepathy subscription
 	if agentSession.IsRegistered() {
@@ -170,7 +176,7 @@ func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 }
 
 // setupTools creates the tool registry and registers tools per the config's enabled list.
-func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID string) *tools.ToolRegistry {
+func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.Enabled
 
@@ -179,6 +185,13 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
+		if delegateCfg.Enabled {
+			tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
+				Enabled:  delegateCfg.Enabled,
+				MaxDepth: delegateCfg.MaxDepth,
+				MaxTurns: delegateCfg.MaxTurns,
+			})
+		}
 		return toolReg
 	}
 
@@ -194,6 +207,13 @@ func setupTools(cfg *agent.ToolsSection, mnemo *memoclient.Client, agentID strin
 	}
 	if anyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil) // nil = use default HTTP client
+	}
+	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
+		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
+			Enabled:  delegateCfg.Enabled,
+			MaxDepth: delegateCfg.MaxDepth,
+			MaxTurns: delegateCfg.MaxTurns,
+		})
 	}
 
 	return toolReg
