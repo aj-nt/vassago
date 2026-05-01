@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -156,6 +157,9 @@ func validateMemoryInput(target, category, key, content string, priority int32) 
 	}
 	if len(content) > MaxContentLength {
 		return fmt.Errorf("content too long: %d chars, max %d", len(content), MaxContentLength)
+	}
+	if len(strings.TrimSpace(content)) == 0 {
+		return fmt.Errorf("content must not be empty")
 	}
 	if priority < 1 || priority > 5 {
 		return fmt.Errorf("invalid priority %d: must be 1-5", priority)
