@@ -44,7 +44,7 @@ func main() {
 	agentCfg := cfg.ToAgentConfig()
 	var a *agent.Agent
 	if len(cfg.Routing.Models) > 0 {
-		router := setupRouter(&cfg.Routing, registry)
+		router := setupRouter(&cfg.Routing, &cfg.Provider, registry)
 		a = agent.NewAgentWithRouter(agentCfg, registry, router, toolReg, mnemo)
 		log.Printf("Model routing enabled: strategy=%s, primary=%s, models=%v",
 			cfg.Routing.Strategy, router.Primary(), router.List())
@@ -171,11 +171,18 @@ func anyEnabled(enabled []string, names ...string) bool {
 }
 
 // setupRouter creates and configures the model router from config.
-func setupRouter(cfg *agent.RoutingSection, registry *provider.ProviderRegistry) *provider.ModelRouter {
+func setupRouter(cfg *agent.RoutingSection, providerCfg *agent.ProviderSection, registry *provider.ProviderRegistry) *provider.ModelRouter {
 	strategy := provider.RoutingStrategy(cfg.Strategy)
 	router := provider.NewModelRouter(strategy)
 
-	for _, m := range cfg.Models {
+	for i := range cfg.Models {
+		m := cfg.Models[i]
+		// Populate BaseURL from provider for health-checking.
+		// Local endpoints (e.g., Ollama at localhost:11434) get checked;
+		// cloud APIs (no local URL) are assumed reachable.
+		if p, err := registry.Get(m.Provider); err == nil {
+			m.BaseURL = p.EndpointURL()
+		}
 		router.Register(m)
 	}
 

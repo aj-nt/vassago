@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+	"net"
 	"testing"
 )
 
@@ -405,5 +407,74 @@ func TestRouterNoModels(t *testing.T) {
 	_, err := r.Select(RoutingContext{})
 	if err == nil {
 		t.Error("expected error for empty router")
+	}
+}
+
+// --- Health-check (isReachable) ---
+
+func TestRouterIsReachableEmptyBaseURL(t *testing.T) {
+	r := NewModelRouter(StrategySmart)
+	m := &ModelConfig{Name: "cloud-model", Provider: "anthropic"}
+	m.BaseURL = "" // Cloud API — assumed reachable
+	if !r.isReachable(m) {
+		t.Error("expected cloud model (empty BaseURL) to be assumed reachable")
+	}
+}
+
+func TestRouterIsReachableLocalhost(t *testing.T) {
+	r := NewModelRouter(StrategySmart)
+	// Use a port that's very likely NOT listening to test the negative case
+	m := &ModelConfig{Name: "local-ollama", Provider: "openai"}
+	m.BaseURL = "http://localhost:59999" // Non-existent port
+	if r.isReachable(m) {
+		t.Error("expected unreachable localhost port to return false")
+	}
+}
+
+func TestRouterIsReachableLocalhostListening(t *testing.T) {
+	r := NewModelRouter(StrategySmart)
+	// Start a temporary TCP listener on a random port
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("can't create listener: %v", err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+	m := &ModelConfig{Name: "local-server", Provider: "openai"}
+	m.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	if !r.isReachable(m) {
+		t.Errorf("expected reachable localhost:%d to return true", port)
+	}
+}
+
+func TestSelectSmartSkipsUnreachableModel(t *testing.T) {
+	r := NewModelRouter(StrategySmart)
+	// Register primary (cloud, always reachable) and cheap local model (unreachable)
+	r.Register(ModelConfig{
+		Name:     "claude-sonnet",
+		Provider: "anthropic",
+		InputCost: 3.0, OutputCost: 15.0,
+		ToolUse: true, Reasoning: "high", Speed: "medium",
+	})
+	r.Register(ModelConfig{
+		Name:     "cheap-local",
+		Provider: "openai",
+		InputCost: 0.0, OutputCost: 0.0,
+		ToolUse: true, Reasoning: "low", Speed: "fast",
+		BaseURL: "http://localhost:59999", // Not listening
+	})
+	if err := r.SetPrimary("claude-sonnet"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Tool-result turn should select cheapest capable, but skip unreachable,
+	// and fall back to primary
+	ctx := RoutingContext{HasToolResults: true, Iteration: 1}
+	m, err := r.Select(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Name != "claude-sonnet" {
+		t.Errorf("expected primary model (cheap unreachable), got %q", m.Name)
 	}
 }

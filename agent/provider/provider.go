@@ -29,4 +29,9 @@ type Provider interface {
 	// Providers that don't support streaming should return an error.
 	// The channel is closed when the stream is done.
 	Stream(ctx context.Context, req interface{}) (<-chan agentctx.StreamEvent, error)
+
+	// EndpointURL returns the base URL of this provider's API endpoint.
+	// Used for health-checking: local endpoints (e.g., Ollama) get TCP-dialed,
+	// cloud endpoints return empty string (assumed reachable).
+	EndpointURL() string
 }

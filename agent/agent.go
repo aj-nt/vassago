@@ -420,6 +420,9 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 					Arguments: json.RawMessage(currentToolInput.String()),
 				})
 			case agentctx.StreamError:
+				if a.Router != nil {
+					a.Router.RecordFailure(p.Name())
+				}
 				out <- StreamEvent{Error: event.Error}
 				return
 			case agentctx.StreamDone:
@@ -480,11 +483,37 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 }
 
 // runTurnNonStreaming executes a single turn without streaming (fallback).
-func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, provider provider.Provider, sessionID string) {
+func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string) {
 	result := a.Stage2.Process(ctx, convCtx, prepared)
 	if result.Error != nil {
-		out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
-		return
+		// Record failure for routing demotion
+		if a.Router != nil {
+			a.Router.RecordFailure(p.Name())
+		}
+		// If this is not the primary provider, try the primary as immediate fallback
+		if p.Name() != a.Registry.Primary() {
+			if primary, err := a.Registry.GetPrimary(); err == nil {
+				log.Printf("Provider %q failed, falling back to primary %q: %v", p.Name(), primary.Name(), result.Error)
+				// Re-prepare and execute with primary
+				req, err2 := primary.Prepare(ctx, convCtx, prepared)
+				if err2 == nil {
+					fallbackResult, execErr := primary.Execute(ctx, req)
+					if execErr == nil && fallbackResult.Error == nil {
+						result = fallbackResult
+					}
+				}
+				if result.Error != nil {
+					out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
+					return
+				}
+			} else {
+				out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
+				return
+			}
+		} else {
+			out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
+			return
+		}
 	}
 
 	parsed, err := a.Stage3.Process(ctx, result)

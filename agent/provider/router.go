@@ -2,6 +2,8 @@ package provider
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,10 @@ type ModelConfig struct {
 	ToolUse       bool   `yaml:"tool_use"`       // supports function calling
 	Vision        bool   `yaml:"vision"`         // supports image input
 	Speed         string `yaml:"speed"`          // "fast", "medium", "slow"
+
+	// Endpoint for health-checking (populated from provider, not from YAML).
+	// Empty string = skip health check (assume reachable, e.g., cloud APIs).
+	BaseURL string `yaml:"-"`
 }
 
 // Capabilities returns the provider capabilities this model supports.
@@ -259,11 +265,12 @@ func (r *ModelRouter) selectBest(ctx RoutingContext) (*ModelConfig, error) {
 //  3. If only simple tool calls are in context, use the cheapest model.
 //  4. Default: use the primary model.
 func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
-	// Rule 1: Tool result formatting — cheap model is fine
+	// Rule 1: Tool result formatting — cheap model is fine IF reachable
 	if ctx.HasToolResults && ctx.Iteration > 0 {
-		if m := r.findCheapestCapable(true); m != nil {
+		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) {
 			return m, nil
 		}
+		// Cheap model not reachable — fall through to primary
 	}
 
 	// Rule 2: Complex reasoning detected
@@ -297,6 +304,40 @@ func isComplexReasoning(message string, charCount int) bool {
 		}
 	}
 	return false
+}
+
+// isReachable checks if the model's endpoint is reachable via a quick TCP dial.
+// Models with no BaseURL (cloud APIs like Anthropic/OpenAI) are assumed reachable.
+// Local endpoints (e.g., Ollama at localhost:11434) get a 2-second TCP health-check.
+func (r *ModelRouter) isReachable(m *ModelConfig) bool {
+	if m.BaseURL == "" {
+		return true // Cloud API — assume reachable
+	}
+	u, err := url.Parse(m.BaseURL)
+	if err != nil {
+		return false // Invalid URL — skip this model
+	}
+	host := u.Host
+	if host == "" {
+		return true // Can't determine host — assume reachable
+	}
+	// Add default port if missing
+	if !strings.Contains(host, ":") {
+		switch u.Scheme {
+		case "https":
+			host += ":443"
+		case "http":
+			host += ":80"
+		default:
+			host += ":80"
+		}
+	}
+	conn, err := net.DialTimeout("tcp", host, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // findCheapestCapable returns the cheapest model with tool_use support.

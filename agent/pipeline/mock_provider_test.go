@@ -44,6 +44,7 @@ func (m *mockProvider) Stream(ctx context.Context, req interface{}) (<-chan agen
 	}
 	return nil, fmt.Errorf("streaming not supported")
 }
+func (m *mockProvider) EndpointURL() string { return "" }
 
 // Compile-time check that mockProvider satisfies provider.Provider
 var _ provider.Provider = (*mockProvider)(nil)

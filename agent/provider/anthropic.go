@@ -29,7 +29,7 @@ func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: "https://api.anthropic.com/v1/messages",
-		client:  NewHTTPClient(120 * time.Second),
+		client:  NewHTTPClient(30 * time.Second),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -45,6 +45,9 @@ func (p *AnthropicProvider) Name() string { return "anthropic" }
 
 // Capabilities returns what this provider supports.
 func (p *AnthropicProvider) Capabilities() agentctx.ProviderCapabilities { return p.capabilities }
+
+// EndpointURL returns empty for Anthropic (cloud API, always assumed reachable).
+func (p *AnthropicProvider) EndpointURL() string { return "" }
 
 // Prepare builds the Anthropic Messages API request.
 func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.ConversationContext, prepared agentctx.PreparedRequest) (interface{}, error) {

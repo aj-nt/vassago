@@ -98,3 +98,6 @@ func (m *MockProvider) Parse(_ context.Context, result agentctx.ProviderResult) 
 func (m *MockProvider) Stream(_ context.Context, _ interface{}) (<-chan agentctx.StreamEvent, error) {
 	return nil, fmt.Errorf("mock provider does not support streaming")
 }
+
+// EndpointURL returns empty for the mock provider (assumed reachable).
+func (m *MockProvider) EndpointURL() string { return "" }

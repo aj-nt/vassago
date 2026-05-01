@@ -33,7 +33,7 @@ func NewOpenAIProvider(baseURL, apiKey, model string) *OpenAIProvider {
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		model:   model,
-		client:  NewHTTPClient(120 * time.Second),
+		client:  NewHTTPClient(30 * time.Second),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -49,6 +49,21 @@ func (p *OpenAIProvider) Name() string { return "openai" }
 
 // Capabilities returns what this provider supports.
 func (p *OpenAIProvider) Capabilities() agentctx.ProviderCapabilities { return p.capabilities }
+
+// EndpointURL returns the base URL for this provider's API endpoint.
+// Local endpoints (localhost, 127.0.0.1, 10.x, 192.168.x) are returned as-is
+// for health-checking. Cloud API endpoints return empty string (assumed reachable).
+func (p *OpenAIProvider) EndpointURL() string {
+	// Return non-empty only for local/self-hosted endpoints
+	if strings.Contains(p.baseURL, "localhost") ||
+		strings.Contains(p.baseURL, "127.0.0.1") ||
+		strings.Contains(p.baseURL, "0.0.0.0") ||
+		strings.Contains(p.baseURL, "192.168.") ||
+		strings.Contains(p.baseURL, "10.") {
+		return p.baseURL
+	}
+	return "" // Cloud API — skip health check
+}
 
 // Prepare builds the OpenAI chat completion request.
 func (p *OpenAIProvider) Prepare(_ context.Context, convCtx *agentctx.ConversationContext, prepared agentctx.PreparedRequest) (interface{}, error) {
