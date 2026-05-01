@@ -3,7 +3,7 @@ agent:
   name: "mnemosyne"
   role: "assistant"
   personality: "direct, dry-witted collaborator"
-  personality_file: "/Users/quentin/Documents/repos/mnemosyne/configs/personalities/bartimaeus.md"
+  personality_file: "personalities/bartimaeus.md"
   max_turns: 20
 
 provider:
