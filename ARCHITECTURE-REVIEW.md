@@ -2,8 +2,8 @@
 
 **Date:** 2026-05-01  
 **Reviewer:** AJ + Hermes  
-**Commit:** be81c2e  
-**Tests:** 414 passing with -race
+**Commit:** 8d478ed  
+**Tests:** 449 passing with -race
 
 ---
 
@@ -311,3 +311,88 @@ None found.
 2. **No import cycles** confirmed.
 3. **No panics in production code**.
 4. **log.Fatalf only in main packages**.
+
+---
+
+## 9. Phase 15 Updates (2026-05-01)
+
+**Commits:** d645500, 8d478ed
+**Tests:** 449 passing with -race (up from 414)
+
+### 9.1 New Components
+
+| Component | Package | Lines | Purpose |
+|-----------|---------|-------|---------|
+| MessagingAdapter | daemon/internal/messaging | ~200 | Platform-agnostic messaging interface (Connect, Send, Listen, ListChannels, Close) |
+| DiscordAdapter | daemon/internal/messaging | ~300 | Discord implementation with 2000-char split, bot self-filter, channel filtering |
+| MessagingService (gRPC) | daemon/internal/grpc | ~150 | SendMessage, ListChannels, SubscribeToMessages RPCs |
+| SendMessage tool | agent/tools | ~80 | Agent tool to send messages via daemon, 10s timeout |
+| isConsecutiveToolIterationLoop | agent/pipeline | ~35 | Cross-tool repetition loop detector |
+
+### 9.2 Bug Fixes
+
+**Cross-tool repetition loop (HIGH → FIXED)**
+The `isRepetitiveToolLoop` detector only caught same-tool repetition (3+ consecutive calls to the same tool). Production agents were looping across *different* tools (FileSearch → Execute → FileRead → repeat), which never triggered the threshold. Added `isConsecutiveToolIterationLoop` which detects 5+ consecutive iterations of ANY tool calls with no text-only yield between them. A text-only assistant response resets both counters.
+
+**Streaming error kills session (HIGH → FIXED)**
+`RunStreaming` returned immediately on `StreamError`, ending the entire session. The non-streaming fallback path (`runTurnNonStreaming`) already had proper primary-fallback logic. Now: when a non-primary streaming provider fails, the agent falls back to the primary provider (non-streaming) for that turn. Only returns error if the primary also fails or if the failing provider IS the primary.
+
+**Ctrl+C unresponsive during tool loops (MEDIUM → FIXED)**
+The interrupt signal (`InterruptSignal`) was only checked at the top of each loop iteration. During a streaming HTTP call or tool execution, Ctrl+C had no effect. Two fixes:
+1. Added `convCtx.Interrupt.IsSet()` check inside the streaming event loop, so Ctrl+C breaks out mid-stream.
+2. CLI now tracks signal count per turn: first Ctrl+C sends interrupt (graceful stop between iterations), second Ctrl+C within the same turn calls `os.Exit(130)` for immediate force quit.
+
+**Tool input validation (MEDIUM → FIXED)**
+Added `ValidateArgs` and `ApplyDefaults` in the tool dispatch pipeline. Tools now validate required fields, types, enums, and min/max values against their JSON Schema *before* the handler runs. `ValidationError` provides structured error messages (Tool, Field, Issue). The `Execute` tool now supports context cancellation via `_context` injection.
+
+### 9.3 Architecture Changes
+
+**Messaging system (proto + adapter + gRPC)**
+The messaging subsystem follows the adapter pattern established by the Provider interface:
+- `messaging.proto`: SendMessage, ListChannels, SubscribeToMessages RPCs
+- `MessagingAdapter`: platform-agnostic interface for any chat platform
+- `DiscordAdapter`: first concrete implementation, session management, rate limiting
+- Daemon wiring: `NewService()` takes `*MessagingService`, which takes `MessagingAdapter` + `MessagingDB`
+
+**Model routing (smart strategy)**
+The `selectSmart` heuristic routes turns based on content:
+- Tool-result turns → primary model (needs good reasoning)
+- Complex reasoning keywords → best model
+- Short/simple prompts → cheapest model
+- Everything else → primary
+
+Router tracks per-model failure counts and auto-demotes after 1 failure (5-minute recovery). Session cost tracking via `TurnCost` records.
+
+**Agent context compaction**
+`compactMessagesForNextTurn` in cli.go strips old tool call/result pairs and truncates old assistant text to 300 chars / 5 lines. This prevents the model from re-reading verbose prior responses and regurgitating them. The Stage 5 `ContextManagementStage` also compacts when context exceeds token limits.
+
+**Telepathy hot block cache refresh**
+`Agent.hotBlockCache` + `hotBlockStale` (atomic int32) implement a stale-then-revalidate pattern. `InvalidateHotBlock()` is called by Telepathy event callbacks, causing the next `GetHotBlock()` to re-fetch from the daemon.
+
+### 9.4 Updates to Original Findings
+
+| # | Original Finding | Status |
+|---|-----------------|--------|
+| HIGH-1 | Circular dependency agent ↔ agent/interface | **Open** — not addressed |
+| HIGH-2 | No auth on RegisterAgent/Heartbeat/Subscribe | **Open** — not addressed |
+| HIGH-3 | Low test coverage on agent/ and client/ | **Improved** — agent/ from 38% to ~50% (5 new streaming/loop tests) |
+| MED-1 | agent/interface mixes 3 concerns | **Worsened** — compact.go now added to the mix |
+| MED-4 | client.Client used as concrete type | **Open** — same |
+| MED-5 | SetHotBlockCache not thread-safe | **Unchanged** — doc'd precondition, still not atomic |
+| MED-6 | Config not validated | **Partially addressed** — MessagingSection added but Validate() still doesn't check Phase 14/15 features |
+| LOW-3 | No graceful scheduler shutdown on SIGINT | **Partially addressed** — Ctrl+C now propagates to agent loop, but scheduler.Stop() still only called on clean exit |
+| LOW-5 | Opaque tool error messages | **Improved** — ValidationError provides structured Tool/Field/Issue |
+
+### 9.5 New Findings
+
+**MEDIUM: Streaming fallback bypasses interrupt checks**
+When a streaming provider fails and the fallback `runTurnNonStreaming` executes, it doesn't check `InterruptSignal` between stages. If the user presses Ctrl+C during fallback, the agent won't respond until the fallback turn completes.
+
+**MEDIUM: RunStreaming is now 200+ lines**
+The addition of streaming error fallback logic has made RunStreaming even longer. It now handles: streaming accumulation, tool calls, interrupt checks, provider fallback, and cost tracking in one function. This should be extracted into smaller methods.
+
+**LOW: Execute tool context injection is unused**
+The `_context` and `_deadline` parameter injection in Execute is wired but not called from the dispatch stage, which passes `map[string]interface{}` args without any context. The infrastructure is there but the pipeline doesn't use it yet.
+
+**LOW: MessagingDB not yet implemented**
+The MessagingService gRPC handler references a `MessagingDB` for message persistence but it's not implemented yet. Messages flow through but aren't stored.
