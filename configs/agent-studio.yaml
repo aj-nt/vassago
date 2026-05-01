@@ -3,7 +3,7 @@ agent:
   name: "mnemosyne"
   role: "assistant"
   personality: "direct, dry-witted collaborator"
-  personality_file: "/Users/aj/Documents/repos/mnemosyne/configs/personalities/bartimaeus.md"
+  personality_file: "/Users/quentin/Documents/repos/mnemosyne/configs/personalities/bartimaeus.md"
   max_turns: 20
 
 provider:
@@ -13,7 +13,7 @@ provider:
   anthropic_api_key_env: "ANTHROPIC_API_KEY"
   temperature: 0.7
   fallback1: "openai"
-  openai_model: "minimax-m2.7:cloud"
+  openai_model: "glm-5.1:cloud"
   openai_base_url: "http://localhost:11434/v1"
   openai_api_key_env: "OLLAMA_API_KEY"
 
@@ -30,7 +30,7 @@ routing:
       tool_use: true
       speed: "medium"
 
-    - name: "minimax-m2.7:cloud"
+    - name: "glm-5.1:cloud"
       provider: "openai"
       input_cost: 0.00
       output_cost: 0.00
