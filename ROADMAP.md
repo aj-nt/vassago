@@ -492,13 +492,23 @@ register, heartbeat, and subscribe to memory change events.
 - `client/agent_test.go` — Unit tests with mock AgentAPI
 - `client/hotblock_cache.go` — Hot block cache (existing, used by Telepathy subscription)
 
-### 14B: Telepathy Client — Hot Block Subscription — TODO
+### 14B: Telepathy Client — Hot Block Subscription — COMPLETE ✅
 
-- [ ] Agent subscribes to `Subscribe` stream after registration
-- [ ] Hot block refreshes mid-session when telepathy events arrive
-- [ ] `Agent.GetHotBlock()` uses cached hot block when available
-- [ ] Fresh hot block request on significant events (memory added/removed)
-- [ ] Subscription integrated into CLI interactive loop
+- [x] Agent subscribes to `Subscribe` stream after registration
+- [x] Hot block refreshes mid-session when telepathy events arrive
+- [x] `Agent.GetHotBlock()` uses cached hot block when available
+- [x] Fresh hot block request on significant events (memory added/removed)
+- [x] `AgentSession.OnEvent` callback for Telepathy event handling
+- [x] `Agent.InvalidateHotBlock()` marks cache stale on incoming events
+- [x] Cache seeded on startup, re-fetched from daemon after invalidation
+- [x] 8 unit tests + 1 integration test for hot block cache + Telepathy
+
+**Key files:**
+- `agent/agent.go` — `hotBlockCache`, `hotBlockStale`, `SetHotBlockCache()`, `InvalidateHotBlock()`, modified `GetHotBlock()`
+- `client/agent.go` — `OnEventFunc` callback on AgentSession
+- `agent/hotblock_cache_test.go` — 5 unit tests for cache behavior
+- `client/hotblock_event_test.go` — 3 OnEvent tests (callback, nil, invalidation pattern)
+- `agent/cmd/mnemosyne-agent/main.go` — Wiring: seed cache, subscribe, invalidate on events
 
 ### 14C: Delegation Tool — Sub-Agent Spawning — TODO
 
