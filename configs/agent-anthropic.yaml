@@ -88,9 +88,21 @@ tools:
     - Execute
     - SearchWeb
     - FetchURL
+    - Delegate
   approval_required:
     - FileWrite
     - Execute
   allowed_dirs:
     - /tmp
     - .
+
+# Delegation: spawn focused sub-agents for scoped tasks
+delegation:
+  enabled: true
+  max_depth: 1        # Sub-agents cannot delegate further
+  max_turns: 10       # Max turns per sub-agent
+
+# Scheduler: periodic maintenance tasks
+scheduler:
+  enabled: true
+  interval: 3600      # Check interval in seconds (1 hour)
