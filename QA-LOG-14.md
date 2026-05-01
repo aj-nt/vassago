@@ -162,3 +162,14 @@ scheduler:
 - `agent/tools/redteam_test.go` — 8 tests
 - `agent/pipeline/redteam_test.go` — 8 tests
 - `daemon/internal/grpc/redteam_test.go` — 9 stub tests (need integration)
+---
+
+## Repetition Bug Fix (2026-05-01)
+
+**Finding**: The agent repeated itself across turns — re-stating "Claude — you're talking to me via the Anthropic provider" and "bring → being makes sense as a QWERTY fat-finger" across 4 consecutive turns in production.
+
+**Root Cause**: `compactMessagesForNextTurn` removed tool call/result pairs but kept ALL assistant text verbatim. When the model gave verbose responses (comparison tables, explanations), those full texts stayed in context, causing the model to pattern-match and regurgitate them.
+
+**Fix**: Old assistant text responses (before the second-to-last yield point) are now truncated to maxOldAssistantChars (300 chars ≈ 75 tokens) and maxOldAssistantLines (5 lines). The most recent exchange is kept intact.
+
+**Commit**: eda7ba3 — 419 tests green with -race
