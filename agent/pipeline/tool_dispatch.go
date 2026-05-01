@@ -61,6 +61,29 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 			continue
 		}
 
+		// Validate arguments against the tool's JSON Schema
+		if schema, ok := s.Registry.Schemas()[tc.Name]; ok {
+			// Apply defaults first
+			tools.ApplyDefaults(args, schema)
+			// Validate
+			if err := tools.ValidateArgs(tc.Name, args, schema); err != nil {
+				verr, ok := err.(*tools.ValidationError)
+				if !ok {
+					verr = &tools.ValidationError{Tool: tc.Name, Field: "", Issue: err.Error()}
+				}
+				toolResults = append(toolResults, agentctx.ToolResult{
+					CallID:  tc.ID,
+					Name:    tc.Name,
+					Result:  fmt.Sprintf("Invalid argument: %s. Please check the tool schema and try again.", verr.Error()),
+					IsError: true,
+				})
+				if s.EventBus != nil {
+					s.EventBus.Emit(eventbus.Event{Kind: "tool_validation_error", Data: tc.Name})
+				}
+				continue
+			}
+		}
+
 		// Check approval if an approver is set
 		if s.Approver != nil && !s.Approver(tc.Name, args) {
 			toolResults = append(toolResults, agentctx.ToolResult{
