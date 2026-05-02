@@ -7,7 +7,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	"github.com/aj-nt/mnemosyne/agent/provider"
@@ -22,6 +24,7 @@ import (
 func main() {
 	configPath := flag.String("config", "configs/agent-dev.yaml", "Path to agent config file")
 	oneShot := flag.String("message", "", "Single message (non-interactive)")
+	serve := flag.Bool("serve", false, "Server mode: start gRPC chat server and wait (no interactive CLI)")
 	flag.Parse()
 
 	// Load config
@@ -139,6 +142,18 @@ func main() {
 	}
 
 	// Run
+	if *serve {
+		// Server mode: just wait for gRPC connections, no interactive CLI
+		if cfg.Mnemosyne.ChatListen == "" {
+			log.Fatal("--serve requires chat_listen to be configured")
+		}
+		log.Printf("Agent running in server mode (gRPC chat on %s)", cfg.Mnemosyne.ChatListen)
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		log.Printf("Agent shutting down")
+	}
+
 	cli := iface.NewCLI(a)
 	if *oneShot != "" {
 		if err := cli.RunOneShot(ctx, *oneShot); err != nil {
