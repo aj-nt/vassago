@@ -2348,6 +2348,306 @@ func (*Empty) Descriptor() ([]byte, []int) {
 	return file_mnemosyne_proto_rawDescGZIP(), []int{37}
 }
 
+type TodoItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Completed     bool                   `protobuf:"varint,3,opt,name=completed,proto3" json:"completed,omitempty"`
+	Priority      int32                  `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`                         // 1-5, higher = more important
+	SourceAgent   string                 `protobuf:"bytes,5,opt,name=source_agent,json=sourceAgent,proto3" json:"source_agent,omitempty"` // Agent that created the todo
+	CreatedAt     int64                  `protobuf:"varint,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     int64                  `protobuf:"varint,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CompletedAt   int64                  `protobuf:"varint,8,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"` // 0 = not completed
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TodoItem) Reset() {
+	*x = TodoItem{}
+	mi := &file_mnemosyne_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TodoItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TodoItem) ProtoMessage() {}
+
+func (x *TodoItem) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
+func (*TodoItem) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *TodoItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TodoItem) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *TodoItem) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
+}
+
+func (x *TodoItem) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *TodoItem) GetSourceAgent() string {
+	if x != nil {
+		return x.SourceAgent
+	}
+	return ""
+}
+
+func (x *TodoItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *TodoItem) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *TodoItem) GetCompletedAt() int64 {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return 0
+}
+
+type AddTodoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Priority      int32                  `protobuf:"varint,2,opt,name=priority,proto3" json:"priority,omitempty"`
+	SourceAgent   string                 `protobuf:"bytes,3,opt,name=source_agent,json=sourceAgent,proto3" json:"source_agent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddTodoRequest) Reset() {
+	*x = AddTodoRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddTodoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddTodoRequest) ProtoMessage() {}
+
+func (x *AddTodoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddTodoRequest.ProtoReflect.Descriptor instead.
+func (*AddTodoRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *AddTodoRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *AddTodoRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *AddTodoRequest) GetSourceAgent() string {
+	if x != nil {
+		return x.SourceAgent
+	}
+	return ""
+}
+
+type ListTodosRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	IncludeCompleted bool                   `protobuf:"varint,1,opt,name=include_completed,json=includeCompleted,proto3" json:"include_completed,omitempty"` // Include completed todos (default: false)
+	SourceAgent      *string                `protobuf:"bytes,2,opt,name=source_agent,json=sourceAgent,proto3,oneof" json:"source_agent,omitempty"`           // Filter by agent
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ListTodosRequest) Reset() {
+	*x = ListTodosRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTodosRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTodosRequest) ProtoMessage() {}
+
+func (x *ListTodosRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTodosRequest.ProtoReflect.Descriptor instead.
+func (*ListTodosRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ListTodosRequest) GetIncludeCompleted() bool {
+	if x != nil {
+		return x.IncludeCompleted
+	}
+	return false
+}
+
+func (x *ListTodosRequest) GetSourceAgent() string {
+	if x != nil && x.SourceAgent != nil {
+		return *x.SourceAgent
+	}
+	return ""
+}
+
+type CompleteTodoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteTodoRequest) Reset() {
+	*x = CompleteTodoRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteTodoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteTodoRequest) ProtoMessage() {}
+
+func (x *CompleteTodoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteTodoRequest.ProtoReflect.Descriptor instead.
+func (*CompleteTodoRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *CompleteTodoRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RemoveTodoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTodoRequest) Reset() {
+	*x = RemoveTodoRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTodoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTodoRequest) ProtoMessage() {}
+
+func (x *RemoveTodoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTodoRequest.ProtoReflect.Descriptor instead.
+func (*RemoveTodoRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *RemoveTodoRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 var File_mnemosyne_proto protoreflect.FileDescriptor
 
 const file_mnemosyne_proto_rawDesc = "" +
@@ -2542,13 +2842,36 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1c\n" +
 	"\ttimestamp\x18\x03 \x01(\x03R\ttimestamp\"\a\n" +
-	"\x05Empty*\xb3\x01\n" +
+	"\x05Empty\"\xf2\x01\n" +
+	"\bTodoItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12\x1c\n" +
+	"\tcompleted\x18\x03 \x01(\bR\tcompleted\x12\x1a\n" +
+	"\bpriority\x18\x04 \x01(\x05R\bpriority\x12!\n" +
+	"\fsource_agent\x18\x05 \x01(\tR\vsourceAgent\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\x03R\tupdatedAt\x12!\n" +
+	"\fcompleted_at\x18\b \x01(\x03R\vcompletedAt\"i\n" +
+	"\x0eAddTodoRequest\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1a\n" +
+	"\bpriority\x18\x02 \x01(\x05R\bpriority\x12!\n" +
+	"\fsource_agent\x18\x03 \x01(\tR\vsourceAgent\"x\n" +
+	"\x10ListTodosRequest\x12+\n" +
+	"\x11include_completed\x18\x01 \x01(\bR\x10includeCompleted\x12&\n" +
+	"\fsource_agent\x18\x02 \x01(\tH\x00R\vsourceAgent\x88\x01\x01B\x0f\n" +
+	"\r_source_agent\"%\n" +
+	"\x13CompleteTodoRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"#\n" +
+	"\x11RemoveTodoRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id*\xb3\x01\n" +
 	"\x10ConsolidateScope\x12!\n" +
 	"\x1dCONSOLIDATE_SCOPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15CONSOLIDATE_SCOPE_ALL\x10\x01\x12\"\n" +
 	"\x1eCONSOLIDATE_SCOPE_OBSERVATIONS\x10\x02\x12\x1e\n" +
 	"\x1aCONSOLIDATE_SCOPE_CATEGORY\x10\x03\x12\x1d\n" +
-	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\x8f\v\n" +
+	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\x8e\r\n" +
 	"\tMnemosyne\x12E\n" +
 	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponse\x12F\n" +
 	"\tAddMemory\x12\x1b.mnemosyne.AddMemoryRequest\x1a\x1c.mnemosyne.AddMemoryResponse\x12@\n" +
@@ -2570,7 +2893,12 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\x1aGetConsolidationCandidates\x12,.mnemosyne.GetConsolidationCandidatesRequest\x1a*.mnemosyne.ConsolidationCandidatesResponse\x12B\n" +
 	"\tSubscribe\x12\x1b.mnemosyne.SubscribeRequest\x1a\x16.mnemosyne.UpdateEvent0\x01\x12R\n" +
 	"\rRegisterAgent\x12\x1f.mnemosyne.RegisterAgentRequest\x1a .mnemosyne.RegisterAgentResponse\x121\n" +
-	"\tHeartbeat\x12\x12.mnemosyne.AgentId\x1a\x10.mnemosyne.EmptyB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
+	"\tHeartbeat\x12\x12.mnemosyne.AgentId\x1a\x10.mnemosyne.Empty\x129\n" +
+	"\aAddTodo\x12\x19.mnemosyne.AddTodoRequest\x1a\x13.mnemosyne.TodoItem\x12?\n" +
+	"\tListTodos\x12\x1b.mnemosyne.ListTodosRequest\x1a\x13.mnemosyne.TodoItem0\x01\x12C\n" +
+	"\fCompleteTodo\x12\x1e.mnemosyne.CompleteTodoRequest\x1a\x13.mnemosyne.TodoItem\x12<\n" +
+	"\n" +
+	"RemoveTodo\x12\x1c.mnemosyne.RemoveTodoRequest\x1a\x10.mnemosyne.EmptyB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
 
 var (
 	file_mnemosyne_proto_rawDescOnce sync.Once
@@ -2585,7 +2913,7 @@ func file_mnemosyne_proto_rawDescGZIP() []byte {
 }
 
 var file_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_mnemosyne_proto_goTypes = []any{
 	(ConsolidateScope)(0),                     // 0: mnemosyne.ConsolidateScope
 	(UpdateEvent_EventType)(0),                // 1: mnemosyne.UpdateEvent.EventType
@@ -2627,6 +2955,11 @@ var file_mnemosyne_proto_goTypes = []any{
 	(*HealthCheckRequest)(nil),                // 37: mnemosyne.HealthCheckRequest
 	(*HealthCheckResponse)(nil),               // 38: mnemosyne.HealthCheckResponse
 	(*Empty)(nil),                             // 39: mnemosyne.Empty
+	(*TodoItem)(nil),                          // 40: mnemosyne.TodoItem
+	(*AddTodoRequest)(nil),                    // 41: mnemosyne.AddTodoRequest
+	(*ListTodosRequest)(nil),                  // 42: mnemosyne.ListTodosRequest
+	(*CompleteTodoRequest)(nil),               // 43: mnemosyne.CompleteTodoRequest
+	(*RemoveTodoRequest)(nil),                 // 44: mnemosyne.RemoveTodoRequest
 }
 var file_mnemosyne_proto_depIdxs = []int32{
 	2,  // 0: mnemosyne.AddMemoryResponse.entry:type_name -> mnemosyne.MemoryEntry
@@ -2663,27 +2996,35 @@ var file_mnemosyne_proto_depIdxs = []int32{
 	32, // 31: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
 	34, // 32: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
 	36, // 33: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
-	38, // 34: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
-	4,  // 35: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
-	2,  // 36: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
-	2,  // 37: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
-	8,  // 38: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
-	10, // 39: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
-	12, // 40: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
-	14, // 41: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
-	16, // 42: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
-	19, // 43: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
-	20, // 44: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
-	20, // 45: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
-	25, // 46: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
-	20, // 47: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
-	28, // 48: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
-	31, // 49: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
-	33, // 50: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
-	35, // 51: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
-	39, // 52: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
-	34, // [34:53] is the sub-list for method output_type
-	15, // [15:34] is the sub-list for method input_type
+	41, // 34: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
+	42, // 35: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
+	43, // 36: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
+	44, // 37: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
+	38, // 38: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
+	4,  // 39: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
+	2,  // 40: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
+	2,  // 41: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
+	8,  // 42: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
+	10, // 43: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
+	12, // 44: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
+	14, // 45: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
+	16, // 46: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
+	19, // 47: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
+	20, // 48: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
+	20, // 49: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
+	25, // 50: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
+	20, // 51: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
+	28, // 52: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
+	31, // 53: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
+	33, // 54: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
+	35, // 55: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
+	39, // 56: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
+	40, // 57: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
+	40, // 58: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
+	40, // 59: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
+	39, // 60: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
+	38, // [38:61] is the sub-list for method output_type
+	15, // [15:38] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -2702,13 +3043,14 @@ func file_mnemosyne_proto_init() {
 	file_mnemosyne_proto_msgTypes[24].OneofWrappers = []any{}
 	file_mnemosyne_proto_msgTypes[25].OneofWrappers = []any{}
 	file_mnemosyne_proto_msgTypes[27].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[40].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   38,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

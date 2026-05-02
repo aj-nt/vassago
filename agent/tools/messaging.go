@@ -1,9 +1,7 @@
 package tools
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/aj-nt/mnemosyne/client"
 )
@@ -34,7 +32,7 @@ func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
 			return fmt.Sprintf("Message too long (%d chars, max %d). Break into smaller messages.", len(message), maxMessageLen), true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 		
 		messageID, err := mnemo.SendMessage(ctx, platform, target, message)

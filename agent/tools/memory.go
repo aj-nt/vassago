@@ -1,9 +1,7 @@
 package tools
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/client"
@@ -38,7 +36,7 @@ func makeAddMemory(mnemo *client.Client, agentID string) ToolHandler {
 			return fmt.Sprintf("Content too large (%d chars, max %d). Break into smaller entries.", len(content), maxContentLen), true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 		entry, err := mnemo.AddMemory(ctx, target, category, key, content, int32(priority), agentID)
 		if err != nil {
@@ -64,7 +62,7 @@ func makeSearchMemories(mnemo *client.Client) ToolHandler {
 			return fmt.Sprintf("Query too long (%d chars, max %d). Use more specific search terms.", len(query), maxQueryLen), true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 		entries, err := mnemo.SearchMemories(ctx, query, target, int32(limit))
 		if err != nil {
@@ -94,7 +92,7 @@ func makeReplaceMemory(mnemo *client.Client, agentID string) ToolHandler {
 			return "key and content are required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 		entry, err := mnemo.AddMemory(ctx, target, category, key, content, int32(priority), agentID)
 		if err != nil {
@@ -111,7 +109,7 @@ func makeRemoveMemory(mnemo *client.Client) ToolHandler {
 			return "id is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 		if err := mnemo.RemoveMemory(ctx, id); err != nil {
 			return fmt.Sprintf("RemoveMemory failed: %v", err), true
@@ -139,7 +137,7 @@ func makeConsolidate(mnemo *client.Client, agentID string) ToolHandler {
 			scope = pb.ConsolidateScope_CONSOLIDATE_SCOPE_EXPIRED
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := withTimeout(LongTimeout)
 		defer cancel()
 		resp, err := mnemo.Consolidate(ctx, scope, batchSize)
 		if err != nil {
@@ -157,7 +155,7 @@ func makeGetHotBlock(mnemo *client.Client, agentID string) ToolHandler {
 		// Use a timeout instead of context.Background() — the SSH tunnel or
 		// daemon can stall, and without a deadline the tool handler blocks
 		// forever while the CLI's turn-level cancel can't reach it.
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		hotBlock, err := mnemo.GetHotBlock(ctx, target, agentID, charLimit, nil, nil, 0)

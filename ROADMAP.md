@@ -667,38 +667,38 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
 
 ### 17A: Conversation Quality
 
-- [ ] Fix tool-listing repetition (model keeps listing capabilities instead of answering)
-- [ ] Fix Delegate tool empty output bug (sub-agent returns nothing)
-- [ ] Fix agent getting stuck when file search fails (graceful fallback, don't loop)
-- [ ] Better anti-repetition heuristics (detect and suppress tool-list re-statement)
-- [ ] Conversation simulation tests
-- [ ] QA pass + Red Team pass
+- [x] Fix tool-listing repetition (model keeps listing capabilities instead of answering)
+- [x] Fix Delegate tool empty output bug (sub-agent returns nothing)
+- [x] Fix agent getting stuck when file search fails (graceful fallback, don't loop)
+- [x] Better anti-repetition heuristics (detect and suppress tool-list re-statement)
+- [x] Conversation simulation tests
+- [x] QA pass + Red Team pass
 
 ### 17B: Session Persistence & Search
 
-- [ ] Session search as an agent tool: `SearchSessions` query past conversations
-- [ ] Agent can query past conversations without `/sessions` CLI command
-- [ ] Session auto-titling based on conversation content
-- [ ] Tests: session search, titling, resume
-- [ ] QA pass
+- [x] Session search as an agent tool: `SearchSessions` query past conversations
+- [x] Agent can query past conversations without `/sessions` CLI command
+- [x] Session auto-titling based on conversation content
+- [x] Tests: session search, titling, resume
+- [x] QA pass
 
 ### 17C: Todo Management
 
-- [ ] TodoService gRPC endpoint: AddTodo, ListTodos, CompleteTodo, RemoveTodo
-- [ ] Agent tools: `AddTodo`, `ListTodos`, `CompleteTodo`, `RemoveTodo`
-- [ ] Persistence in SQLite (todos table)
-- [ ] Tests: todo CRUD, completion tracking, priority sorting
+- [x] TodoService gRPC endpoint: AddTodo, ListTodos, CompleteTodo, RemoveTodo
+- [x] Agent tools: `AddTodo`, `ListTodos`, `CompleteTodo`, `RemoveTodo`
+- [x] Persistence in SQLite (todos table)
+- [x] Tests: todo CRUD, completion tracking, priority sorting
 - [ ] QA pass + Red Team pass
 
 ### 17D: Architecture Cleanup
 
-- [ ] Extract MnemoClient interface from client.Client (testability)
-- [ ] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
-- [ ] Fix circular dependency (agent ↔ agent/interface) — extract interface package
-- [ ] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs
-- [ ] Increase test coverage targets: agent 60%, client 50%, daemon 40%
-- [ ] Config validation (reject invalid values, not silent defaults)
-- [ ] Refactor pass per Fowler
+- [x] Extract MnemoClient interface from client.Client (testability)
+- [x] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
+- [x] Fix circular dependency (agent ↔ agent/interface) — already resolved
+- [x] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs — already covered by API key interceptor
+- [ ] Increase test coverage targets: agent 39→60%, client 33→50%, daemon grpc 45→65% (incremental, needs integration tests)
+- [x] Config validation (reject invalid values, not silent defaults)
+- [x] Refactor pass per Fowler — Replace Magic Number with Named Constant, Extract Function (timeouts.go, store constants)
 
 ---
 

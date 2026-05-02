@@ -12,8 +12,8 @@ func (s *Store) Search(query string, target string, limit int) ([]*MemoryEntry, 
 	if limit <= 0 {
 		limit = 50
 	}
-	if limit > 1000 {
-		limit = 1000
+	if limit > defaultResultLimit {
+		limit = defaultResultLimit
 	}
 
 	// Sanitize the FTS5 query

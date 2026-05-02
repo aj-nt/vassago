@@ -1,0 +1,311 @@
+package pipeline
+
+import (
+	"encoding/json"
+	"testing"
+
+	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+)
+
+// Conversation simulation tests validate the complete pipeline behavior
+// for common conversation patterns that caused bugs in production.
+
+// TestConversation_SimpleQuestionNoTools simulates a simple question that
+// should be answered directly without any tool calls. The agent should
+// YIELD immediately with the text response.
+func TestConversation_SimpleQuestionNoTools(t *testing.T) {
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "What is 2+2?"}},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+
+	// Model responds with just text, no tool calls
+	parsed := agentctx.ParsedResponse{
+		Text:         "4",
+		FinishReason: "stop",
+	}
+
+	action := stage.Process(convCtx, nil, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD for simple text response, got %v", action)
+	}
+}
+
+// TestConversation_ToolCallThenSuccess simulates a normal tool-call-then-result
+// workflow: the model calls a tool, gets a result, and should continue.
+func TestConversation_ToolCallThenSuccess(t *testing.T) {
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "search for my name"}},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+
+	args, _ := json.Marshal(map[string]interface{}{"query": "name"})
+	parsed := agentctx.ParsedResponse{
+		Text:         "",
+		ToolCalls:    []agentctx.ToolCall{{ID: "call1", Name: "SearchMemories", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "call1", Name: "SearchMemories", Result: "Your name is AJ", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE after successful tool call, got %v", action)
+	}
+}
+
+// TestConversation_FileSearchNotFound simulates the common pattern where
+// FileSearch returns no results and the agent should not loop trying again.
+// The first search failed (in history), and the model tries again (new call
+// that also returns "no results"). The combination should trigger stuck detection.
+func TestConversation_FileSearchNotFound(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	// History: first search returned "0 files found", then model tried again
+	// and the second search also returned "no results"
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "find the config file"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "FileSearch"},
+			}},
+			{Role: "tool", Content: "0 files found", ToolCallID: "1", Name: "FileSearch"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "FileSearch"},
+			}},
+			{Role: "tool", Content: "no results", ToolCallID: "2", Name: "FileSearch"},
+		},
+		MaxIterations: 10,
+		Iteration:     3,
+	}
+
+	args, _ := json.Marshal(map[string]interface{}{"pattern": "config"})
+	parsed := agentctx.ParsedResponse{
+		Text: "",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "FileSearch", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	// Third search also returns nothing — should be detected as stuck
+	// via isStuckFromHistory since the history already has 2 "not found" results
+	action := stage.Process(convCtx, nil, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD after repeated failed searches (stuck detected), got %v", action)
+	}
+
+	// Should have a helpful message
+	lastMsg := convCtx.Messages[len(convCtx.Messages)-1]
+	if lastMsg.Role != "assistant" {
+		t.Errorf("Expected last message to be from assistant, got %s", lastMsg.Role)
+	}
+}
+
+// TestConversation_ToolListingRepetition simulates the pattern where the
+// model keeps calling the same tool (GetHotBlock) on every iteration.
+func TestConversation_ToolListingRepetition(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "hello"},
+			{Role: "assistant", Content: "Let me check.", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "GetHotBlock", Arguments: args},
+			}},
+			{Role: "tool", Content: "hot block: AJ, likes Go", ToolCallID: "1", Name: "GetHotBlock"},
+			{Role: "assistant", Content: "I see.", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "GetHotBlock", Arguments: args},
+			}},
+			{Role: "tool", Content: "hot block: AJ, likes Go", ToolCallID: "2", Name: "GetHotBlock"},
+		},
+		MaxIterations: 10,
+		Iteration:     3,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text: "Let me check again.",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "GetHotBlock", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	action := stage.Process(convCtx, nil, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD (break repetitive loop), got %v", action)
+	}
+}
+
+// TestConversation_CrossToolLoop simulates the pattern where the model
+// cycles through different tools (FileSearch → FileRead → Execute → repeat).
+func TestConversation_CrossToolLoop(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "check the logs"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "FileSearch", Arguments: args},
+			}},
+			{Role: "tool", Content: "found 3 files", ToolCallID: "1", Name: "FileSearch"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "FileRead", Arguments: args},
+			}},
+			{Role: "tool", Content: "file contents...", ToolCallID: "2", Name: "FileRead"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "3", Name: "Execute", Arguments: args},
+			}},
+			{Role: "tool", Content: "command output...", ToolCallID: "3", Name: "Execute"},
+		},
+		MaxIterations: 10,
+		Iteration:     4,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text: "",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "4", Name: "FileSearch", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	action := stage.Process(convCtx, nil, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD (break cross-tool loop), got %v", action)
+	}
+}
+
+// TestConversation_NormalThreeStepWorkflow simulates a legitimate
+// three-step workflow (search → read → execute) that should NOT be
+// broken by loop detection.
+func TestConversation_NormalThreeStepWorkflow(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "find and fix the bug"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "FileSearch", Arguments: args},
+			}},
+			{Role: "tool", Content: "found 3 files", ToolCallID: "1", Name: "FileSearch"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "FileRead", Arguments: args},
+			}},
+			{Role: "tool", Content: "file contents...", ToolCallID: "2", Name: "FileRead"},
+		},
+		MaxIterations: 10,
+		Iteration:     3,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text: "",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "Execute", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	toolResults := []agentctx.ToolResult{
+		{CallID: "3", Name: "Execute", Result: "tests passed", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE for normal 3-step workflow, got %v", action)
+	}
+}
+
+// TestConversation_StuckWithHelpfulMessage verifies that stuck detection
+// adds a helpful message for the user when the agent can't find what it needs.
+func TestConversation_StuckWithHelpfulMessage(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "find the config file"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "FileSearch"},
+			}},
+			{Role: "tool", Content: "Error: path not found", ToolCallID: "1", Name: "FileSearch"},
+		},
+		MaxIterations: 10,
+		Iteration:     2,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text: "",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "FileSearch", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	// Two error results — agent is stuck
+	toolResults := []agentctx.ToolResult{
+		{CallID: "1", Name: "FileSearch", Result: "Error: path not found", IsError: true},
+		{CallID: "2", Name: "FileSearch", Result: "Error: still not found", IsError: true},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD for stuck agent, got %v", action)
+	}
+
+	// Verify helpful message was added
+	lastMsg := convCtx.Messages[len(convCtx.Messages)-1]
+	if lastMsg.Role != "assistant" {
+		t.Errorf("Expected assistant message, got %s", lastMsg.Role)
+	}
+	if len(lastMsg.Content) == 0 {
+		t.Error("Expected helpful message content, got empty string")
+	}
+}
+
+// TestConversation_DelegateEmptyOutput simulates a Delegate tool call
+// where the sub-agent returns nothing. The ContextManagement stage should
+// handle this gracefully.
+func TestConversation_DelegateEmptyOutput(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{"prompt": "analyze this"})
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "delegate this task"}},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text:         "",
+		ToolCalls:    []agentctx.ToolCall{{ID: "call1", Name: "Delegate", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "call1", Name: "Delegate", Result: "sub-agent completed but returned no output", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE after delegate with empty output, got %v", action)
+	}
+
+	// Verify the tool result was appended
+	found := false
+	for _, m := range convCtx.Messages {
+		if m.Role == "tool" && m.Name == "Delegate" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Expected Delegate tool result to be appended to messages")
+	}
+}

@@ -38,6 +38,10 @@ const (
 	Mnemosyne_Subscribe_FullMethodName                  = "/mnemosyne.Mnemosyne/Subscribe"
 	Mnemosyne_RegisterAgent_FullMethodName              = "/mnemosyne.Mnemosyne/RegisterAgent"
 	Mnemosyne_Heartbeat_FullMethodName                  = "/mnemosyne.Mnemosyne/Heartbeat"
+	Mnemosyne_AddTodo_FullMethodName                    = "/mnemosyne.Mnemosyne/AddTodo"
+	Mnemosyne_ListTodos_FullMethodName                  = "/mnemosyne.Mnemosyne/ListTodos"
+	Mnemosyne_CompleteTodo_FullMethodName               = "/mnemosyne.Mnemosyne/CompleteTodo"
+	Mnemosyne_RemoveTodo_FullMethodName                 = "/mnemosyne.Mnemosyne/RemoveTodo"
 )
 
 // MnemosyneClient is the client API for Mnemosyne service.
@@ -71,6 +75,11 @@ type MnemosyneClient interface {
 	// --- Agent Management ---
 	RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error)
 	Heartbeat(ctx context.Context, in *AgentId, opts ...grpc.CallOption) (*Empty, error)
+	// --- Todo Management ---
+	AddTodo(ctx context.Context, in *AddTodoRequest, opts ...grpc.CallOption) (*TodoItem, error)
+	ListTodos(ctx context.Context, in *ListTodosRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TodoItem], error)
+	CompleteTodo(ctx context.Context, in *CompleteTodoRequest, opts ...grpc.CallOption) (*TodoItem, error)
+	RemoveTodo(ctx context.Context, in *RemoveTodoRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type mnemosyneClient struct {
@@ -280,6 +289,55 @@ func (c *mnemosyneClient) Heartbeat(ctx context.Context, in *AgentId, opts ...gr
 	return out, nil
 }
 
+func (c *mnemosyneClient) AddTodo(ctx context.Context, in *AddTodoRequest, opts ...grpc.CallOption) (*TodoItem, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TodoItem)
+	err := c.cc.Invoke(ctx, Mnemosyne_AddTodo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) ListTodos(ctx context.Context, in *ListTodosRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TodoItem], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Mnemosyne_ServiceDesc.Streams[1], Mnemosyne_ListTodos_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ListTodosRequest, TodoItem]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Mnemosyne_ListTodosClient = grpc.ServerStreamingClient[TodoItem]
+
+func (c *mnemosyneClient) CompleteTodo(ctx context.Context, in *CompleteTodoRequest, opts ...grpc.CallOption) (*TodoItem, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TodoItem)
+	err := c.cc.Invoke(ctx, Mnemosyne_CompleteTodo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) RemoveTodo(ctx context.Context, in *RemoveTodoRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Mnemosyne_RemoveTodo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MnemosyneServer is the server API for Mnemosyne service.
 // All implementations must embed UnimplementedMnemosyneServer
 // for forward compatibility.
@@ -311,6 +369,11 @@ type MnemosyneServer interface {
 	// --- Agent Management ---
 	RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error)
 	Heartbeat(context.Context, *AgentId) (*Empty, error)
+	// --- Todo Management ---
+	AddTodo(context.Context, *AddTodoRequest) (*TodoItem, error)
+	ListTodos(*ListTodosRequest, grpc.ServerStreamingServer[TodoItem]) error
+	CompleteTodo(context.Context, *CompleteTodoRequest) (*TodoItem, error)
+	RemoveTodo(context.Context, *RemoveTodoRequest) (*Empty, error)
 	mustEmbedUnimplementedMnemosyneServer()
 }
 
@@ -377,6 +440,18 @@ func (UnimplementedMnemosyneServer) RegisterAgent(context.Context, *RegisterAgen
 }
 func (UnimplementedMnemosyneServer) Heartbeat(context.Context, *AgentId) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Heartbeat not implemented")
+}
+func (UnimplementedMnemosyneServer) AddTodo(context.Context, *AddTodoRequest) (*TodoItem, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddTodo not implemented")
+}
+func (UnimplementedMnemosyneServer) ListTodos(*ListTodosRequest, grpc.ServerStreamingServer[TodoItem]) error {
+	return status.Error(codes.Unimplemented, "method ListTodos not implemented")
+}
+func (UnimplementedMnemosyneServer) CompleteTodo(context.Context, *CompleteTodoRequest) (*TodoItem, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteTodo not implemented")
+}
+func (UnimplementedMnemosyneServer) RemoveTodo(context.Context, *RemoveTodoRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveTodo not implemented")
 }
 func (UnimplementedMnemosyneServer) mustEmbedUnimplementedMnemosyneServer() {}
 func (UnimplementedMnemosyneServer) testEmbeddedByValue()                   {}
@@ -734,6 +809,71 @@ func _Mnemosyne_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Mnemosyne_AddTodo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddTodoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).AddTodo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_AddTodo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).AddTodo(ctx, req.(*AddTodoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_ListTodos_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListTodosRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MnemosyneServer).ListTodos(m, &grpc.GenericServerStream[ListTodosRequest, TodoItem]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Mnemosyne_ListTodosServer = grpc.ServerStreamingServer[TodoItem]
+
+func _Mnemosyne_CompleteTodo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteTodoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).CompleteTodo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_CompleteTodo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).CompleteTodo(ctx, req.(*CompleteTodoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_RemoveTodo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveTodoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).RemoveTodo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_RemoveTodo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).RemoveTodo(ctx, req.(*RemoveTodoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Mnemosyne_ServiceDesc is the grpc.ServiceDesc for Mnemosyne service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -813,11 +953,28 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Heartbeat",
 			Handler:    _Mnemosyne_Heartbeat_Handler,
 		},
+		{
+			MethodName: "AddTodo",
+			Handler:    _Mnemosyne_AddTodo_Handler,
+		},
+		{
+			MethodName: "CompleteTodo",
+			Handler:    _Mnemosyne_CompleteTodo_Handler,
+		},
+		{
+			MethodName: "RemoveTodo",
+			Handler:    _Mnemosyne_RemoveTodo_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",
 			Handler:       _Mnemosyne_Subscribe_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListTodos",
+			Handler:       _Mnemosyne_ListTodos_Handler,
 			ServerStreams: true,
 		},
 	},
