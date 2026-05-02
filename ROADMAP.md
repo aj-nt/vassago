@@ -667,12 +667,12 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
 
 ### 17A: Conversation Quality
 
-- [ ] Fix tool-listing repetition (model keeps listing capabilities instead of answering)
-- [ ] Fix Delegate tool empty output bug (sub-agent returns nothing)
-- [ ] Fix agent getting stuck when file search fails (graceful fallback, don't loop)
-- [ ] Better anti-repetition heuristics (detect and suppress tool-list re-statement)
-- [ ] Conversation simulation tests
-- [ ] QA pass + Red Team pass
+- [x] Fix tool-listing repetition (model keeps listing capabilities instead of answering)
+- [x] Fix Delegate tool empty output bug (sub-agent returns nothing)
+- [x] Fix agent getting stuck when file search fails (graceful fallback, don't loop)
+- [x] Better anti-repetition heuristics (detect and suppress tool-list re-statement)
+- [x] Conversation simulation tests
+- [x] QA pass + Red Team pass
 
 ### 17B: Session Persistence & Search
 
