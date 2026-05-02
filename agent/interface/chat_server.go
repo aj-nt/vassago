@@ -27,6 +27,7 @@ type ChatServer struct {
 // chatSession holds the persistent state for a single conversation.
 type chatSession struct {
 	sessionID string
+	agentID   string
 	messages  []agentctx.Message
 	mu        sync.Mutex
 }
@@ -202,16 +203,38 @@ func (cs *ChatServer) getOrCreateSession(ctx context.Context, sessionID, agentID
 				}
 				sess := &chatSession{
 					sessionID: sessionID,
+			agentID:   agentID,
 					messages:  msgs,
 				}
 				cs.sessions.Store(sessionID, sess)
 				return sess, nil
 			}
+			// Session not found on daemon — create a new one
+			newID, createErr := cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
+			if createErr != nil {
+				log.Printf("ChatStream: failed to create session for unknown ID %s: %v", sessionID, createErr)
+				// Fall back to using the provided ID locally
+				sess := &chatSession{
+					sessionID: sessionID,
+			agentID:   agentID,
+					messages:  nil,
+				}
+				cs.sessions.Store(sessionID, sess)
+				return sess, nil
+			}
+			sess := &chatSession{
+				sessionID: newID,
+				agentID:   agentID,
+				messages:  nil,
+			}
+			cs.sessions.Store(newID, sess)
+			return sess, nil
 		}
 
-		// If daemon not available, use the provided session ID directly
+		// No daemon — use the provided session ID locally
 		sess := &chatSession{
 			sessionID: sessionID,
+			agentID:   agentID,
 			messages:  nil,
 		}
 		cs.sessions.Store(sessionID, sess)
@@ -234,6 +257,7 @@ func (cs *ChatServer) getOrCreateSession(ctx context.Context, sessionID, agentID
 
 	sess := &chatSession{
 		sessionID: newSessionID,
+		agentID:   agentID,
 		messages:  nil,
 	}
 	if newSessionID != "" {
@@ -243,7 +267,12 @@ func (cs *ChatServer) getOrCreateSession(ctx context.Context, sessionID, agentID
 }
 
 // persistSession saves the session messages to the daemon.
+// If the session doesn't exist on the daemon, it creates one first.
 func (cs *ChatServer) persistSession(ctx context.Context, sess *chatSession) {
+	if cs.mnemo == nil || sess.sessionID == "" {
+		return
+	}
+
 	sess.mu.Lock()
 	msgs := make([]memoclient.Message, 0, len(sess.messages))
 	for _, m := range sess.messages {
@@ -253,6 +282,7 @@ func (cs *ChatServer) persistSession(ctx context.Context, sess *chatSession) {
 
 	persistCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	if err := cs.mnemo.AddMessages(persistCtx, sess.sessionID, msgs); err != nil {
 		log.Printf("ChatStream: session persist failed: %v", err)
 	}
