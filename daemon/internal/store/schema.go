@@ -3,7 +3,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -111,4 +111,19 @@ var SchemaStmts = []string{
 // Migrations is a list of SQL statements to apply sequentially.
 // Each migration is applied in order, and the schema_version table
 // tracks which migrations have been applied.
-var Migrations = []string{}
+var Migrations = []string{
+	// Migration 1: Add todos table (Phase 17C)
+	`CREATE TABLE IF NOT EXISTS todos (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)),
+    priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+    source_agent TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    completed_at INTEGER NOT NULL DEFAULT 0
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)`,
+	`CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)`,
+	`CREATE INDEX IF NOT EXISTS idx_todos_source_agent ON todos(source_agent)`,
+}
