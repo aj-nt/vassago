@@ -10,8 +10,8 @@ func (s *Store) SearchSessions(query string, limit int) ([]*Session, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	if limit > 1000 {
-		limit = 1000
+	if limit > defaultResultLimit {
+		limit = defaultResultLimit
 	}
 
 	if query == "" {
@@ -61,8 +61,8 @@ func (s *Store) ListRecentSessions(limit int) ([]*Session, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	if limit > 1000 {
-		limit = 1000
+	if limit > defaultResultLimit {
+		limit = defaultResultLimit
 	}
 
 	rows, err := s.db.Query(`

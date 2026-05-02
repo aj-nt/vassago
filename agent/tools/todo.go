@@ -1,9 +1,7 @@
 package tools
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/aj-nt/mnemosyne/client"
 )
@@ -25,7 +23,7 @@ func makeAddTodo(mnemo *client.Client, agentID string) ToolHandler {
 			return "content is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		todo, err := mnemo.AddTodo(ctx, content, int32(priority), agentID)
@@ -45,7 +43,7 @@ func makeListTodos(mnemo *client.Client) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		includeCompleted := boolArg(args, "include_completed", false)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		todos, err := mnemo.ListTodos(ctx, includeCompleted, "")
@@ -75,7 +73,7 @@ func makeCompleteTodo(mnemo *client.Client) ToolHandler {
 			return "id is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		todo, err := mnemo.CompleteTodo(ctx, id)
@@ -94,7 +92,7 @@ func makeRemoveTodo(mnemo *client.Client) ToolHandler {
 			return "id is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		if err := mnemo.RemoveTodo(ctx, id); err != nil {

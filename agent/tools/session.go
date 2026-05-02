@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -26,7 +25,7 @@ func makeSearchSessions(mnemo *client.Client) ToolHandler {
 			return "query is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		sessions, err := mnemo.SearchSessions(ctx, query, int32(limit))
@@ -60,7 +59,7 @@ func makeListSessions(mnemo *client.Client) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		limit := intArg(args, "limit", 10)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		sessions, err := mnemo.ListRecentSessions(ctx, int32(limit))
@@ -99,7 +98,7 @@ func makeGetSession(mnemo *client.Client) ToolHandler {
 			return "session_id is required", true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
 
 		session, err := mnemo.GetSession(ctx, sessionID)
