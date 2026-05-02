@@ -692,12 +692,12 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
 
 ### 17D: Architecture Cleanup
 
-- [ ] Extract MnemoClient interface from client.Client (testability)
-- [ ] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
-- [ ] Fix circular dependency (agent ↔ agent/interface) — extract interface package
-- [ ] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs
+- [x] Extract MnemoClient interface from client.Client (testability)
+- [x] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
+- [x] Fix circular dependency (agent ↔ agent/interface) — already resolved
+- [x] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs — already covered by API key interceptor
 - [ ] Increase test coverage targets: agent 60%, client 50%, daemon 40%
-- [ ] Config validation (reject invalid values, not silent defaults)
+- [x] Config validation (reject invalid values, not silent defaults)
 - [ ] Refactor pass per Fowler
 
 ---

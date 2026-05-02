@@ -26,12 +26,15 @@ type MemoryEntry struct {
 	ExpiresAt   int64 // 0 = no expiry
 }
 
-// Validation constants
+// Validation and limit constants (Fowler: Replace Magic Number with Named Constant)
 const (
 	MaxContentLength = 100000 // 100KB max per memory content
 	MaxKeyLength     = 500
 	MaxCategoryLen   = 50
 	MaxIDLength      = 256
+
+	defaultResultLimit = 1000  // Default number of results for list/search queries
+	maxResultLimit     = 10000 // Upper bound for paginated queries
 )
 
 // Store is the SQLite-backed data store for Mnemosyne.
@@ -216,8 +219,8 @@ func (s *Store) ListMemories(target string, category string, minPriority int32) 
 
 // ListMemoriesPaginated returns memories with explicit pagination.
 func (s *Store) ListMemoriesPaginated(target string, category string, minPriority int32, limit int, offset int) ([]*MemoryEntry, error) {
-	if limit <= 0 || limit > 10000 {
-		limit = 1000
+	if limit <= 0 || limit > maxResultLimit {
+		limit = defaultResultLimit
 	}
 	if offset < 0 {
 		offset = 0
