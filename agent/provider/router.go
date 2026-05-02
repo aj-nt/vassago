@@ -277,20 +277,67 @@ func (r *ModelRouter) selectSmart(ctx RoutingContext) (*ModelConfig, error) {
 		}
 	}
 
-	// Rule 3: First turn with tool calls → primary model (tool calls need quality)
+	// Rule 3: Technical prompts → primary model (even if short)
+	// Short prompts with file paths, function names, or code-related keywords
+	// need the primary model's reasoning capability.
+	if isTechnicalPrompt(ctx.UserMessage) {
+		if m := r.findBestReasoning(true); m != nil && !r.isDemoted(m.Name) {
+			return m, nil
+		}
+	}
+
+	// Rule 4: First turn with tool calls → primary model (tool calls need quality)
 	if ctx.Iteration == 0 && ctx.ToolCallCount > 0 {
 		return r.selectPrimary()
 	}
 
-	// Rule 4: Short/simple prompts → cheap model (saves ~$0.01/turn)
+	// Rule 5: Short/simple prompts → cheap model (saves ~$0.01/turn)
 	if len(ctx.UserMessage) < 200 && ctx.PromptCharCount < 800 {
 		if m := r.findCheapestCapable(true); m != nil && r.isReachable(m) && !r.isDemoted(m.Name) {
 			return m, nil
 		}
 	}
 
-	// Rule 5: Default to primary
+	// Rule 6: Default to primary
 	return r.selectPrimary()
+}
+
+// isTechnicalPrompt detects if a prompt contains code-related content that needs
+// a capable model, even if the prompt is short.
+func isTechnicalPrompt(message string) bool {
+	lower := strings.ToLower(message)
+
+	// File paths: /path/to/file.ext or ./relative/path
+	if strings.Contains(message, "/") && strings.Contains(message, ".") {
+		// Check it looks like a path (has extension or directory separator)
+		for _, ext := range []string{".go", ".py", ".js", ".ts", ".rs", ".md", ".yaml", ".yml", ".toml", ".json"} {
+			if strings.Contains(lower, ext) {
+				return true
+			}
+		}
+	}
+
+	// Function/method calls: functionName(
+	if strings.Contains(message, "(") && strings.Contains(message, ")") {
+		return true
+	}
+
+	// Technical keywords - be specific to avoid false positives
+	techKeywords := []string{
+		"debug", "fix bug", "fix the bug", "error", "crash", "traceback", "stack trace",
+		"compile", "build error", "test case", "benchmark", "profile",
+		"refactor", "implement", "optimize", "code review",
+		"config file", "deploy", "server error", "database error", "migration",
+		"function call", "method call", "class definition", "interface", "struct ", "type definition",
+		"import statement", "export", "module system", "package manager",
+	}
+	for _, kw := range techKeywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isComplexReasoning detects if the prompt likely needs strong reasoning.

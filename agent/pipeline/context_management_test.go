@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -349,6 +351,81 @@ func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
 	action := stage.Process(convCtx, toolResults, parsed)
 	if action != agentctx.StageActionYIELD {
 		t.Errorf("Expected YIELD (break loop), got %v", action)
+	}
+}
+
+// --- truncateToolResult tests ---
+
+func TestTruncateToolResult_ShortResult(t *testing.T) {
+	shortResult := "This is a short result\nwith only a few lines\nnot enough to trigger truncation"
+	
+	result := truncateToolResult(shortResult, false)
+	if result != shortResult {
+		t.Errorf("Expected short result to remain unchanged, got:\n%s", result)
+	}
+}
+
+func TestTruncateToolResult_LongResult(t *testing.T) {
+	// Build a long result with more than 50 lines
+	var lines []string
+	for i := 0; i < 60; i++ {
+		lines = append(lines, fmt.Sprintf("Line %d: This is a line of output", i+1))
+	}
+	longResult := strings.Join(lines, "\n")
+	
+	result := truncateToolResult(longResult, false)
+	
+	// Check that result has exactly 51 lines (50 original + 1 summary)
+	resultLines := strings.Split(result, "\n")
+	if len(resultLines) != 51 {
+		t.Errorf("Expected 51 lines (50 + summary), got %d", len(resultLines))
+	}
+	
+	// Check that the last line is the summary
+	lastLine := resultLines[len(resultLines)-1]
+	expectedSummary := fmt.Sprintf("... (truncated: %d total lines, %d chars)", len(lines), len(longResult))
+	if lastLine != expectedSummary {
+		t.Errorf("Expected summary line:\n%s\nGot:\n%s", expectedSummary, lastLine)
+	}
+	
+	// Check that the first 50 lines are preserved
+	for i := 0; i < 50; i++ {
+		if resultLines[i] != lines[i] {
+			t.Errorf("Line %d mismatch:\nExpected: %s\nGot: %s", i, lines[i], resultLines[i])
+		}
+	}
+}
+
+func TestTruncateToolResult_ErrorResult(t *testing.T) {
+	errorResult := "This is an error message\nthat should not be truncated"
+	
+	result := truncateToolResult(errorResult, true)
+	if result != errorResult {
+		t.Errorf("Expected error result to remain unchanged, got:\n%s", result)
+	}
+}
+
+func TestTruncateToolResult_ExactFormat(t *testing.T) {
+	// Build a result with exactly 51 lines to test the exact format
+	var lines []string
+	for i := 0; i < 51; i++ {
+		lines = append(lines, fmt.Sprintf("Line %d", i+1))
+	}
+	input := strings.Join(lines, "\n")
+	
+	result := truncateToolResult(input, false)
+	
+	// Check that the first 50 lines are preserved
+	resultLines := strings.Split(result, "\n")
+	if len(resultLines) != 51 {
+		t.Errorf("Expected 51 lines (50 + summary), got %d", len(resultLines))
+	}
+	
+	// Check the exact format of the summary
+	lastLine := resultLines[len(resultLines)-1]
+	expectedSummary := fmt.Sprintf("... (truncated: %d total lines, %d chars)", len(lines), len(input))
+	if lastLine != expectedSummary {
+		t.Errorf("Expected summary line:\n%s\nGot:\n%s", expectedSummary, lastLine)
 	}
 }
 

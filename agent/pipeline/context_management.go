@@ -2,9 +2,36 @@ package pipeline
 
 import (
 	"fmt"
+	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
+
+const (
+	maxToolResultLines   = 50
+	maxToolResultChars   = 4000
+)
+
+// truncateToolResult truncates long tool results to prevent context bloat
+// Keeps first 50 lines and adds a summary if truncated
+// Error results are never truncated (they're usually short and important)
+func truncateToolResult(result string, isError bool) string {
+	if isError {
+		return result
+	}
+
+	lines := strings.Split(result, "\n")
+	if len(lines) <= maxToolResultLines && len(result) <= maxToolResultChars {
+		return result
+	}
+
+	// Truncate to 50 lines
+	truncated := strings.Join(lines[:maxToolResultLines], "\n")
+	
+	// Add summary line
+	return fmt.Sprintf("%s\n... (truncated: %d total lines, %d chars)", 
+		truncated, len(lines), len(result))
+}
 
 // ContextManagementStage appends results, checks limits, and decides whether to loop.
 // When the context exceeds the token limit, it attempts to compact by removing old
@@ -45,11 +72,11 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 	}
 	convCtx.AddMessage(assistantMsg)
 
-	// Append tool results
+	// Append tool results (truncated to prevent context bloat)
 	for _, tr := range toolResults {
-		content := tr.Result
+		content := truncateToolResult(tr.Result, tr.IsError)
 		if tr.IsError {
-			content = fmt.Sprintf("Error: %s", tr.Result)
+			content = fmt.Sprintf("Error: %s", content)
 		}
 		convCtx.AddMessage(agentctx.Message{
 			Role:       "tool",

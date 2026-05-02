@@ -39,7 +39,7 @@ func (s *RequestPrepStage) Process(ctx *agentctx.ConversationContext) agentctx.P
 func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) string {
 	var parts []string
 
-	// Personality directive
+	// Role + Personality
 	if s.Personality != "" {
 		// If personality is a full prompt (multi-line, from a file), use it directly.
 		// Otherwise, wrap it: "direct" → "You are direct."
@@ -50,26 +50,34 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		}
 	}
 
-	// Anti-repetition directive — this is critical for multi-turn conversations
-	// where tool results from prior turns get compacted into summaries.
-	// Without this, models tend to re-assert information from old tool outputs.
+	// Tool Usage Guide
 	parts = append(parts, "")
-	parts = append(parts, "Do NOT repeat information you've already stated in earlier messages. If you already told the user something — their name, what provider you're using, a typo correction, a comparison — do NOT state it again. Each response should address ONLY the current question and add new information. Do not prefix responses with self-identification (e.g., 'Claude', 'I'm running on X provider') unless explicitly asked which model you are.")
+	parts = append(parts, "## Tool Usage")
 	parts = append(parts, "")
-	parts = append(parts, "Proactive memory usage: When the user mentions a specific topic, bug, project, or past event, SEARCH your memories with SearchMemories before asking the user to explain it. Your memory may already contain the full context. Do NOT ask the user for ticket numbers, repo names, or background that you can look up yourself — look it up first, then ask only if you still need clarification.")
+	parts = append(parts, "You have tools available. Use them efficiently:")
+	parts = append(parts, "- FileSearch: Use to LOCATE files by name or pattern. Returns file paths, not contents.")
+	parts = append(parts, "- FileRead: Use to READ a specific file's contents. Only call after you know the path.")
+	parts = append(parts, "- FileWrite: Use to WRITE or UPDATE a file. Always read the file first to understand its current state.")
+	parts = append(parts, "- Execute: Use to RUN commands (git, go test, etc.). Prefer purpose-built tools over shell commands.")
+	parts = append(parts, "- SearchMemories: Use to RECALL information from past sessions.")
+	parts = append(parts, "- AddMemory: Use to SAVE important facts for future sessions.")
+	parts = append(parts, "")
+	parts = append(parts, "IMPORTANT: Do not call tools you don't need. If you already have the information from a previous tool call in this conversation, use it — do not call the same tool again. When writing a file, call FileWrite directly — do not FileSearch first if you already know the path.")
 
-	// Memory section
+	// Anti-loop directive
+	parts = append(parts, "")
+	parts = append(parts, "## Rules")
+	parts = append(parts, "")
+	parts = append(parts, "- Do NOT repeat information you already stated. Each response should add new information only.")
+	parts = append(parts, "- Do NOT prefix responses with self-identification (\"Claude\", \"I'm running on X\") unless asked.")
+	parts = append(parts, "- If a tool call fails or returns \"not found\", try a different approach — do not retry the same call.")
+	parts = append(parts, "- If you cannot complete a task after 2 attempts, tell the user what you tried and ask for clarification.")
+	parts = append(parts, "- Use SearchMemories proactively when the user mentions a specific topic, bug, or project.")
+
+	// Hot Block
 	if ctx.HotBlockContent != "" {
 		parts = append(parts, "[Memory — what you know about the user and environment]")
 		parts = append(parts, ctx.HotBlockContent)
-		parts = append(parts, "")
-		parts = append(parts, "[Instructions — how to use memory]")
-		parts = append(parts, "- You can search memories with SearchMemories when you need something not in the hot block.")
-		parts = append(parts, "- Use AddMemory to persist important facts, preferences, and lessons learned.")
-		parts = append(parts, "- Use ReplaceMemory to update existing memories (match by key).")
-		parts = append(parts, "- Use RemoveMemory to delete a memory by key.")
-		parts = append(parts, "- Observations auto-expire after 30 days unless promoted to a higher category.")
-		parts = append(parts, "- Other agents may update memories while you work. If you receive a hot block update, trust it.")
 	}
 
 	return joinParts(parts)
