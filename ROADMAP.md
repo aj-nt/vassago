@@ -696,9 +696,9 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
 - [x] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
 - [x] Fix circular dependency (agent ↔ agent/interface) — already resolved
 - [x] Add auth to RegisterAgent/Heartbeat/Subscribe gRPCs — already covered by API key interceptor
-- [ ] Increase test coverage targets: agent 60%, client 50%, daemon 40%
+- [ ] Increase test coverage targets: agent 39→60%, client 33→50%, daemon grpc 45→65% (incremental, needs integration tests)
 - [x] Config validation (reject invalid values, not silent defaults)
-- [ ] Refactor pass per Fowler
+- [x] Refactor pass per Fowler — Replace Magic Number with Named Constant, Extract Function (timeouts.go, store constants)
 
 ---
 
