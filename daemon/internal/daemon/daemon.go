@@ -32,9 +32,10 @@ type Config struct {
 }
 
 type MessagingConfig struct {
-	Discord  DiscordMessagingConfig  `yaml:"discord"`
-	Telegram TelegramMessagingConfig `yaml:"telegram"`
-	IMessage IMessageMessagingConfig `yaml:"imessage"`
+    Discord  DiscordMessagingConfig  `yaml:"discord"`
+    Telegram TelegramMessagingConfig `yaml:"telegram"`
+    IMessage IMessageMessagingConfig `yaml:"imessage"`
+    Email    EmailMessagingConfig    `yaml:"email"`
 }
 
 type DiscordMessagingConfig struct {
@@ -53,6 +54,18 @@ type IMessageMessagingConfig struct {
 	AllowedRecipients []string `yaml:"allowed_recipients"`
 	DBPath            string   `yaml:"db_path"`
 	PollInterval      int      `yaml:"poll_interval"` // seconds, default 5
+}
+
+type EmailMessagingConfig struct {
+	Enabled      bool     `yaml:"enabled"`
+	IMAPHost     string   `yaml:"imap_host"`
+	SMTPHost     string   `yaml:"smtp_host"`
+	Username     string   `yaml:"username"`
+	Password     string   `yaml:"password"`
+	FromAddress  string   `yaml:"from_address"`
+	AllowedFrom  []string `yaml:"allowed_from"`
+	Folders      []string `yaml:"folders"`
+	PollInterval int      `yaml:"poll_interval"` // seconds, default 30
 }
 
 type DaemonConfig struct {
@@ -224,6 +237,22 @@ func New(cfg *Config) (*Daemon, error) {
 			PollInterval:       pollInterval,
 		})
 		messagingService.AddAdapter("imessage", imessageAdapter)
+	}
+
+	// Add Email adapter if enabled
+	if cfg.Messaging.Email.Enabled {
+		pollInterval := time.Duration(cfg.Messaging.Email.PollInterval) * time.Second
+		emailAdapter := messaging.NewEmailAdapter(messaging.EmailConfig{
+			IMAPHost:     cfg.Messaging.Email.IMAPHost,
+			SMTPHost:     cfg.Messaging.Email.SMTPHost,
+			Username:     cfg.Messaging.Email.Username,
+			Password:     cfg.Messaging.Email.Password,
+			FromAddress:  cfg.Messaging.Email.FromAddress,
+			AllowedFrom:  cfg.Messaging.Email.AllowedFrom,
+			Folders:       cfg.Messaging.Email.Folders,
+			PollInterval:  pollInterval,
+		})
+		messagingService.AddAdapter("email", emailAdapter)
 	}
 
 	// Register services
