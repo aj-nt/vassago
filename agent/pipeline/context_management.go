@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	maxToolResultLines   = 50
-	maxToolResultChars   = 4000
+	maxToolResultLines   = 200
+	maxToolResultChars   = 8000
 )
 
-// truncateToolResult truncates long tool results to prevent context bloat
-// Keeps first 50 lines and adds a summary if truncated
-// Error results are never truncated (they're usually short and important)
+// truncateToolResult truncates long tool results to prevent context bloat.
+// Keeps first half and last quarter of lines, with a summary in between.
+// Error results are never truncated (they're usually short and important).
 func truncateToolResult(result string, isError bool) string {
 	if isError {
 		return result
@@ -25,12 +25,14 @@ func truncateToolResult(result string, isError bool) string {
 		return result
 	}
 
-	// Truncate to 50 lines
-	truncated := strings.Join(lines[:maxToolResultLines], "\n")
+	// Show head + tail: first half of maxToolResultLines, then last quarter
+	headCount := maxToolResultLines / 2
+	tailCount := maxToolResultLines / 4
+	head := strings.Join(lines[:headCount], "\n")
+	tail := strings.Join(lines[len(lines)-tailCount:], "\n")
 
-	// Add summary line
-	return fmt.Sprintf("%s\n... (truncated: %d total lines, %d chars)", 
-		truncated, len(lines), len(result))
+	return fmt.Sprintf("%s\n\n... (truncated: %d total lines, %d chars, showing first %d and last %d)\n\n%s",
+		head, len(lines), len(result), headCount, tailCount, tail)
 }
 
 // isStuck detects if the agent is stuck by checking if the last 2 tool results

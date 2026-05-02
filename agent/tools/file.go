@@ -158,12 +158,33 @@ func IsUnderAllowedDir(path string) bool {
 	return false
 }
 
+// expandPath expands ~ to the home directory and makes the path absolute.
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") || path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			path = filepath.Join(home, path[1:])
+		}
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
+}
+
 // FileRead reads a file and returns its content.
 func FileRead(args map[string]interface{}) (string, bool) {
 	path, ok := args["path"].(string)
 	if !ok || path == "" {
 		return "FileRead requires a 'path' argument", true
 	}
+
+	// Reject path traversal before expanding
+	if strings.Contains(path, "../") {
+		return fmt.Sprintf("Access denied: path traversal not allowed in path %q", path), true
+	}
+
+	// Expand ~ and make absolute before safety checks and file access
+	path = expandPath(path)
 
 	if !isPathSafe(path) {
 		return fmt.Sprintf("Access denied: path %q is not in an allowed directory", path), true
@@ -175,7 +196,7 @@ func FileRead(args map[string]interface{}) (string, bool) {
 	}
 
 	// Truncate output for large files
-	const maxResultChars = 8000
+	const maxResultChars = 20000
 	return truncateOutput(string(content), maxResultChars), false
 }
 
@@ -185,6 +206,14 @@ func FileWrite(args map[string]interface{}) (string, bool) {
 	if !ok || path == "" {
 		return "FileWrite requires a 'path' argument", true
 	}
+
+	// Reject path traversal before expanding
+	if strings.Contains(path, "../") {
+		return fmt.Sprintf("Access denied: path traversal not allowed in path %q", path), true
+	}
+
+	// Expand ~ and make absolute before safety checks and file access
+	path = expandPath(path)
 
 	content, ok := args["content"].(string)
 	if !ok {
@@ -212,6 +241,11 @@ func FileSearch(args map[string]interface{}) (string, bool) {
 
 	directory := "."
 	if dir, ok := args["directory"].(string); ok && dir != "" {
+		// Check for path traversal before expanding
+		if strings.Contains(dir, "../") {
+			return fmt.Sprintf("Access denied: path traversal not allowed in directory %q", dir), true
+		}
+		dir = expandPath(dir)
 		if !isPathSafe(dir) {
 			return fmt.Sprintf("Access denied: directory %q is not in an allowed directory", dir), true
 		}

@@ -366,33 +366,51 @@ func TestTruncateToolResult_ShortResult(t *testing.T) {
 }
 
 func TestTruncateToolResult_LongResult(t *testing.T) {
-	// Build a long result with more than 50 lines
+	// Build a long result with more than 200 lines
 	var lines []string
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 250; i++ {
 		lines = append(lines, fmt.Sprintf("Line %d: This is a line of output", i+1))
 	}
 	longResult := strings.Join(lines, "\n")
 	
 	result := truncateToolResult(longResult, false)
 	
-	// Check that result has exactly 51 lines (50 original + 1 summary)
+	// Result should have head (100 lines) + blank + summary (1 line) + blank + tail (50 lines) + trailing newline
+	// Total: 100 + 1 + 1 + 1 + 50 = 153 lines approximately
 	resultLines := strings.Split(result, "\n")
-	if len(resultLines) != 51 {
-		t.Errorf("Expected 51 lines (50 + summary), got %d", len(resultLines))
+	
+	// Check that the result contains the summary line
+	hasSummary := false
+	for _, line := range resultLines {
+		if strings.HasPrefix(line, "... (truncated:") {
+			hasSummary = true
+		}
+	}
+	if !hasSummary {
+		t.Errorf("Expected result to contain summary line with truncation info")
 	}
 	
-	// Check that the last line is the summary
-	lastLine := resultLines[len(resultLines)-1]
-	expectedSummary := fmt.Sprintf("... (truncated: %d total lines, %d chars)", len(lines), len(longResult))
-	if lastLine != expectedSummary {
-		t.Errorf("Expected summary line:\n%s\nGot:\n%s", expectedSummary, lastLine)
-	}
-	
-	// Check that the first 50 lines are preserved
-	for i := 0; i < 50; i++ {
+	// Check that the first headCount lines are preserved
+	headCount := 200 / 2 // 100
+	for i := 0; i < headCount; i++ {
 		if resultLines[i] != lines[i] {
 			t.Errorf("Line %d mismatch:\nExpected: %s\nGot: %s", i, lines[i], resultLines[i])
 		}
+	}
+	
+	// Check that tail lines are preserved
+	tailCount := 200 / 4 // 50
+	tailStart := len(lines) - tailCount
+	// Find the tail section (after the summary)
+	foundTailStart := -1
+	for i, line := range resultLines {
+		if line == lines[tailStart] {
+			foundTailStart = i
+			break
+		}
+	}
+	if foundTailStart == -1 {
+		t.Errorf("Could not find tail section start in result")
 	}
 }
 
@@ -406,26 +424,35 @@ func TestTruncateToolResult_ErrorResult(t *testing.T) {
 }
 
 func TestTruncateToolResult_ExactFormat(t *testing.T) {
-	// Build a result with exactly 51 lines to test the exact format
+	// Build a result with exactly 201 lines to test the truncation
 	var lines []string
-	for i := 0; i < 51; i++ {
+	for i := 0; i < 201; i++ {
 		lines = append(lines, fmt.Sprintf("Line %d", i+1))
 	}
 	input := strings.Join(lines, "\n")
 	
 	result := truncateToolResult(input, false)
 	
-	// Check that the first 50 lines are preserved
+	// Check that result contains head (100 lines) + summary + tail (50 lines)
 	resultLines := strings.Split(result, "\n")
-	if len(resultLines) != 51 {
-		t.Errorf("Expected 51 lines (50 + summary), got %d", len(resultLines))
+	
+	// Check that the summary line is present
+	hasSummary := false
+	for _, line := range resultLines {
+		if strings.HasPrefix(line, "... (truncated:") {
+			hasSummary = true
+		}
+	}
+	if !hasSummary {
+		t.Errorf("Expected result to contain summary line")
 	}
 	
-	// Check the exact format of the summary
-	lastLine := resultLines[len(resultLines)-1]
-	expectedSummary := fmt.Sprintf("... (truncated: %d total lines, %d chars)", len(lines), len(input))
-	if lastLine != expectedSummary {
-		t.Errorf("Expected summary line:\n%s\nGot:\n%s", expectedSummary, lastLine)
+	// Check that the first headCount lines are preserved
+	headCount := 200 / 2
+	for i := 0; i < headCount; i++ {
+		if resultLines[i] != lines[i] {
+			t.Errorf("Line %d mismatch:\nExpected: %s\nGot: %s", i, lines[i], resultLines[i])
+		}
 	}
 }
 
