@@ -605,12 +605,18 @@ Goal: Send and receive messages through external platforms. This is the highest-
 
 ### 15C: iMessage (macOS)
 
-- [ ] iMessage adapter via AppleScript bridge or BlueBabilities
-- [ ] Send/receive through macOS Messages.app
-- [ ] Config: `imessage.enabled`, `imessage.allowed_recipients`
-- [ ] Handle macOS 26 Launch Constraint issue (daemon stays running, applescript sends)
-- [ ] Mock iMessage bridge tests
-- [ ] QA pass + Red Team pass
+- [x] iMessage adapter: AppleScript send + SQLite poll receive
+- [x] AppleScript integration (osascript): buddy and group chat syntax
+- [x] SQLite polling of ~/Library/Messages/chat.db (read-only, no writes)
+- [x] ROWID-based message tracking (no bookkeeping table in chat.db)
+- [x] Mac absolute time conversion (nanoseconds since 2001-01-01)
+- [x] Allowed recipients filter (phone numbers/emails; empty = all)
+- [x] Empty message filtering (defense in depth)
+- [x] Message splitting for 4000 char limit (AppleScript command line)
+- [x] Mockable iMessageSender and iMessageQuerier interfaces
+- [x] Daemon + agent config wiring (IMessageMessagingConfig)
+- [x] SendMessage tool accepts 'imessage' platform
+- [x] 23 unit tests (8 QA + 8 Red Team + 7 standard), 605 total tests green
 
 ### 15D: Email (Proton Mail Bridge)
 
