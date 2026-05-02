@@ -198,6 +198,7 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, m
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
 		tools.RegisterSessionTools(toolReg, mnemo)
+		tools.RegisterTodoTools(toolReg, mnemo, agentID)
 		if delegateCfg.Enabled {
 			tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
 				Enabled:  delegateCfg.Enabled,
@@ -220,6 +221,9 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, m
 	}
 	if anyEnabled(enabled, "SearchSessions", "ListSessions", "GetSession") {
 		tools.RegisterSessionTools(toolReg, mnemo)
+	}
+	if anyEnabled(enabled, "AddTodo", "ListTodos", "CompleteTodo", "RemoveTodo") {
+		tools.RegisterTodoTools(toolReg, mnemo, agentID)
 	}
 	if anyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil) // nil = use default HTTP client
