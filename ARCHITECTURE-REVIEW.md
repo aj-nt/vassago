@@ -396,3 +396,31 @@ The `_context` and `_deadline` parameter injection in Execute is wired but not c
 
 **LOW: MessagingDB not yet implemented**
 The MessagingService gRPC handler references a `MessagingDB` for message persistence but it's not implemented yet. Messages flow through but aren't stored.
+
+**MEDIUM: Per-tool call budgets enforce limits**
+FileRead (3/turn), FileSearch (2/turn), Execute (2/turn) are now enforced at the ToolDispatchStage level. Budget-exceeded results return a helpful error message telling the agent to use results it already has. This prevents the model from re-reading the same file 10 times.
+
+**MEDIUM: Stuck detection breaks failed-search loops**
+If the last 2 tool results are both errors or both contain "not found", the ContextManagementStage yields with a message: "I wasn't able to find what I was looking for." This prevents the common pattern of FileSearch(fail) → FileSearch(fail) → Execute(error) loops.
+
+**MEDIUM: Aggressive compaction after iteration 5**
+When iteration >= 5, `compactContext` Phase 0 strips tool results to summaries: `[tool result: FileRead (4523 chars)]`. Forces the model to rely on accumulated understanding rather than re-reading detailed outputs.
+
+**MEDIUM: Tool result size limits prevent context blowup**
+- FileRead: max 8000 chars (preserves beginning and end)
+- FileSearch: max 4000 chars
+- Execute: max 4000 chars
+- ContextManagementStage tool results: max 50 lines / 4000 chars
+Oversized results are truncated with a summary line showing total size.
+
+**LOW: Smart routing now detects technical prompts**
+`isTechnicalPrompt()` detects file paths, function calls, and code keywords in short prompts. Queries like "fix the bug in context_management.go:30" are now routed to the primary model instead of the cheap model.
+
+**LOW: System prompt restructured into 4 sections**
+The system prompt is now: Role + Personality → Tool Usage Guide → Anti-loop Rules → Hot Block. Memory instructions were consolidated into 1 proactive-memory rule. Tool usage guide tells the model when to use each tool and not to re-call tools it already has results from.
+
+**LOW: Execute cwd parameter and path validation**
+Execute tool now supports an optional `cwd` parameter with `~` expansion and allowed_dirs validation. Allows the agent to run commands in the repo directory.
+
+**LOW: `~` expansion in allowed_dirs**
+SetFileConfig now expands `~/...` paths in allowed_dirs to the user's home directory, so the agent can access `~/Documents/repos` properly.
