@@ -72,8 +72,11 @@ func (r *SubAgentRunnerImpl) RunSubAgent(prompt string, agentID string, maxTurns
 	}
 
 	text := ""
-	if result.Response != nil {
+	if result.Response != nil && result.Response.Text != "" {
 		text = result.Response.Text
+	} else {
+		// Sub-agent completed but produced no text output — return meaningful feedback
+		text = "sub-agent completed but returned no output"
 	}
 
 	return &tools.SubAgentResult{

@@ -274,7 +274,7 @@ func TestIsRepetitiveToolLoop_ThreeCalls_BreaksLoop(t *testing.T) {
 
 func TestIsRepetitiveToolLoop_TextBreaksLoop(t *testing.T) {
 	// Text-only assistant response (no tool calls) between iterations breaks the loop.
-	// The model gave a real answer, then later decided to use the tool again — that's fine.
+	// The model gave a real answer, then later decided to use a tool again — that's fine.
 	messages := []agentctx.Message{
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
 			{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
@@ -375,8 +375,7 @@ func TestTruncateToolResult_LongResult(t *testing.T) {
 	
 	result := truncateToolResult(longResult, false)
 	
-	// Result should have head (100 lines) + blank + summary (1 line) + blank + tail (50 lines) + trailing newline
-	// Total: 100 + 1 + 1 + 1 + 50 = 153 lines approximately
+	// Result should have head + tail format
 	resultLines := strings.Split(result, "\n")
 	
 	// Check that the result contains the summary line
@@ -579,6 +578,136 @@ func TestIsStuck_InsufficientResults(t *testing.T) {
 	}
 }
 
+func TestIsStuckFromHistory_TwoErrors(t *testing.T) {
+	messages := []agentctx.Message{
+		{Role: "user", Content: "find something"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FindTool"}}},
+		{Role: "tool", Content: "Error: permission denied", ToolCallID: "1", Name: "FindTool"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FindTool"}}},
+		{Role: "tool", Content: "Error: still no access", ToolCallID: "2", Name: "FindTool"},
+	}
+	if !isStuckFromHistory(messages) {
+		t.Error("Expected isStuckFromHistory to return true for two consecutive errors")
+	}
+}
+
+func TestIsStuckFromHistory_TwoNotFound(t *testing.T) {
+	messages := []agentctx.Message{
+		{Role: "user", Content: "find something"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch"}}},
+		{Role: "tool", Content: "not found", ToolCallID: "1", Name: "FileSearch"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileSearch"}}},
+		{Role: "tool", Content: "no results", ToolCallID: "2", Name: "FileSearch"},
+	}
+	if !isStuckFromHistory(messages) {
+		t.Error("Expected isStuckFromHistory to return true for two 'not found' results")
+	}
+}
+
+func TestIsStuckFromHistory_SuccessAfterError(t *testing.T) {
+	messages := []agentctx.Message{
+		{Role: "user", Content: "find something"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch"}}},
+		{Role: "tool", Content: "not found", ToolCallID: "1", Name: "FileSearch"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileSearch"}}},
+		{Role: "tool", Content: "found: 3 files", ToolCallID: "2", Name: "FileSearch"},
+	}
+	if isStuckFromHistory(messages) {
+		t.Error("Expected isStuckFromHistory to return false when success follows error")
+	}
+}
+
+func TestIsStuckFromHistory_InsufficientHistory(t *testing.T) {
+	// Only one tool result in history — not enough to detect stuck
+	messages := []agentctx.Message{
+		{Role: "user", Content: "find something"},
+		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch"}}},
+		{Role: "tool", Content: "Error: not found", ToolCallID: "1", Name: "FileSearch"},
+	}
+	if isStuckFromHistory(messages) {
+		t.Error("Expected isStuckFromHistory to return false with insufficient history")
+	}
+}
+
+// --- Stuck detection integration test (via Process) ---
+
+func TestContextManagement_BreaksStuckLoop_ViaToolResults(t *testing.T) {
+	// Test that stuck detection via toolResults parameter causes YIELD
+	// with two consecutive error tool results and no history
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "find something"}},
+		MaxIterations: 20,
+		Iteration:     2,
+	}
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	parsed := agentctx.ParsedResponse{
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "FindTool", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	// Two consecutive error results — stuck
+	toolResults := []agentctx.ToolResult{
+		{CallID: "1", Name: "FindTool", Result: "not found", IsError: true},
+		{CallID: "2", Name: "FindTool", Result: "file not found", IsError: true},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// Should YIELD with helpful message instead of continuing
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD when stuck (two consecutive errors), got %v", action)
+	}
+
+	// Should add helpful message
+	lastMessage := convCtx.Messages[len(convCtx.Messages)-1]
+	if !strings.Contains(lastMessage.Content, "wasn't able to find") {
+		t.Errorf("Expected helpful message about not finding results, got: %s", lastMessage.Content)
+	}
+}
+
+func TestContextManagement_BreaksStuckLoop_ViaHistory(t *testing.T) {
+	// Test that stuck detection via conversation history causes YIELD
+	// even when toolResults parameter is empty (loop detection fires before
+	// tool results are appended)
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "find something"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FindTool"}}},
+			{Role: "tool", Content: "Error: not found", ToolCallID: "1", Name: "FindTool"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FindTool"}}},
+			{Role: "tool", Content: "Error: file not found", ToolCallID: "2", Name: "FindTool"},
+		},
+		MaxIterations: 20,
+		Iteration:     3,
+	}
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	parsed := agentctx.ParsedResponse{
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "FindTool", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	// Pass nil toolResults — stuck detection should use history instead
+	action := stage.Process(convCtx, nil, parsed)
+
+	// Should YIELD with helpful message instead of continuing
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD when stuck (from history), got %v", action)
+	}
+
+	lastMessage := convCtx.Messages[len(convCtx.Messages)-1]
+	if !strings.Contains(lastMessage.Content, "wasn't able to find") {
+		t.Errorf("Expected helpful message about not finding results, got: %s", lastMessage.Content)
+	}
+}
+
 // --- Aggressive compaction tests ---
 
 func TestCompactContext_HighIteration(t *testing.T) {
@@ -622,45 +751,27 @@ func TestCompactContext_HighIteration(t *testing.T) {
 	}
 }
 
-// --- Stuck detection integration test ---
-
-func TestContextManagement_BreaksStuckLoop(t *testing.T) {
-	// Test that stuck detection (two consecutive errors) causes YIELD
-	stage := NewContextManagementStage(0)
-	convCtx := &agentctx.ConversationContext{
-		Messages:      []agentctx.Message{{Role: "user", Content: "find something"}},
-		MaxIterations: 20,
-		Iteration:     2,
+func TestIsResultNotFound(t *testing.T) {
+	tests := []struct {
+		content  string
+		expected bool
+	}{
+		{"file not found", true},
+		{"No such file or directory", true},
+		{"Path does not exist", true},
+		{"no results found", true},
+		{"No matches for query", true},
+		{"0 files found", true},
+		{"Empty result set", true},
+		{"found 3 files", false},
+		{"success", false},
+		{"here is the content", false},
 	}
 
-	args, _ := json.Marshal(map[string]interface{}{})
-	parsed := agentctx.ParsedResponse{
-		ToolCalls: []agentctx.ToolCall{
-			{ID: "3", Name: "FindTool", Arguments: args},
-		},
-		FinishReason: "tool_use",
-	}
-
-	// Two consecutive error results
-	toolResults := []agentctx.ToolResult{
-		{CallID: "1", Name: "FindTool", Result: "not found", IsError: true},
-		{CallID: "2", Name: "FindTool", Result: "file not found", IsError: true},
-	}
-
-	action := stage.Process(convCtx, toolResults, parsed)
-
-	// Should YIELD with helpful message instead of continuing
-	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD when stuck (two consecutive errors), got %v", action)
-	}
-
-	// Should add helpful message
-	if len(convCtx.Messages) < 2 {
-		t.Error("Expected helpful message to be added when stuck")
-	}
-
-	lastMessage := convCtx.Messages[len(convCtx.Messages)-1]
-	if !strings.Contains(lastMessage.Content, "wasn't able to find") {
-		t.Errorf("Expected helpful message about not finding results, got: %s", lastMessage.Content)
+	for _, tt := range tests {
+		result := isResultNotFound(tt.content)
+		if result != tt.expected {
+			t.Errorf("isResultNotFound(%q) = %v, expected %v", tt.content, result, tt.expected)
+		}
 	}
 }

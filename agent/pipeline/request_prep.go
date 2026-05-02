@@ -50,28 +50,21 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		}
 	}
 
-	// Tool Usage Guide
+	// Tool guide — concise, action-oriented
 	parts = append(parts, "")
-	parts = append(parts, "## Tool Usage")
+	parts = append(parts, "## Tools")
+	parts = append(parts, "FileSearch → find files by name/pattern | FileRead → read file contents (need path first) | FileWrite → write/update files | Execute → run shell commands | SearchMemories → recall past info | AddMemory → save important facts")
 	parts = append(parts, "")
-	parts = append(parts, "You have tools available. Use them efficiently:")
-	parts = append(parts, "- FileSearch: Use to LOCATE files by name or pattern. Returns file paths, not contents.")
-	parts = append(parts, "- FileRead: Use to READ a specific file's contents. Only call after you know the path.")
-	parts = append(parts, "- FileWrite: Use to WRITE or UPDATE a file. Always read the file first to understand its current state.")
-	parts = append(parts, "- Execute: Use to RUN commands (git, go test, etc.). Prefer purpose-built tools over shell commands.")
-	parts = append(parts, "- SearchMemories: Use to RECALL information from past sessions.")
-	parts = append(parts, "- AddMemory: Use to SAVE important facts for future sessions.")
-	parts = append(parts, "")
-	parts = append(parts, "IMPORTANT: Do not call tools you don't need. If you already have the information from a previous tool call in this conversation, use it — do not call the same tool again. When writing a file, call FileWrite directly — do not FileSearch first if you already know the path.")
+	parts = append(parts, "Rules: Do NOT restate tool capabilities in responses. Do NOT call a tool if you already have the answer from a prior call. If a tool fails, try a different approach — never retry the same failing call.")
 
-	// Anti-loop directive
+	// Anti-repetition directive
 	parts = append(parts, "")
-	parts = append(parts, "## Rules")
-	parts = append(parts, "")
-	parts = append(parts, "- Do NOT repeat information you already stated. Each response should add new information only.")
+	parts = append(parts, "## Anti-repetition")
+	parts = append(parts, "- NEVER list or describe your tools/capabilities in responses. The user already knows what you can do.")
+	parts = append(parts, "- NEVER say \"I can use X to Y\" or \"Let me use my Z tool\" — just USE the tool, or give the answer directly.")
+	parts = append(parts, "- Do NOT repeat information you already stated. Each response adds new info only.")
 	parts = append(parts, "- Do NOT prefix responses with self-identification (\"Claude\", \"I'm running on X\") unless asked.")
-	parts = append(parts, "- If a tool call fails or returns \"not found\", try a different approach — do not retry the same call.")
-	parts = append(parts, "- If you cannot complete a task after 2 attempts, tell the user what you tried and ask for clarification.")
+	parts = append(parts, "- If you cannot complete a task after 2 attempts, describe what you tried and ask for clarification.")
 	parts = append(parts, "- Use SearchMemories proactively when the user mentions a specific topic, bug, or project.")
 
 	// Hot Block

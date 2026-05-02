@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	maxToolResultLines   = 200
-	maxToolResultChars   = 8000
+	maxToolResultLines = 200
+	maxToolResultChars = 8000
 )
 
 // truncateToolResult truncates long tool results to prevent context bloat.
@@ -35,6 +35,60 @@ func truncateToolResult(result string, isError bool) string {
 		head, len(lines), len(result), headCount, tailCount, tail)
 }
 
+// isResultNotFound checks if a tool result content indicates a "not found" condition.
+func isResultNotFound(content string) bool {
+	lower := strings.ToLower(content)
+	return strings.Contains(lower, "not found") ||
+		strings.Contains(lower, "no such file") ||
+		strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "no results") ||
+		strings.Contains(lower, "no matches") ||
+		strings.Contains(lower, "0 files found") ||
+		strings.Contains(lower, "empty result")
+}
+
+// isStuckFromHistory checks conversation messages for recent tool failures.
+// It looks at the last N tool results in the conversation history for consecutive
+// errors or "not found" patterns. This is more robust than checking the toolResults
+// parameter because it works even when loop detection fires before tool results
+// are appended to the context.
+func isStuckFromHistory(messages []agentctx.Message) bool {
+	// Collect the last few tool results from history
+	var recentResults []struct {
+		content string
+		isError bool
+	}
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role == "tool" {
+			isErr := strings.HasPrefix(msg.Content, "Error: ") || msg.Content == ""
+			recentResults = append(recentResults, struct {
+				content string
+				isError bool
+			}{msg.Content, isErr})
+			if len(recentResults) >= 3 {
+				break // Check last 3 tool results
+			}
+		}
+	}
+
+	if len(recentResults) < 2 {
+		return false
+	}
+
+	// Check if the last 2+ tool results all indicate failure
+	failureCount := 0
+	for _, r := range recentResults {
+		if r.isError || isResultNotFound(r.content) {
+			failureCount++
+		}
+	}
+
+	// Stuck if all recent results are failures (at least 2)
+	return failureCount >= 2 && failureCount == len(recentResults)
+}
+
 // isStuck detects if the agent is stuck by checking if the last 2 tool results
 // were both errors or contained "not found" messages.
 func isStuck(results []agentctx.ToolResult) bool {
@@ -52,13 +106,11 @@ func isStuck(results []agentctx.ToolResult) bool {
 	}
 
 	// Check if both contain "not found" or "no such file" (case insensitive)
-	lastContent := strings.ToLower(lastResult.Result)
-	secondLastContent := strings.ToLower(secondLastResult.Result)
-	
-	containsNotFoundLast := strings.Contains(lastContent, "not found") || strings.Contains(lastContent, "no such file")
-	containsNotFoundSecondLast := strings.Contains(secondLastContent, "not found") || strings.Contains(secondLastContent, "no such file")
-	
-	return containsNotFoundLast && containsNotFoundSecondLast
+	if isResultNotFound(lastResult.Result) && isResultNotFound(secondLastResult.Result) {
+		return true
+	}
+
+	return false
 }
 
 // ContextManagementStage appends results, checks limits, and decides whether to loop.
@@ -80,25 +132,30 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionYIELD
 	}
 
+	// Detect stuck agent FIRST — check both current tool results and
+	// conversation history for consecutive failures. This takes priority
+	// over loop detection because stuck detection provides a helpful message
+	// to the user, while loop detection just silently breaks the loop.
+	stuckFromResults := isStuck(toolResults)
+	stuckFromHistory := isStuckFromHistory(convCtx.Messages)
+	if stuckFromResults || stuckFromHistory {
+		// Replace tool calls with a text-only response asking for clarification
+		convCtx.AddMessage(agentctx.Message{
+			Role:    "assistant",
+			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
+		})
+		return agentctx.StageActionYIELD
+	}
+
 	// Detect same-tool loop: if the same tool name appears 3+ times consecutively
 	// in tool calls with no text response between iterations, break the loop.
 	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
 		return agentctx.StageActionYIELD
 	}
 
-	// Detect cross-tool loop: if there have been 5+ consecutive iterations with ANY tool calls,
+	// Detect cross-tool loop: if there have been 4+ consecutive iterations with ANY tool calls,
 	// break the loop to prevent agents from looping across different tools.
 	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
-		return agentctx.StageActionYIELD
-	}
-
-	// Detect stuck agent — last 2 tool calls both failed or returned "not found"
-	if isStuck(toolResults) {
-		// Replace tool calls with a text-only response asking for clarification
-		convCtx.AddMessage(agentctx.Message{
-			Role:    "assistant",
-			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
-		})
 		return agentctx.StageActionYIELD
 	}
 
