@@ -585,7 +585,7 @@ Goal: Send and receive messages through external platforms. This is the highest-
 - [x] Client methods: SendMessage(), ListChannels(), SubscribeToMessages()
 - [x] Daemon startup wiring with MessagingService (adapter Connect on first subscription)
 - [x] MessageBridge unit tests (11 tests), messaging_grpc fan-out tests (3 tests)
-- [ ] QA pass + Red Team pass
+- [x] QA pass + Red Team pass (18 new tests, 544 total, all green with -race)
 
 ### 15B: Telegram Bot
 
