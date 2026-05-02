@@ -32,13 +32,19 @@ type Config struct {
 }
 
 type MessagingConfig struct {
-	Discord DiscordMessagingConfig `yaml:"discord"`
+	Discord  DiscordMessagingConfig  `yaml:"discord"`
+	Telegram TelegramMessagingConfig `yaml:"telegram"`
 }
 
 type DiscordMessagingConfig struct {
 	Token           string   `yaml:"token"`
 	Guilds          []string `yaml:"guilds"`
 	AllowedChannels []string `yaml:"allowed_channels"`
+}
+
+type TelegramMessagingConfig struct {
+	Token       string  `yaml:"token"`
+	AllowedChats []int64 `yaml:"allowed_chats"`
 }
 
 type DaemonConfig struct {
@@ -190,6 +196,15 @@ func New(cfg *Config) (*Daemon, error) {
 			AllowedChannels: cfg.Messaging.Discord.AllowedChannels,
 		})
 		messagingService.AddAdapter("discord", discordAdapter)
+	}
+
+	// Add Telegram adapter if token is configured
+	if cfg.Messaging.Telegram.Token != "" {
+		telegramAdapter := messaging.NewTelegramAdapter(messaging.TelegramConfig{
+			Token:        cfg.Messaging.Telegram.Token,
+			AllowedChats: cfg.Messaging.Telegram.AllowedChats,
+		})
+		messagingService.AddAdapter("telegram", telegramAdapter)
 	}
 
 	// Register services

@@ -22,8 +22,9 @@ func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
 		}
 
 		// Validate platform
-		if platform != "discord" {
-			return fmt.Sprintf("unsupported platform: %s. Only 'discord' is currently supported", platform), true
+		validPlatforms := map[string]bool{"discord": true, "telegram": true}
+		if !validPlatforms[platform] {
+			return fmt.Sprintf("unsupported platform: %s. Supported: discord, telegram", platform), true
 		}
 
 		// Reject oversized messages
@@ -48,11 +49,11 @@ func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
 var SendMessageSchema = map[string]interface{}{
 	"type": "object",
 	"properties": map[string]interface{}{
-		"platform": map[string]interface{}{
-			"type":        "string",
-			"description": "Messaging platform (currently only 'discord' is supported)",
-			"enum":        []string{"discord"},
-		},
+			"platform": map[string]interface{}{
+				"type":        "string",
+				"description": "Messaging platform (discord or telegram)",
+				"enum":        []string{"discord", "telegram"},
+			},
 		"target": map[string]interface{}{
 			"type":        "string",
 			"description": "Target channel ID or user ID",
