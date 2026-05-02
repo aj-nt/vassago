@@ -77,8 +77,6 @@ func Execute(args map[string]interface{}) (string, bool) {
 		return fmt.Sprintf("Error: %v\nOutput: %s", err, string(output)), true
 	}
 
-	return string(output), false
-
 	// Truncate output for command results
 	const maxResultChars = 4000
 	return truncateOutput(string(output), maxResultChars), false

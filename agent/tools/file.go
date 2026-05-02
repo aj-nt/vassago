@@ -31,6 +31,12 @@ func IsApprovalRequired(toolName string) bool {
 func SetFileConfig(dirs []string, approval []string) {
 	allowedDirs = make([]string, 0, len(dirs))
 	for _, d := range dirs {
+		// Expand ~ to home directory
+		if strings.HasPrefix(d, "~/") || d == "~" {
+			if home, err := os.UserHomeDir(); err == nil {
+				d = filepath.Join(home, d[1:])
+			}
+		}
 		abs, err := filepath.Abs(d)
 		if err == nil {
 			// Resolve symlinks in allowlist entries too (e.g., /tmp → /private/tmp on macOS)
@@ -168,8 +174,6 @@ func FileRead(args map[string]interface{}) (string, bool) {
 		return fmt.Sprintf("Error reading file: %v", err), true
 	}
 
-	return string(content), false
-
 	// Truncate output for large files
 	const maxResultChars = 8000
 	return truncateOutput(string(content), maxResultChars), false
@@ -222,8 +226,6 @@ func FileSearch(args map[string]interface{}) (string, bool) {
 	if len(matches) == 0 {
 		return "No files found matching pattern", false
 	}
-
-	return strings.Join(matches, "\n"), false
 
 	// Truncate output for file listings
 	const maxResultChars = 4000
