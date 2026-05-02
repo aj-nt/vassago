@@ -522,6 +522,118 @@ func TestRedTeam_MessagingService_ListChannels_EmptyPlatform(t *testing.T) {
 	}
 }
 
+func TestMessagingService_StartAdapters_Idempotent(t *testing.T) {
+	svc := NewMessagingService()
+	connectCalls := 0
+	listenCalls := 0
+	mock := &mockAdapter{
+		connectFunc: func(ctx context.Context) error {
+			connectCalls++
+			return nil
+		},
+		listenFunc: func(ctx context.Context) (<-chan *pb.MessageEvent, error) {
+			listenCalls++
+			ch := make(chan *pb.MessageEvent, 10)
+			return ch, nil
+		},
+	}
+	svc.AddAdapter("mock", mock)
+
+	// Calling startAdapters twice should only connect and listen once
+	svc.startAdapters(context.Background())
+	svc.startAdapters(context.Background())
+
+	if connectCalls != 1 {
+		t.Errorf("expected Connect to be called once, got %d", connectCalls)
+	}
+	if listenCalls != 1 {
+		t.Errorf("expected Listen to be called once, got %d", listenCalls)
+	}
+}
+
+func TestMessagingService_StartAdapters_ConnectError(t *testing.T) {
+	svc := NewMessagingService()
+	connectCalls := 0
+	mock := &mockAdapter{
+		connectFunc: func(ctx context.Context) error {
+			connectCalls++
+			return errors.New("connection failed")
+		},
+	}
+	svc.AddAdapter("mock", mock)
+
+	svc.startAdapters(context.Background())
+
+	if connectCalls != 1 {
+		t.Errorf("expected Connect to be called once, got %d", connectCalls)
+	}
+	// Adapter should not be marked as started
+	svc.mu.Lock()
+	started := svc.adaptersStarted["mock"]
+	svc.mu.Unlock()
+	if started {
+		t.Error("adapter should not be marked as started after Connect error")
+	}
+}
+
+func TestMessagingService_FanOut(t *testing.T) {
+	svc := NewMessagingService()
+
+	// Create a mock adapter that produces messages
+	msgCh := make(chan *pb.MessageEvent, 10)
+	mock := &mockAdapter{
+		connectFunc: func(ctx context.Context) error { return nil },
+		listenFunc: func(ctx context.Context) (<-chan *pb.MessageEvent, error) {
+			return msgCh, nil
+		},
+	}
+	svc.AddAdapter("mock", mock)
+
+	// Start the adapter
+	svc.startAdapters(context.Background())
+
+	// Add two subscriber channels
+	svc.mu.Lock()
+	svc.subscriptionID++
+	sub1 := make(chan *pb.MessageEvent, 10)
+	svc.subscribers["sub-1"] = sub1
+	svc.subscriptionID++
+	sub2 := make(chan *pb.MessageEvent, 10)
+	svc.subscribers["sub-2"] = sub2
+	svc.mu.Unlock()
+
+	// Send a message through the adapter channel
+	testEvent := &pb.MessageEvent{
+		Platform:    "mock",
+		ChannelId:   "test-channel",
+		Message:     "hello from adapter",
+		SenderName:  "testbot",
+	}
+	msgCh <- testEvent
+
+	// Give the fan-out goroutine time to process
+	time.Sleep(50 * time.Millisecond)
+
+	// Both subscribers should receive the message
+	select {
+	case msg := <-sub1:
+		if msg.Message != "hello from adapter" {
+			t.Errorf("sub1: expected 'hello from adapter', got %q", msg.Message)
+		}
+	default:
+		t.Error("sub1: expected to receive message, but channel empty")
+	}
+
+	select {
+	case msg := <-sub2:
+		if msg.Message != "hello from adapter" {
+			t.Errorf("sub2: expected 'hello from adapter', got %q", msg.Message)
+		}
+	default:
+		t.Error("sub2: expected to receive message, but channel empty")
+	}
+}
+
 func TestRedTeam_MessagingService_MultipleAdaptersSamePlatform(t *testing.T) {
 	svc := NewMessagingService()
 	mock1 := &mockAdapter{

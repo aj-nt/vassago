@@ -141,6 +141,23 @@ func main() {
 		defer grpcServer.GracefulStop()
 	}
 
+	// Start MessageBridge for incoming messages (Discord, Telegram, etc.)
+	// This subscribes to the daemon's messaging stream and routes incoming
+	// messages through the agent, sending responses back to the platform.
+	var bridge *iface.MessageBridge
+	if cfg.Messaging.Discord.Enabled && *serve {
+		bridgeConfig := iface.DefaultBridgeConfig()
+		bridgeConfig.AgentID = cfg.Agent.ID
+		bridge = iface.NewMessageBridge(a, mnemo, bridgeConfig)
+		go func() {
+			log.Printf("MessageBridge: starting incoming message handler...")
+			if err := bridge.Start(ctx); err != nil {
+				log.Printf("MessageBridge: stopped with error: %v", err)
+			}
+		}()
+		defer bridge.Stop()
+	}
+
 	// Run
 	if *serve {
 		// Server mode: just wait for gRPC connections, no interactive CLI
