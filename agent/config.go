@@ -132,6 +132,9 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"FileRead": true, "FileWrite": true, "FileSearch": true,
 			"Execute": true,
 			"SearchWeb": true, "FetchURL": true,
+			"SearchSessions": true, "ListSessions": true, "GetSession": true,
+			"AddTodo": true, "ListTodos": true, "CompleteTodo": true, "RemoveTodo": true,
+			"SendMessage": true,
 			"Delegate": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
