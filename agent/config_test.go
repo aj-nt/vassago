@@ -15,7 +15,22 @@ func TestAgentConfigValidate(t *testing.T) {
 			config: AgentConfig{
 				Agent: AgentSection{ID: "test", MaxTurns: 10},
 				Provider: ProviderSection{Name: "anthropic", Model: "claude-sonnet-4-6"},
+				Routing: RoutingSection{Strategy: "always-primary"},
 				Mnemosyne: MnemosyneSection{Address: "localhost:50051"},
+				HotBlock: HotBlockSection{
+					MemoryCharLimit: 4000,
+					UserCharLimit:   2000,
+					MinPriority:    2,
+				},
+				Delegation: DelegationSection{
+					Enabled:  false,
+					MaxDepth: 1,
+					MaxTurns: 10,
+				},
+				Scheduler: SchedulerSection{
+					Enabled:  false,
+					Interval: 3600,
+				},
 			},
 			wantErr: "",
 		},

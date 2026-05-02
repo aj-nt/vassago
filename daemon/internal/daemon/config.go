@@ -34,6 +34,11 @@ func LoadConfig(path string) (*Config, error) {
 	// Merge non-zero fields from file config into defaults
 	mergeConfig(config, &fileConfig)
 
+	// Validate the final configuration
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
 	return config, nil
 }
 
