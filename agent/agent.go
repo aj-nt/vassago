@@ -181,10 +181,11 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		hotBlock = ""
 	}
 
-	// Create session
+	// Create session with auto-generated title from first message
 	var sessionID string
 	if a.Mnemo != nil {
-		sessionID, _ = a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "")
+		title := autoTitle(userMessage)
+		sessionID, _ = a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", title)
 	}
 
 	// Build conversation context
@@ -363,6 +364,32 @@ func (a *Agent) persistSession(ctx context.Context, sessionID string, convCtx *a
 	if err := a.Mnemo.AddMessages(ctx, sessionID, msgs); err != nil {
 		log.Printf("Warning: failed to persist session: %v", err)
 	}
+}
+
+// autoTitle generates a concise session title from the user's first message.
+// It truncates to 60 characters at the last word boundary to avoid cutting words.
+func autoTitle(message string) string {
+	title := strings.TrimSpace(message)
+
+	// Replace newlines with spaces
+	title = strings.ReplaceAll(title, "\n", " ")
+
+	// Collapse multiple spaces
+	for strings.Contains(title, "  ") {
+		title = strings.ReplaceAll(title, "  ", " ")
+	}
+
+	const maxLen = 60
+	if len(title) <= maxLen {
+		return title
+	}
+
+	// Truncate at word boundary
+	truncated := title[:maxLen]
+	if lastSpace := strings.LastIndex(truncated, " "); lastSpace > 0 {
+		truncated = truncated[:lastSpace]
+	}
+	return truncated + "…"
 }
 
 // StreamEvent is an event emitted during streaming agent execution.
