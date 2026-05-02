@@ -297,6 +297,8 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (*SessionDeta
 		Title:        resp.Title,
 		Source:       resp.Source,
 		MessageCount: resp.MessageCount,
+		CreatedAt:    resp.CreatedAt,
+		LastActiveAt: resp.LastActiveAt,
 	}
 
 	for _, m := range resp.Messages {
@@ -339,5 +341,7 @@ type SessionDetail struct {
 	Title        string
 	Source       string
 	MessageCount int32
+	CreatedAt    int64
+	LastActiveAt int64
 	Messages     []Message
 }
