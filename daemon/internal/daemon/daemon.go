@@ -34,6 +34,7 @@ type Config struct {
 type MessagingConfig struct {
 	Discord  DiscordMessagingConfig  `yaml:"discord"`
 	Telegram TelegramMessagingConfig `yaml:"telegram"`
+	IMessage IMessageMessagingConfig `yaml:"imessage"`
 }
 
 type DiscordMessagingConfig struct {
@@ -45,6 +46,13 @@ type DiscordMessagingConfig struct {
 type TelegramMessagingConfig struct {
 	Token       string  `yaml:"token"`
 	AllowedChats []int64 `yaml:"allowed_chats"`
+}
+
+type IMessageMessagingConfig struct {
+	Enabled           bool     `yaml:"enabled"`
+	AllowedRecipients []string `yaml:"allowed_recipients"`
+	DBPath            string   `yaml:"db_path"`
+	PollInterval      int      `yaml:"poll_interval"` // seconds, default 5
 }
 
 type DaemonConfig struct {
@@ -205,6 +213,17 @@ func New(cfg *Config) (*Daemon, error) {
 			AllowedChats: cfg.Messaging.Telegram.AllowedChats,
 		})
 		messagingService.AddAdapter("telegram", telegramAdapter)
+	}
+
+	// Add iMessage adapter if enabled (macOS only)
+	if cfg.Messaging.IMessage.Enabled {
+		pollInterval := time.Duration(cfg.Messaging.IMessage.PollInterval) * time.Second
+		imessageAdapter := messaging.NewIMessageAdapter(messaging.IMessageConfig{
+			AllowedRecipients: cfg.Messaging.IMessage.AllowedRecipients,
+			DBPath:             cfg.Messaging.IMessage.DBPath,
+			PollInterval:       pollInterval,
+		})
+		messagingService.AddAdapter("imessage", imessageAdapter)
 	}
 
 	// Register services

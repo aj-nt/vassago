@@ -60,6 +60,7 @@ type MnemosyneSection struct {
 type MessagingSection struct {
 	Discord  DiscordMessagingConfig  `yaml:"discord"`
 	Telegram TelegramMessagingConfig `yaml:"telegram"`
+	IMessage IMessageMessagingConfig `yaml:"imessage"`
 }
 
 type DiscordMessagingConfig struct {
@@ -67,6 +68,10 @@ type DiscordMessagingConfig struct {
 }
 
 type TelegramMessagingConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+type IMessageMessagingConfig struct {
 	Enabled bool `yaml:"enabled"`
 }
 
