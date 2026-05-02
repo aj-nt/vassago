@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -43,6 +44,7 @@ type DiscordMessagingConfig struct {
 type DaemonConfig struct {
 	Socket  string    `yaml:"socket"`  // Unix socket path
 	TCP     string    `yaml:"tcp"`     // TCP listen address (host:port)
+	HTTP    string    `yaml:"http"`    // HTTP server address (host:port)
 	TLS     TLSConfig `yaml:"tls"`
 	APIKey  string    `yaml:"api_key"` // Optional API key for authentication
 }
@@ -132,6 +134,7 @@ type Daemon struct {
 	store  *store.Store
 	hub    *pubsub.Hub
 	server *grpc.Server
+	httpServer *http.Server
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
@@ -228,8 +231,26 @@ func (d *Daemon) Run() error {
 		listeners = append(listeners, l)
 	}
 
-	// Serve gRPC on all listeners
-	errCh := make(chan error, len(listeners))
+	// HTTP server setup
+	// Error channel for all servers
+	errCh := make(chan error, len(listeners)+1) // +1 for HTTP server
+
+	if d.config.Daemon.HTTP != "" {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/api/chat", d.handleChat)
+
+		d.httpServer = &http.Server{
+			Addr:    d.config.Daemon.HTTP,
+			Handler: mux,
+		}
+
+		go func() {
+			slog.Info("starting HTTP server", "address", d.config.Daemon.HTTP)
+			if err := d.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errCh <- fmt.Errorf("HTTP server: %w", err)
+			}
+		}()
+	}
 	for _, l := range listeners {
 		go func(lis net.Listener) {
 			if err := d.server.Serve(lis); err != nil {
@@ -267,6 +288,14 @@ func (d *Daemon) Run() error {
 	slog.Info("stopping gRPC server...")
 	d.server.GracefulStop()
 
+	// Stop HTTP server if it's running
+	if d.httpServer != nil {
+		slog.Info("stopping HTTP server...")
+		if err := d.httpServer.Shutdown(ctx); err != nil {
+			slog.Error("HTTP server shutdown error", "error", err)
+		}
+	}
+
 	// Cleanup
 	if d.config.Daemon.Socket != "" {
 		os.Remove(d.config.Daemon.Socket)
@@ -285,6 +314,13 @@ func (d *Daemon) Store() *store.Store {
 // Server returns the gRPC server (for testing).
 func (d *Daemon) Server() *grpc.Server {
 	return d.server
+}
+
+// handleChat handles HTTP chat requests
+func (d *Daemon) handleChat(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement chat functionality
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Chat endpoint - to be implemented"))
 }
 
 // runAutoConsolidation runs periodic consolidation (expired + idle sweep) every hour.

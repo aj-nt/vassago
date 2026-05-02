@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: mnemosyne.proto
+// source: proto/mnemosyne.proto
 
 package proto
 
@@ -60,11 +60,11 @@ func (x ConsolidateScope) String() string {
 }
 
 func (ConsolidateScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_mnemosyne_proto_enumTypes[0].Descriptor()
+	return file_proto_mnemosyne_proto_enumTypes[0].Descriptor()
 }
 
 func (ConsolidateScope) Type() protoreflect.EnumType {
-	return &file_mnemosyne_proto_enumTypes[0]
+	return &file_proto_mnemosyne_proto_enumTypes[0]
 }
 
 func (x ConsolidateScope) Number() protoreflect.EnumNumber {
@@ -73,7 +73,7 @@ func (x ConsolidateScope) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ConsolidateScope.Descriptor instead.
 func (ConsolidateScope) EnumDescriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{0}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{0}
 }
 
 type UpdateEvent_EventType int32
@@ -115,11 +115,11 @@ func (x UpdateEvent_EventType) String() string {
 }
 
 func (UpdateEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_mnemosyne_proto_enumTypes[1].Descriptor()
+	return file_proto_mnemosyne_proto_enumTypes[1].Descriptor()
 }
 
 func (UpdateEvent_EventType) Type() protoreflect.EnumType {
-	return &file_mnemosyne_proto_enumTypes[1]
+	return &file_proto_mnemosyne_proto_enumTypes[1]
 }
 
 func (x UpdateEvent_EventType) Number() protoreflect.EnumNumber {
@@ -128,7 +128,68 @@ func (x UpdateEvent_EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UpdateEvent_EventType.Descriptor instead.
 func (UpdateEvent_EventType) EnumDescriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{31, 0}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{31, 0}
+}
+
+type ChatEvent_EventType int32
+
+const (
+	ChatEvent_TEXT        ChatEvent_EventType = 0 // Streaming text chunk
+	ChatEvent_TOOL_START  ChatEvent_EventType = 1 // Agent is calling a tool
+	ChatEvent_TOOL_RESULT ChatEvent_EventType = 2 // Tool call completed
+	ChatEvent_DONE        ChatEvent_EventType = 3 // Turn complete
+	ChatEvent_ERROR       ChatEvent_EventType = 4 // Error occurred
+	ChatEvent_THINKING    ChatEvent_EventType = 5 // Agent is processing (no output yet)
+	ChatEvent_USAGE       ChatEvent_EventType = 6 // Token usage info
+)
+
+// Enum value maps for ChatEvent_EventType.
+var (
+	ChatEvent_EventType_name = map[int32]string{
+		0: "TEXT",
+		1: "TOOL_START",
+		2: "TOOL_RESULT",
+		3: "DONE",
+		4: "ERROR",
+		5: "THINKING",
+		6: "USAGE",
+	}
+	ChatEvent_EventType_value = map[string]int32{
+		"TEXT":        0,
+		"TOOL_START":  1,
+		"TOOL_RESULT": 2,
+		"DONE":        3,
+		"ERROR":       4,
+		"THINKING":    5,
+		"USAGE":       6,
+	}
+)
+
+func (x ChatEvent_EventType) Enum() *ChatEvent_EventType {
+	p := new(ChatEvent_EventType)
+	*p = x
+	return p
+}
+
+func (x ChatEvent_EventType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChatEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_mnemosyne_proto_enumTypes[2].Descriptor()
+}
+
+func (ChatEvent_EventType) Type() protoreflect.EnumType {
+	return &file_proto_mnemosyne_proto_enumTypes[2]
+}
+
+func (x ChatEvent_EventType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChatEvent_EventType.Descriptor instead.
+func (ChatEvent_EventType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{36, 0}
 }
 
 type MemoryEntry struct {
@@ -150,7 +211,7 @@ type MemoryEntry struct {
 
 func (x *MemoryEntry) Reset() {
 	*x = MemoryEntry{}
-	mi := &file_mnemosyne_proto_msgTypes[0]
+	mi := &file_proto_mnemosyne_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +223,7 @@ func (x *MemoryEntry) String() string {
 func (*MemoryEntry) ProtoMessage() {}
 
 func (x *MemoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[0]
+	mi := &file_proto_mnemosyne_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +236,7 @@ func (x *MemoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryEntry.ProtoReflect.Descriptor instead.
 func (*MemoryEntry) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{0}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MemoryEntry) GetId() string {
@@ -270,7 +331,7 @@ type AddMemoryRequest struct {
 
 func (x *AddMemoryRequest) Reset() {
 	*x = AddMemoryRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[1]
+	mi := &file_proto_mnemosyne_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -282,7 +343,7 @@ func (x *AddMemoryRequest) String() string {
 func (*AddMemoryRequest) ProtoMessage() {}
 
 func (x *AddMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[1]
+	mi := &file_proto_mnemosyne_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -295,7 +356,7 @@ func (x *AddMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemoryRequest.ProtoReflect.Descriptor instead.
 func (*AddMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{1}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AddMemoryRequest) GetTarget() string {
@@ -356,7 +417,7 @@ type AddMemoryResponse struct {
 
 func (x *AddMemoryResponse) Reset() {
 	*x = AddMemoryResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[2]
+	mi := &file_proto_mnemosyne_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +429,7 @@ func (x *AddMemoryResponse) String() string {
 func (*AddMemoryResponse) ProtoMessage() {}
 
 func (x *AddMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[2]
+	mi := &file_proto_mnemosyne_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +442,7 @@ func (x *AddMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemoryResponse.ProtoReflect.Descriptor instead.
 func (*AddMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{2}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AddMemoryResponse) GetEntry() *MemoryEntry {
@@ -400,7 +461,7 @@ type GetMemoryRequest struct {
 
 func (x *GetMemoryRequest) Reset() {
 	*x = GetMemoryRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[3]
+	mi := &file_proto_mnemosyne_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -412,7 +473,7 @@ func (x *GetMemoryRequest) String() string {
 func (*GetMemoryRequest) ProtoMessage() {}
 
 func (x *GetMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[3]
+	mi := &file_proto_mnemosyne_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -425,7 +486,7 @@ func (x *GetMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMemoryRequest.ProtoReflect.Descriptor instead.
 func (*GetMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{3}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetMemoryRequest) GetId() string {
@@ -448,7 +509,7 @@ type UpdateMemoryRequest struct {
 
 func (x *UpdateMemoryRequest) Reset() {
 	*x = UpdateMemoryRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[4]
+	mi := &file_proto_mnemosyne_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -460,7 +521,7 @@ func (x *UpdateMemoryRequest) String() string {
 func (*UpdateMemoryRequest) ProtoMessage() {}
 
 func (x *UpdateMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[4]
+	mi := &file_proto_mnemosyne_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -473,7 +534,7 @@ func (x *UpdateMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMemoryRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{4}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdateMemoryRequest) GetId() string {
@@ -520,7 +581,7 @@ type RemoveMemoryRequest struct {
 
 func (x *RemoveMemoryRequest) Reset() {
 	*x = RemoveMemoryRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[5]
+	mi := &file_proto_mnemosyne_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -532,7 +593,7 @@ func (x *RemoveMemoryRequest) String() string {
 func (*RemoveMemoryRequest) ProtoMessage() {}
 
 func (x *RemoveMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[5]
+	mi := &file_proto_mnemosyne_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -545,7 +606,7 @@ func (x *RemoveMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryRequest.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{5}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RemoveMemoryRequest) GetId() string {
@@ -564,7 +625,7 @@ type RemoveMemoryResponse struct {
 
 func (x *RemoveMemoryResponse) Reset() {
 	*x = RemoveMemoryResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[6]
+	mi := &file_proto_mnemosyne_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +637,7 @@ func (x *RemoveMemoryResponse) String() string {
 func (*RemoveMemoryResponse) ProtoMessage() {}
 
 func (x *RemoveMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[6]
+	mi := &file_proto_mnemosyne_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,7 +650,7 @@ func (x *RemoveMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{6}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RemoveMemoryResponse) GetDeleted() bool {
@@ -611,7 +672,7 @@ type ListMemoriesRequest struct {
 
 func (x *ListMemoriesRequest) Reset() {
 	*x = ListMemoriesRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[7]
+	mi := &file_proto_mnemosyne_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -623,7 +684,7 @@ func (x *ListMemoriesRequest) String() string {
 func (*ListMemoriesRequest) ProtoMessage() {}
 
 func (x *ListMemoriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[7]
+	mi := &file_proto_mnemosyne_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -636,7 +697,7 @@ func (x *ListMemoriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMemoriesRequest.ProtoReflect.Descriptor instead.
 func (*ListMemoriesRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{7}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListMemoriesRequest) GetTarget() string {
@@ -676,7 +737,7 @@ type MemoryList struct {
 
 func (x *MemoryList) Reset() {
 	*x = MemoryList{}
-	mi := &file_mnemosyne_proto_msgTypes[8]
+	mi := &file_proto_mnemosyne_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +749,7 @@ func (x *MemoryList) String() string {
 func (*MemoryList) ProtoMessage() {}
 
 func (x *MemoryList) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[8]
+	mi := &file_proto_mnemosyne_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +762,7 @@ func (x *MemoryList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryList.ProtoReflect.Descriptor instead.
 func (*MemoryList) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{8}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MemoryList) GetEntries() []*MemoryEntry {
@@ -722,7 +783,7 @@ type SearchRequest struct {
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[9]
+	mi := &file_proto_mnemosyne_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +795,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[9]
+	mi := &file_proto_mnemosyne_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +808,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{9}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SearchRequest) GetQuery() string {
@@ -780,7 +841,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[10]
+	mi := &file_proto_mnemosyne_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -792,7 +853,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[10]
+	mi := &file_proto_mnemosyne_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -805,7 +866,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{10}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SearchResponse) GetEntries() []*MemoryEntry {
@@ -825,7 +886,7 @@ type SearchSessionsRequest struct {
 
 func (x *SearchSessionsRequest) Reset() {
 	*x = SearchSessionsRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[11]
+	mi := &file_proto_mnemosyne_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -837,7 +898,7 @@ func (x *SearchSessionsRequest) String() string {
 func (*SearchSessionsRequest) ProtoMessage() {}
 
 func (x *SearchSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[11]
+	mi := &file_proto_mnemosyne_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -850,7 +911,7 @@ func (x *SearchSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSessionsRequest.ProtoReflect.Descriptor instead.
 func (*SearchSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{11}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SearchSessionsRequest) GetQuery() string {
@@ -876,7 +937,7 @@ type SearchSessionsResponse struct {
 
 func (x *SearchSessionsResponse) Reset() {
 	*x = SearchSessionsResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[12]
+	mi := &file_proto_mnemosyne_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -888,7 +949,7 @@ func (x *SearchSessionsResponse) String() string {
 func (*SearchSessionsResponse) ProtoMessage() {}
 
 func (x *SearchSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[12]
+	mi := &file_proto_mnemosyne_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -901,7 +962,7 @@ func (x *SearchSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSessionsResponse.ProtoReflect.Descriptor instead.
 func (*SearchSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{12}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SearchSessionsResponse) GetSessions() []*Session {
@@ -920,7 +981,7 @@ type ListSessionsRequest struct {
 
 func (x *ListSessionsRequest) Reset() {
 	*x = ListSessionsRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[13]
+	mi := &file_proto_mnemosyne_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +993,7 @@ func (x *ListSessionsRequest) String() string {
 func (*ListSessionsRequest) ProtoMessage() {}
 
 func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[13]
+	mi := &file_proto_mnemosyne_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +1006,7 @@ func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{13}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListSessionsRequest) GetLimit() int32 {
@@ -964,7 +1025,7 @@ type ListSessionsResponse struct {
 
 func (x *ListSessionsResponse) Reset() {
 	*x = ListSessionsResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[14]
+	mi := &file_proto_mnemosyne_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -976,7 +1037,7 @@ func (x *ListSessionsResponse) String() string {
 func (*ListSessionsResponse) ProtoMessage() {}
 
 func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[14]
+	mi := &file_proto_mnemosyne_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -989,7 +1050,7 @@ func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{14}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListSessionsResponse) GetSessions() []*Session {
@@ -1010,7 +1071,7 @@ type HotBlockConfig struct {
 
 func (x *HotBlockConfig) Reset() {
 	*x = HotBlockConfig{}
-	mi := &file_mnemosyne_proto_msgTypes[15]
+	mi := &file_proto_mnemosyne_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +1083,7 @@ func (x *HotBlockConfig) String() string {
 func (*HotBlockConfig) ProtoMessage() {}
 
 func (x *HotBlockConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[15]
+	mi := &file_proto_mnemosyne_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +1096,7 @@ func (x *HotBlockConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockConfig.ProtoReflect.Descriptor instead.
 func (*HotBlockConfig) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{15}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *HotBlockConfig) GetBoostCategories() []string {
@@ -1071,7 +1132,7 @@ type HotBlockRequest struct {
 
 func (x *HotBlockRequest) Reset() {
 	*x = HotBlockRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[16]
+	mi := &file_proto_mnemosyne_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1083,7 +1144,7 @@ func (x *HotBlockRequest) String() string {
 func (*HotBlockRequest) ProtoMessage() {}
 
 func (x *HotBlockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[16]
+	mi := &file_proto_mnemosyne_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1096,7 +1157,7 @@ func (x *HotBlockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockRequest.ProtoReflect.Descriptor instead.
 func (*HotBlockRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{16}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *HotBlockRequest) GetTarget() string {
@@ -1139,7 +1200,7 @@ type HotBlockResponse struct {
 
 func (x *HotBlockResponse) Reset() {
 	*x = HotBlockResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[17]
+	mi := &file_proto_mnemosyne_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +1212,7 @@ func (x *HotBlockResponse) String() string {
 func (*HotBlockResponse) ProtoMessage() {}
 
 func (x *HotBlockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[17]
+	mi := &file_proto_mnemosyne_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +1225,7 @@ func (x *HotBlockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockResponse.ProtoReflect.Descriptor instead.
 func (*HotBlockResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{17}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *HotBlockResponse) GetContent() string {
@@ -1211,7 +1272,7 @@ type Session struct {
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_mnemosyne_proto_msgTypes[18]
+	mi := &file_proto_mnemosyne_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1223,7 +1284,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[18]
+	mi := &file_proto_mnemosyne_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1297,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{18}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Session) GetId() string {
@@ -1308,7 +1369,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_mnemosyne_proto_msgTypes[19]
+	mi := &file_proto_mnemosyne_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1320,7 +1381,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[19]
+	mi := &file_proto_mnemosyne_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1333,7 +1394,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{19}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Message) GetRole() string {
@@ -1382,7 +1443,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[20]
+	mi := &file_proto_mnemosyne_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1394,7 +1455,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[20]
+	mi := &file_proto_mnemosyne_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1407,7 +1468,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{20}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateSessionRequest) GetAgentId() string {
@@ -1441,7 +1502,7 @@ type AddMessagesRequest struct {
 
 func (x *AddMessagesRequest) Reset() {
 	*x = AddMessagesRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[21]
+	mi := &file_proto_mnemosyne_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1453,7 +1514,7 @@ func (x *AddMessagesRequest) String() string {
 func (*AddMessagesRequest) ProtoMessage() {}
 
 func (x *AddMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[21]
+	mi := &file_proto_mnemosyne_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1466,7 +1527,7 @@ func (x *AddMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMessagesRequest.ProtoReflect.Descriptor instead.
 func (*AddMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{21}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AddMessagesRequest) GetSessionId() string {
@@ -1492,7 +1553,7 @@ type EndSessionRequest struct {
 
 func (x *EndSessionRequest) Reset() {
 	*x = EndSessionRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[22]
+	mi := &file_proto_mnemosyne_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1504,7 +1565,7 @@ func (x *EndSessionRequest) String() string {
 func (*EndSessionRequest) ProtoMessage() {}
 
 func (x *EndSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[22]
+	mi := &file_proto_mnemosyne_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1517,7 +1578,7 @@ func (x *EndSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionRequest.ProtoReflect.Descriptor instead.
 func (*EndSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{22}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *EndSessionRequest) GetSessionId() string {
@@ -1536,7 +1597,7 @@ type EndSessionResponse struct {
 
 func (x *EndSessionResponse) Reset() {
 	*x = EndSessionResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[23]
+	mi := &file_proto_mnemosyne_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1548,7 +1609,7 @@ func (x *EndSessionResponse) String() string {
 func (*EndSessionResponse) ProtoMessage() {}
 
 func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[23]
+	mi := &file_proto_mnemosyne_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1561,7 +1622,7 @@ func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionResponse.ProtoReflect.Descriptor instead.
 func (*EndSessionResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{23}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *EndSessionResponse) GetEnded() bool {
@@ -1581,7 +1642,7 @@ type GetSessionRequest struct {
 
 func (x *GetSessionRequest) Reset() {
 	*x = GetSessionRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[24]
+	mi := &file_proto_mnemosyne_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1593,7 +1654,7 @@ func (x *GetSessionRequest) String() string {
 func (*GetSessionRequest) ProtoMessage() {}
 
 func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[24]
+	mi := &file_proto_mnemosyne_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1606,7 +1667,7 @@ func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{24}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetSessionRequest) GetSessionId() string {
@@ -1634,7 +1695,7 @@ type ConsolidateRequest struct {
 
 func (x *ConsolidateRequest) Reset() {
 	*x = ConsolidateRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[25]
+	mi := &file_proto_mnemosyne_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1646,7 +1707,7 @@ func (x *ConsolidateRequest) String() string {
 func (*ConsolidateRequest) ProtoMessage() {}
 
 func (x *ConsolidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[25]
+	mi := &file_proto_mnemosyne_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1659,7 +1720,7 @@ func (x *ConsolidateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidateRequest.ProtoReflect.Descriptor instead.
 func (*ConsolidateRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{25}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ConsolidateRequest) GetScope() ConsolidateScope {
@@ -1694,7 +1755,7 @@ type ConsolidateResponse struct {
 
 func (x *ConsolidateResponse) Reset() {
 	*x = ConsolidateResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[26]
+	mi := &file_proto_mnemosyne_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1706,7 +1767,7 @@ func (x *ConsolidateResponse) String() string {
 func (*ConsolidateResponse) ProtoMessage() {}
 
 func (x *ConsolidateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[26]
+	mi := &file_proto_mnemosyne_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1719,7 +1780,7 @@ func (x *ConsolidateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidateResponse.ProtoReflect.Descriptor instead.
 func (*ConsolidateResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{26}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ConsolidateResponse) GetRemoved() int32 {
@@ -1754,7 +1815,7 @@ type GetConsolidationCandidatesRequest struct {
 
 func (x *GetConsolidationCandidatesRequest) Reset() {
 	*x = GetConsolidationCandidatesRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[27]
+	mi := &file_proto_mnemosyne_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1766,7 +1827,7 @@ func (x *GetConsolidationCandidatesRequest) String() string {
 func (*GetConsolidationCandidatesRequest) ProtoMessage() {}
 
 func (x *GetConsolidationCandidatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[27]
+	mi := &file_proto_mnemosyne_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1779,7 +1840,7 @@ func (x *GetConsolidationCandidatesRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetConsolidationCandidatesRequest.ProtoReflect.Descriptor instead.
 func (*GetConsolidationCandidatesRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{27}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetConsolidationCandidatesRequest) GetScope() ConsolidateScope {
@@ -1813,7 +1874,7 @@ type ConsolidationCandidate struct {
 
 func (x *ConsolidationCandidate) Reset() {
 	*x = ConsolidationCandidate{}
-	mi := &file_mnemosyne_proto_msgTypes[28]
+	mi := &file_proto_mnemosyne_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1825,7 +1886,7 @@ func (x *ConsolidationCandidate) String() string {
 func (*ConsolidationCandidate) ProtoMessage() {}
 
 func (x *ConsolidationCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[28]
+	mi := &file_proto_mnemosyne_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1838,7 +1899,7 @@ func (x *ConsolidationCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidationCandidate.ProtoReflect.Descriptor instead.
 func (*ConsolidationCandidate) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{28}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ConsolidationCandidate) GetEntry() *MemoryEntry {
@@ -1864,7 +1925,7 @@ type ConsolidationCandidatesResponse struct {
 
 func (x *ConsolidationCandidatesResponse) Reset() {
 	*x = ConsolidationCandidatesResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[29]
+	mi := &file_proto_mnemosyne_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1876,7 +1937,7 @@ func (x *ConsolidationCandidatesResponse) String() string {
 func (*ConsolidationCandidatesResponse) ProtoMessage() {}
 
 func (x *ConsolidationCandidatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[29]
+	mi := &file_proto_mnemosyne_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1889,7 +1950,7 @@ func (x *ConsolidationCandidatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidationCandidatesResponse.ProtoReflect.Descriptor instead.
 func (*ConsolidationCandidatesResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{29}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ConsolidationCandidatesResponse) GetCandidates() []*ConsolidationCandidate {
@@ -1911,7 +1972,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[30]
+	mi := &file_proto_mnemosyne_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1923,7 +1984,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[30]
+	mi := &file_proto_mnemosyne_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1936,7 +1997,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{30}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SubscribeRequest) GetAgentId() string {
@@ -1982,7 +2043,7 @@ type UpdateEvent struct {
 
 func (x *UpdateEvent) Reset() {
 	*x = UpdateEvent{}
-	mi := &file_mnemosyne_proto_msgTypes[31]
+	mi := &file_proto_mnemosyne_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1994,7 +2055,7 @@ func (x *UpdateEvent) String() string {
 func (*UpdateEvent) ProtoMessage() {}
 
 func (x *UpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[31]
+	mi := &file_proto_mnemosyne_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2007,7 +2068,7 @@ func (x *UpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEvent.ProtoReflect.Descriptor instead.
 func (*UpdateEvent) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{31}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *UpdateEvent) GetEventType() UpdateEvent_EventType {
@@ -2070,7 +2131,7 @@ type RegisterAgentRequest struct {
 
 func (x *RegisterAgentRequest) Reset() {
 	*x = RegisterAgentRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[32]
+	mi := &file_proto_mnemosyne_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2082,7 +2143,7 @@ func (x *RegisterAgentRequest) String() string {
 func (*RegisterAgentRequest) ProtoMessage() {}
 
 func (x *RegisterAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[32]
+	mi := &file_proto_mnemosyne_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2095,7 +2156,7 @@ func (x *RegisterAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterAgentRequest.ProtoReflect.Descriptor instead.
 func (*RegisterAgentRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{32}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RegisterAgentRequest) GetAgentId() string {
@@ -2129,7 +2190,7 @@ type RegisterAgentResponse struct {
 
 func (x *RegisterAgentResponse) Reset() {
 	*x = RegisterAgentResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[33]
+	mi := &file_proto_mnemosyne_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2141,7 +2202,7 @@ func (x *RegisterAgentResponse) String() string {
 func (*RegisterAgentResponse) ProtoMessage() {}
 
 func (x *RegisterAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[33]
+	mi := &file_proto_mnemosyne_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2154,7 +2215,7 @@ func (x *RegisterAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterAgentResponse.ProtoReflect.Descriptor instead.
 func (*RegisterAgentResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{33}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RegisterAgentResponse) GetAgentId() string {
@@ -2180,7 +2241,7 @@ type AgentId struct {
 
 func (x *AgentId) Reset() {
 	*x = AgentId{}
-	mi := &file_mnemosyne_proto_msgTypes[34]
+	mi := &file_proto_mnemosyne_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2192,7 +2253,7 @@ func (x *AgentId) String() string {
 func (*AgentId) ProtoMessage() {}
 
 func (x *AgentId) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[34]
+	mi := &file_proto_mnemosyne_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2205,7 +2266,7 @@ func (x *AgentId) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentId.ProtoReflect.Descriptor instead.
 func (*AgentId) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{34}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AgentId) GetAgentId() string {
@@ -2213,6 +2274,159 @@ func (x *AgentId) GetAgentId() string {
 		return x.AgentId
 	}
 	return ""
+}
+
+// Chat messages
+type ChatRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // Empty = create new session
+	AgentId       string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChatRequest) Reset() {
+	*x = ChatRequest{}
+	mi := &file_proto_mnemosyne_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChatRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChatRequest) ProtoMessage() {}
+
+func (x *ChatRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mnemosyne_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChatRequest.ProtoReflect.Descriptor instead.
+func (*ChatRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ChatRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ChatRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *ChatRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ChatEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventType     ChatEvent_EventType    `protobuf:"varint,1,opt,name=event_type,json=eventType,proto3,enum=mnemosyne.ChatEvent_EventType" json:"event_type,omitempty"`
+	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`                                // For TEXT and ERROR events
+	ToolName      string                 `protobuf:"bytes,3,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`        // For TOOL_START events
+	ToolResult    string                 `protobuf:"bytes,4,opt,name=tool_result,json=toolResult,proto3" json:"tool_result,omitempty"`  // For TOOL_RESULT events
+	SessionId     string                 `protobuf:"bytes,5,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`     // Session ID (set on first event or DONE)
+	TokensUsed    int32                  `protobuf:"varint,6,opt,name=tokens_used,json=tokensUsed,proto3" json:"tokens_used,omitempty"` // For USAGE events
+	TurnNumber    int32                  `protobuf:"varint,7,opt,name=turn_number,json=turnNumber,proto3" json:"turn_number,omitempty"` // Current turn number
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChatEvent) Reset() {
+	*x = ChatEvent{}
+	mi := &file_proto_mnemosyne_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChatEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChatEvent) ProtoMessage() {}
+
+func (x *ChatEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mnemosyne_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChatEvent.ProtoReflect.Descriptor instead.
+func (*ChatEvent) Descriptor() ([]byte, []int) {
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ChatEvent) GetEventType() ChatEvent_EventType {
+	if x != nil {
+		return x.EventType
+	}
+	return ChatEvent_TEXT
+}
+
+func (x *ChatEvent) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *ChatEvent) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *ChatEvent) GetToolResult() string {
+	if x != nil {
+		return x.ToolResult
+	}
+	return ""
+}
+
+func (x *ChatEvent) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ChatEvent) GetTokensUsed() int32 {
+	if x != nil {
+		return x.TokensUsed
+	}
+	return 0
+}
+
+func (x *ChatEvent) GetTurnNumber() int32 {
+	if x != nil {
+		return x.TurnNumber
+	}
+	return 0
 }
 
 // Health check messages
@@ -2224,7 +2438,7 @@ type HealthCheckRequest struct {
 
 func (x *HealthCheckRequest) Reset() {
 	*x = HealthCheckRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[35]
+	mi := &file_proto_mnemosyne_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2236,7 +2450,7 @@ func (x *HealthCheckRequest) String() string {
 func (*HealthCheckRequest) ProtoMessage() {}
 
 func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[35]
+	mi := &file_proto_mnemosyne_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2249,7 +2463,7 @@ func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{35}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{37}
 }
 
 type HealthCheckResponse struct {
@@ -2263,7 +2477,7 @@ type HealthCheckResponse struct {
 
 func (x *HealthCheckResponse) Reset() {
 	*x = HealthCheckResponse{}
-	mi := &file_mnemosyne_proto_msgTypes[36]
+	mi := &file_proto_mnemosyne_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2275,7 +2489,7 @@ func (x *HealthCheckResponse) String() string {
 func (*HealthCheckResponse) ProtoMessage() {}
 
 func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[36]
+	mi := &file_proto_mnemosyne_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2288,7 +2502,7 @@ func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthCheckResponse) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{36}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *HealthCheckResponse) GetStatus() string {
@@ -2320,7 +2534,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_mnemosyne_proto_msgTypes[37]
+	mi := &file_proto_mnemosyne_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2332,7 +2546,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[37]
+	mi := &file_proto_mnemosyne_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2345,7 +2559,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{37}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{39}
 }
 
 type TodoItem struct {
@@ -2364,7 +2578,7 @@ type TodoItem struct {
 
 func (x *TodoItem) Reset() {
 	*x = TodoItem{}
-	mi := &file_mnemosyne_proto_msgTypes[38]
+	mi := &file_proto_mnemosyne_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2590,7 @@ func (x *TodoItem) String() string {
 func (*TodoItem) ProtoMessage() {}
 
 func (x *TodoItem) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[38]
+	mi := &file_proto_mnemosyne_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2603,7 @@ func (x *TodoItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
 func (*TodoItem) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{38}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TodoItem) GetId() string {
@@ -2459,7 +2673,7 @@ type AddTodoRequest struct {
 
 func (x *AddTodoRequest) Reset() {
 	*x = AddTodoRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[39]
+	mi := &file_proto_mnemosyne_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2471,7 +2685,7 @@ func (x *AddTodoRequest) String() string {
 func (*AddTodoRequest) ProtoMessage() {}
 
 func (x *AddTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[39]
+	mi := &file_proto_mnemosyne_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2484,7 +2698,7 @@ func (x *AddTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTodoRequest.ProtoReflect.Descriptor instead.
 func (*AddTodoRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{39}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AddTodoRequest) GetContent() string {
@@ -2518,7 +2732,7 @@ type ListTodosRequest struct {
 
 func (x *ListTodosRequest) Reset() {
 	*x = ListTodosRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[40]
+	mi := &file_proto_mnemosyne_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2530,7 +2744,7 @@ func (x *ListTodosRequest) String() string {
 func (*ListTodosRequest) ProtoMessage() {}
 
 func (x *ListTodosRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[40]
+	mi := &file_proto_mnemosyne_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2543,7 +2757,7 @@ func (x *ListTodosRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTodosRequest.ProtoReflect.Descriptor instead.
 func (*ListTodosRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{40}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListTodosRequest) GetIncludeCompleted() bool {
@@ -2569,7 +2783,7 @@ type CompleteTodoRequest struct {
 
 func (x *CompleteTodoRequest) Reset() {
 	*x = CompleteTodoRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[41]
+	mi := &file_proto_mnemosyne_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2581,7 +2795,7 @@ func (x *CompleteTodoRequest) String() string {
 func (*CompleteTodoRequest) ProtoMessage() {}
 
 func (x *CompleteTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[41]
+	mi := &file_proto_mnemosyne_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2594,7 +2808,7 @@ func (x *CompleteTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTodoRequest.ProtoReflect.Descriptor instead.
 func (*CompleteTodoRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{41}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CompleteTodoRequest) GetId() string {
@@ -2613,7 +2827,7 @@ type RemoveTodoRequest struct {
 
 func (x *RemoveTodoRequest) Reset() {
 	*x = RemoveTodoRequest{}
-	mi := &file_mnemosyne_proto_msgTypes[42]
+	mi := &file_proto_mnemosyne_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2625,7 +2839,7 @@ func (x *RemoveTodoRequest) String() string {
 func (*RemoveTodoRequest) ProtoMessage() {}
 
 func (x *RemoveTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mnemosyne_proto_msgTypes[42]
+	mi := &file_proto_mnemosyne_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2638,7 +2852,7 @@ func (x *RemoveTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTodoRequest.ProtoReflect.Descriptor instead.
 func (*RemoveTodoRequest) Descriptor() ([]byte, []int) {
-	return file_mnemosyne_proto_rawDescGZIP(), []int{42}
+	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *RemoveTodoRequest) GetId() string {
@@ -2648,11 +2862,11 @@ func (x *RemoveTodoRequest) GetId() string {
 	return ""
 }
 
-var File_mnemosyne_proto protoreflect.FileDescriptor
+var File_proto_mnemosyne_proto protoreflect.FileDescriptor
 
-const file_mnemosyne_proto_rawDesc = "" +
+const file_proto_mnemosyne_proto_rawDesc = "" +
 	"\n" +
-	"\x0fmnemosyne.proto\x12\tmnemosyne\"\xba\x02\n" +
+	"\x15proto/mnemosyne.proto\x12\tmnemosyne\"\xba\x02\n" +
 	"\vMemoryEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12\x1a\n" +
@@ -2836,7 +3050,34 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x15\n" +
 	"\x06is_new\x18\x02 \x01(\bR\x05isNew\"$\n" +
 	"\aAgentId\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\"\x14\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"a\n" +
+	"\vChatRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x19\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xe3\x02\n" +
+	"\tChatEvent\x12=\n" +
+	"\n" +
+	"event_type\x18\x01 \x01(\x0e2\x1e.mnemosyne.ChatEvent.EventTypeR\teventType\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x1b\n" +
+	"\ttool_name\x18\x03 \x01(\tR\btoolName\x12\x1f\n" +
+	"\vtool_result\x18\x04 \x01(\tR\n" +
+	"toolResult\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x05 \x01(\tR\tsessionId\x12\x1f\n" +
+	"\vtokens_used\x18\x06 \x01(\x05R\n" +
+	"tokensUsed\x12\x1f\n" +
+	"\vturn_number\x18\a \x01(\x05R\n" +
+	"turnNumber\"d\n" +
+	"\tEventType\x12\b\n" +
+	"\x04TEXT\x10\x00\x12\x0e\n" +
+	"\n" +
+	"TOOL_START\x10\x01\x12\x0f\n" +
+	"\vTOOL_RESULT\x10\x02\x12\b\n" +
+	"\x04DONE\x10\x03\x12\t\n" +
+	"\x05ERROR\x10\x04\x12\f\n" +
+	"\bTHINKING\x10\x05\x12\t\n" +
+	"\x05USAGE\x10\x06\"\x14\n" +
 	"\x12HealthCheckRequest\"e\n" +
 	"\x13HealthCheckResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
@@ -2871,7 +3112,7 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\x15CONSOLIDATE_SCOPE_ALL\x10\x01\x12\"\n" +
 	"\x1eCONSOLIDATE_SCOPE_OBSERVATIONS\x10\x02\x12\x1e\n" +
 	"\x1aCONSOLIDATE_SCOPE_CATEGORY\x10\x03\x12\x1d\n" +
-	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\x8e\r\n" +
+	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\xcc\r\n" +
 	"\tMnemosyne\x12E\n" +
 	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponse\x12F\n" +
 	"\tAddMemory\x12\x1b.mnemosyne.AddMemoryRequest\x1a\x1c.mnemosyne.AddMemoryResponse\x12@\n" +
@@ -2893,173 +3134,189 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\x1aGetConsolidationCandidates\x12,.mnemosyne.GetConsolidationCandidatesRequest\x1a*.mnemosyne.ConsolidationCandidatesResponse\x12B\n" +
 	"\tSubscribe\x12\x1b.mnemosyne.SubscribeRequest\x1a\x16.mnemosyne.UpdateEvent0\x01\x12R\n" +
 	"\rRegisterAgent\x12\x1f.mnemosyne.RegisterAgentRequest\x1a .mnemosyne.RegisterAgentResponse\x121\n" +
-	"\tHeartbeat\x12\x12.mnemosyne.AgentId\x1a\x10.mnemosyne.Empty\x129\n" +
+	"\tHeartbeat\x12\x12.mnemosyne.AgentId\x1a\x10.mnemosyne.Empty\x12<\n" +
+	"\n" +
+	"ChatStream\x12\x16.mnemosyne.ChatRequest\x1a\x14.mnemosyne.ChatEvent0\x01\x129\n" +
 	"\aAddTodo\x12\x19.mnemosyne.AddTodoRequest\x1a\x13.mnemosyne.TodoItem\x12?\n" +
 	"\tListTodos\x12\x1b.mnemosyne.ListTodosRequest\x1a\x13.mnemosyne.TodoItem0\x01\x12C\n" +
 	"\fCompleteTodo\x12\x1e.mnemosyne.CompleteTodoRequest\x1a\x13.mnemosyne.TodoItem\x12<\n" +
 	"\n" +
-	"RemoveTodo\x12\x1c.mnemosyne.RemoveTodoRequest\x1a\x10.mnemosyne.EmptyB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
+	"RemoveTodo\x12\x1c.mnemosyne.RemoveTodoRequest\x1a\x10.mnemosyne.Empty2\x90\x01\n" +
+	"\tAgentChat\x12<\n" +
+	"\n" +
+	"ChatStream\x12\x16.mnemosyne.ChatRequest\x1a\x14.mnemosyne.ChatEvent0\x01\x12E\n" +
+	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponseB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
 
 var (
-	file_mnemosyne_proto_rawDescOnce sync.Once
-	file_mnemosyne_proto_rawDescData []byte
+	file_proto_mnemosyne_proto_rawDescOnce sync.Once
+	file_proto_mnemosyne_proto_rawDescData []byte
 )
 
-func file_mnemosyne_proto_rawDescGZIP() []byte {
-	file_mnemosyne_proto_rawDescOnce.Do(func() {
-		file_mnemosyne_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)))
+func file_proto_mnemosyne_proto_rawDescGZIP() []byte {
+	file_proto_mnemosyne_proto_rawDescOnce.Do(func() {
+		file_proto_mnemosyne_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mnemosyne_proto_rawDesc), len(file_proto_mnemosyne_proto_rawDesc)))
 	})
-	return file_mnemosyne_proto_rawDescData
+	return file_proto_mnemosyne_proto_rawDescData
 }
 
-var file_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
-var file_mnemosyne_proto_goTypes = []any{
+var file_proto_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_proto_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_proto_mnemosyne_proto_goTypes = []any{
 	(ConsolidateScope)(0),                     // 0: mnemosyne.ConsolidateScope
 	(UpdateEvent_EventType)(0),                // 1: mnemosyne.UpdateEvent.EventType
-	(*MemoryEntry)(nil),                       // 2: mnemosyne.MemoryEntry
-	(*AddMemoryRequest)(nil),                  // 3: mnemosyne.AddMemoryRequest
-	(*AddMemoryResponse)(nil),                 // 4: mnemosyne.AddMemoryResponse
-	(*GetMemoryRequest)(nil),                  // 5: mnemosyne.GetMemoryRequest
-	(*UpdateMemoryRequest)(nil),               // 6: mnemosyne.UpdateMemoryRequest
-	(*RemoveMemoryRequest)(nil),               // 7: mnemosyne.RemoveMemoryRequest
-	(*RemoveMemoryResponse)(nil),              // 8: mnemosyne.RemoveMemoryResponse
-	(*ListMemoriesRequest)(nil),               // 9: mnemosyne.ListMemoriesRequest
-	(*MemoryList)(nil),                        // 10: mnemosyne.MemoryList
-	(*SearchRequest)(nil),                     // 11: mnemosyne.SearchRequest
-	(*SearchResponse)(nil),                    // 12: mnemosyne.SearchResponse
-	(*SearchSessionsRequest)(nil),             // 13: mnemosyne.SearchSessionsRequest
-	(*SearchSessionsResponse)(nil),            // 14: mnemosyne.SearchSessionsResponse
-	(*ListSessionsRequest)(nil),               // 15: mnemosyne.ListSessionsRequest
-	(*ListSessionsResponse)(nil),              // 16: mnemosyne.ListSessionsResponse
-	(*HotBlockConfig)(nil),                    // 17: mnemosyne.HotBlockConfig
-	(*HotBlockRequest)(nil),                   // 18: mnemosyne.HotBlockRequest
-	(*HotBlockResponse)(nil),                  // 19: mnemosyne.HotBlockResponse
-	(*Session)(nil),                           // 20: mnemosyne.Session
-	(*Message)(nil),                           // 21: mnemosyne.Message
-	(*CreateSessionRequest)(nil),              // 22: mnemosyne.CreateSessionRequest
-	(*AddMessagesRequest)(nil),                // 23: mnemosyne.AddMessagesRequest
-	(*EndSessionRequest)(nil),                 // 24: mnemosyne.EndSessionRequest
-	(*EndSessionResponse)(nil),                // 25: mnemosyne.EndSessionResponse
-	(*GetSessionRequest)(nil),                 // 26: mnemosyne.GetSessionRequest
-	(*ConsolidateRequest)(nil),                // 27: mnemosyne.ConsolidateRequest
-	(*ConsolidateResponse)(nil),               // 28: mnemosyne.ConsolidateResponse
-	(*GetConsolidationCandidatesRequest)(nil), // 29: mnemosyne.GetConsolidationCandidatesRequest
-	(*ConsolidationCandidate)(nil),            // 30: mnemosyne.ConsolidationCandidate
-	(*ConsolidationCandidatesResponse)(nil),   // 31: mnemosyne.ConsolidationCandidatesResponse
-	(*SubscribeRequest)(nil),                  // 32: mnemosyne.SubscribeRequest
-	(*UpdateEvent)(nil),                       // 33: mnemosyne.UpdateEvent
-	(*RegisterAgentRequest)(nil),              // 34: mnemosyne.RegisterAgentRequest
-	(*RegisterAgentResponse)(nil),             // 35: mnemosyne.RegisterAgentResponse
-	(*AgentId)(nil),                           // 36: mnemosyne.AgentId
-	(*HealthCheckRequest)(nil),                // 37: mnemosyne.HealthCheckRequest
-	(*HealthCheckResponse)(nil),               // 38: mnemosyne.HealthCheckResponse
-	(*Empty)(nil),                             // 39: mnemosyne.Empty
-	(*TodoItem)(nil),                          // 40: mnemosyne.TodoItem
-	(*AddTodoRequest)(nil),                    // 41: mnemosyne.AddTodoRequest
-	(*ListTodosRequest)(nil),                  // 42: mnemosyne.ListTodosRequest
-	(*CompleteTodoRequest)(nil),               // 43: mnemosyne.CompleteTodoRequest
-	(*RemoveTodoRequest)(nil),                 // 44: mnemosyne.RemoveTodoRequest
+	(ChatEvent_EventType)(0),                  // 2: mnemosyne.ChatEvent.EventType
+	(*MemoryEntry)(nil),                       // 3: mnemosyne.MemoryEntry
+	(*AddMemoryRequest)(nil),                  // 4: mnemosyne.AddMemoryRequest
+	(*AddMemoryResponse)(nil),                 // 5: mnemosyne.AddMemoryResponse
+	(*GetMemoryRequest)(nil),                  // 6: mnemosyne.GetMemoryRequest
+	(*UpdateMemoryRequest)(nil),               // 7: mnemosyne.UpdateMemoryRequest
+	(*RemoveMemoryRequest)(nil),               // 8: mnemosyne.RemoveMemoryRequest
+	(*RemoveMemoryResponse)(nil),              // 9: mnemosyne.RemoveMemoryResponse
+	(*ListMemoriesRequest)(nil),               // 10: mnemosyne.ListMemoriesRequest
+	(*MemoryList)(nil),                        // 11: mnemosyne.MemoryList
+	(*SearchRequest)(nil),                     // 12: mnemosyne.SearchRequest
+	(*SearchResponse)(nil),                    // 13: mnemosyne.SearchResponse
+	(*SearchSessionsRequest)(nil),             // 14: mnemosyne.SearchSessionsRequest
+	(*SearchSessionsResponse)(nil),            // 15: mnemosyne.SearchSessionsResponse
+	(*ListSessionsRequest)(nil),               // 16: mnemosyne.ListSessionsRequest
+	(*ListSessionsResponse)(nil),              // 17: mnemosyne.ListSessionsResponse
+	(*HotBlockConfig)(nil),                    // 18: mnemosyne.HotBlockConfig
+	(*HotBlockRequest)(nil),                   // 19: mnemosyne.HotBlockRequest
+	(*HotBlockResponse)(nil),                  // 20: mnemosyne.HotBlockResponse
+	(*Session)(nil),                           // 21: mnemosyne.Session
+	(*Message)(nil),                           // 22: mnemosyne.Message
+	(*CreateSessionRequest)(nil),              // 23: mnemosyne.CreateSessionRequest
+	(*AddMessagesRequest)(nil),                // 24: mnemosyne.AddMessagesRequest
+	(*EndSessionRequest)(nil),                 // 25: mnemosyne.EndSessionRequest
+	(*EndSessionResponse)(nil),                // 26: mnemosyne.EndSessionResponse
+	(*GetSessionRequest)(nil),                 // 27: mnemosyne.GetSessionRequest
+	(*ConsolidateRequest)(nil),                // 28: mnemosyne.ConsolidateRequest
+	(*ConsolidateResponse)(nil),               // 29: mnemosyne.ConsolidateResponse
+	(*GetConsolidationCandidatesRequest)(nil), // 30: mnemosyne.GetConsolidationCandidatesRequest
+	(*ConsolidationCandidate)(nil),            // 31: mnemosyne.ConsolidationCandidate
+	(*ConsolidationCandidatesResponse)(nil),   // 32: mnemosyne.ConsolidationCandidatesResponse
+	(*SubscribeRequest)(nil),                  // 33: mnemosyne.SubscribeRequest
+	(*UpdateEvent)(nil),                       // 34: mnemosyne.UpdateEvent
+	(*RegisterAgentRequest)(nil),              // 35: mnemosyne.RegisterAgentRequest
+	(*RegisterAgentResponse)(nil),             // 36: mnemosyne.RegisterAgentResponse
+	(*AgentId)(nil),                           // 37: mnemosyne.AgentId
+	(*ChatRequest)(nil),                       // 38: mnemosyne.ChatRequest
+	(*ChatEvent)(nil),                         // 39: mnemosyne.ChatEvent
+	(*HealthCheckRequest)(nil),                // 40: mnemosyne.HealthCheckRequest
+	(*HealthCheckResponse)(nil),               // 41: mnemosyne.HealthCheckResponse
+	(*Empty)(nil),                             // 42: mnemosyne.Empty
+	(*TodoItem)(nil),                          // 43: mnemosyne.TodoItem
+	(*AddTodoRequest)(nil),                    // 44: mnemosyne.AddTodoRequest
+	(*ListTodosRequest)(nil),                  // 45: mnemosyne.ListTodosRequest
+	(*CompleteTodoRequest)(nil),               // 46: mnemosyne.CompleteTodoRequest
+	(*RemoveTodoRequest)(nil),                 // 47: mnemosyne.RemoveTodoRequest
 }
-var file_mnemosyne_proto_depIdxs = []int32{
-	2,  // 0: mnemosyne.AddMemoryResponse.entry:type_name -> mnemosyne.MemoryEntry
-	2,  // 1: mnemosyne.MemoryList.entries:type_name -> mnemosyne.MemoryEntry
-	2,  // 2: mnemosyne.SearchResponse.entries:type_name -> mnemosyne.MemoryEntry
-	20, // 3: mnemosyne.SearchSessionsResponse.sessions:type_name -> mnemosyne.Session
-	20, // 4: mnemosyne.ListSessionsResponse.sessions:type_name -> mnemosyne.Session
-	17, // 5: mnemosyne.HotBlockRequest.config:type_name -> mnemosyne.HotBlockConfig
-	21, // 6: mnemosyne.Session.messages:type_name -> mnemosyne.Message
-	21, // 7: mnemosyne.AddMessagesRequest.messages:type_name -> mnemosyne.Message
+var file_proto_mnemosyne_proto_depIdxs = []int32{
+	3,  // 0: mnemosyne.AddMemoryResponse.entry:type_name -> mnemosyne.MemoryEntry
+	3,  // 1: mnemosyne.MemoryList.entries:type_name -> mnemosyne.MemoryEntry
+	3,  // 2: mnemosyne.SearchResponse.entries:type_name -> mnemosyne.MemoryEntry
+	21, // 3: mnemosyne.SearchSessionsResponse.sessions:type_name -> mnemosyne.Session
+	21, // 4: mnemosyne.ListSessionsResponse.sessions:type_name -> mnemosyne.Session
+	18, // 5: mnemosyne.HotBlockRequest.config:type_name -> mnemosyne.HotBlockConfig
+	22, // 6: mnemosyne.Session.messages:type_name -> mnemosyne.Message
+	22, // 7: mnemosyne.AddMessagesRequest.messages:type_name -> mnemosyne.Message
 	0,  // 8: mnemosyne.ConsolidateRequest.scope:type_name -> mnemosyne.ConsolidateScope
 	0,  // 9: mnemosyne.GetConsolidationCandidatesRequest.scope:type_name -> mnemosyne.ConsolidateScope
-	2,  // 10: mnemosyne.ConsolidationCandidate.entry:type_name -> mnemosyne.MemoryEntry
-	30, // 11: mnemosyne.ConsolidationCandidatesResponse.candidates:type_name -> mnemosyne.ConsolidationCandidate
+	3,  // 10: mnemosyne.ConsolidationCandidate.entry:type_name -> mnemosyne.MemoryEntry
+	31, // 11: mnemosyne.ConsolidationCandidatesResponse.candidates:type_name -> mnemosyne.ConsolidationCandidate
 	1,  // 12: mnemosyne.UpdateEvent.event_type:type_name -> mnemosyne.UpdateEvent.EventType
-	2,  // 13: mnemosyne.UpdateEvent.entry:type_name -> mnemosyne.MemoryEntry
-	19, // 14: mnemosyne.UpdateEvent.hot_block:type_name -> mnemosyne.HotBlockResponse
-	37, // 15: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
-	3,  // 16: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
-	5,  // 17: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
-	6,  // 18: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
-	7,  // 19: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
-	9,  // 20: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
-	11, // 21: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
-	13, // 22: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
-	15, // 23: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
-	18, // 24: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
-	22, // 25: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
-	23, // 26: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
-	24, // 27: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
-	26, // 28: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
-	27, // 29: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
-	29, // 30: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
-	32, // 31: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
-	34, // 32: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
-	36, // 33: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
-	41, // 34: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
-	42, // 35: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
-	43, // 36: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
-	44, // 37: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
-	38, // 38: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
-	4,  // 39: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
-	2,  // 40: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
-	2,  // 41: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
-	8,  // 42: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
-	10, // 43: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
-	12, // 44: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
-	14, // 45: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
-	16, // 46: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
-	19, // 47: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
-	20, // 48: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
-	20, // 49: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
-	25, // 50: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
-	20, // 51: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
-	28, // 52: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
-	31, // 53: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
-	33, // 54: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
-	35, // 55: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
-	39, // 56: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
-	40, // 57: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
-	40, // 58: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
-	40, // 59: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
-	39, // 60: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
-	38, // [38:61] is the sub-list for method output_type
-	15, // [15:38] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	3,  // 13: mnemosyne.UpdateEvent.entry:type_name -> mnemosyne.MemoryEntry
+	20, // 14: mnemosyne.UpdateEvent.hot_block:type_name -> mnemosyne.HotBlockResponse
+	2,  // 15: mnemosyne.ChatEvent.event_type:type_name -> mnemosyne.ChatEvent.EventType
+	40, // 16: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
+	4,  // 17: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
+	6,  // 18: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
+	7,  // 19: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
+	8,  // 20: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
+	10, // 21: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
+	12, // 22: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
+	14, // 23: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
+	16, // 24: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
+	19, // 25: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
+	23, // 26: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
+	24, // 27: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
+	25, // 28: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
+	27, // 29: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
+	28, // 30: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
+	30, // 31: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
+	33, // 32: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
+	35, // 33: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
+	37, // 34: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
+	38, // 35: mnemosyne.Mnemosyne.ChatStream:input_type -> mnemosyne.ChatRequest
+	44, // 36: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
+	45, // 37: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
+	46, // 38: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
+	47, // 39: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
+	38, // 40: mnemosyne.AgentChat.ChatStream:input_type -> mnemosyne.ChatRequest
+	40, // 41: mnemosyne.AgentChat.Ping:input_type -> mnemosyne.HealthCheckRequest
+	41, // 42: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
+	5,  // 43: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
+	3,  // 44: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
+	3,  // 45: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
+	9,  // 46: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
+	11, // 47: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
+	13, // 48: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
+	15, // 49: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
+	17, // 50: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
+	20, // 51: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
+	21, // 52: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
+	21, // 53: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
+	26, // 54: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
+	21, // 55: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
+	29, // 56: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
+	32, // 57: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
+	34, // 58: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
+	36, // 59: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
+	42, // 60: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
+	39, // 61: mnemosyne.Mnemosyne.ChatStream:output_type -> mnemosyne.ChatEvent
+	43, // 62: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
+	43, // 63: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
+	43, // 64: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
+	42, // 65: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
+	39, // 66: mnemosyne.AgentChat.ChatStream:output_type -> mnemosyne.ChatEvent
+	41, // 67: mnemosyne.AgentChat.Ping:output_type -> mnemosyne.HealthCheckResponse
+	42, // [42:68] is the sub-list for method output_type
+	16, // [16:42] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
-func init() { file_mnemosyne_proto_init() }
-func file_mnemosyne_proto_init() {
-	if File_mnemosyne_proto != nil {
+func init() { file_proto_mnemosyne_proto_init() }
+func file_proto_mnemosyne_proto_init() {
+	if File_proto_mnemosyne_proto != nil {
 		return
 	}
-	file_mnemosyne_proto_msgTypes[4].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[7].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[9].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[11].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[13].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[24].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[25].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[27].OneofWrappers = []any{}
-	file_mnemosyne_proto_msgTypes[40].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[4].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[7].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[9].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[11].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[24].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[27].OneofWrappers = []any{}
+	file_proto_mnemosyne_proto_msgTypes[42].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   43,
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mnemosyne_proto_rawDesc), len(file_proto_mnemosyne_proto_rawDesc)),
+			NumEnums:      3,
+			NumMessages:   45,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
-		GoTypes:           file_mnemosyne_proto_goTypes,
-		DependencyIndexes: file_mnemosyne_proto_depIdxs,
-		EnumInfos:         file_mnemosyne_proto_enumTypes,
-		MessageInfos:      file_mnemosyne_proto_msgTypes,
+		GoTypes:           file_proto_mnemosyne_proto_goTypes,
+		DependencyIndexes: file_proto_mnemosyne_proto_depIdxs,
+		EnumInfos:         file_proto_mnemosyne_proto_enumTypes,
+		MessageInfos:      file_proto_mnemosyne_proto_msgTypes,
 	}.Build()
-	File_mnemosyne_proto = out.File
-	file_mnemosyne_proto_goTypes = nil
-	file_mnemosyne_proto_depIdxs = nil
+	File_proto_mnemosyne_proto = out.File
+	file_proto_mnemosyne_proto_goTypes = nil
+	file_proto_mnemosyne_proto_depIdxs = nil
 }

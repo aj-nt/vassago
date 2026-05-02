@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: mnemosyne.proto
+// source: proto/mnemosyne.proto
 
 package proto
 
@@ -38,6 +38,7 @@ const (
 	Mnemosyne_Subscribe_FullMethodName                  = "/mnemosyne.Mnemosyne/Subscribe"
 	Mnemosyne_RegisterAgent_FullMethodName              = "/mnemosyne.Mnemosyne/RegisterAgent"
 	Mnemosyne_Heartbeat_FullMethodName                  = "/mnemosyne.Mnemosyne/Heartbeat"
+	Mnemosyne_ChatStream_FullMethodName                 = "/mnemosyne.Mnemosyne/ChatStream"
 	Mnemosyne_AddTodo_FullMethodName                    = "/mnemosyne.Mnemosyne/AddTodo"
 	Mnemosyne_ListTodos_FullMethodName                  = "/mnemosyne.Mnemosyne/ListTodos"
 	Mnemosyne_CompleteTodo_FullMethodName               = "/mnemosyne.Mnemosyne/CompleteTodo"
@@ -75,6 +76,10 @@ type MnemosyneClient interface {
 	// --- Agent Management ---
 	RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error)
 	Heartbeat(ctx context.Context, in *AgentId, opts ...grpc.CallOption) (*Empty, error)
+	// --- Chat API ---
+	// ChatStream sends a message to an agent session and streams back the
+	// response in real-time, including text chunks, tool calls, and status events.
+	ChatStream(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatEvent], error)
 	// --- Todo Management ---
 	AddTodo(ctx context.Context, in *AddTodoRequest, opts ...grpc.CallOption) (*TodoItem, error)
 	ListTodos(ctx context.Context, in *ListTodosRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TodoItem], error)
@@ -289,6 +294,25 @@ func (c *mnemosyneClient) Heartbeat(ctx context.Context, in *AgentId, opts ...gr
 	return out, nil
 }
 
+func (c *mnemosyneClient) ChatStream(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Mnemosyne_ServiceDesc.Streams[1], Mnemosyne_ChatStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ChatRequest, ChatEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Mnemosyne_ChatStreamClient = grpc.ServerStreamingClient[ChatEvent]
+
 func (c *mnemosyneClient) AddTodo(ctx context.Context, in *AddTodoRequest, opts ...grpc.CallOption) (*TodoItem, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TodoItem)
@@ -301,7 +325,7 @@ func (c *mnemosyneClient) AddTodo(ctx context.Context, in *AddTodoRequest, opts 
 
 func (c *mnemosyneClient) ListTodos(ctx context.Context, in *ListTodosRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TodoItem], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Mnemosyne_ServiceDesc.Streams[1], Mnemosyne_ListTodos_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Mnemosyne_ServiceDesc.Streams[2], Mnemosyne_ListTodos_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -369,6 +393,10 @@ type MnemosyneServer interface {
 	// --- Agent Management ---
 	RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error)
 	Heartbeat(context.Context, *AgentId) (*Empty, error)
+	// --- Chat API ---
+	// ChatStream sends a message to an agent session and streams back the
+	// response in real-time, including text chunks, tool calls, and status events.
+	ChatStream(*ChatRequest, grpc.ServerStreamingServer[ChatEvent]) error
 	// --- Todo Management ---
 	AddTodo(context.Context, *AddTodoRequest) (*TodoItem, error)
 	ListTodos(*ListTodosRequest, grpc.ServerStreamingServer[TodoItem]) error
@@ -440,6 +468,9 @@ func (UnimplementedMnemosyneServer) RegisterAgent(context.Context, *RegisterAgen
 }
 func (UnimplementedMnemosyneServer) Heartbeat(context.Context, *AgentId) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Heartbeat not implemented")
+}
+func (UnimplementedMnemosyneServer) ChatStream(*ChatRequest, grpc.ServerStreamingServer[ChatEvent]) error {
+	return status.Error(codes.Unimplemented, "method ChatStream not implemented")
 }
 func (UnimplementedMnemosyneServer) AddTodo(context.Context, *AddTodoRequest) (*TodoItem, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddTodo not implemented")
@@ -809,6 +840,17 @@ func _Mnemosyne_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Mnemosyne_ChatStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ChatRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MnemosyneServer).ChatStream(m, &grpc.GenericServerStream[ChatRequest, ChatEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Mnemosyne_ChatStreamServer = grpc.ServerStreamingServer[ChatEvent]
+
 func _Mnemosyne_AddTodo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddTodoRequest)
 	if err := dec(in); err != nil {
@@ -973,10 +1015,167 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
+			StreamName:    "ChatStream",
+			Handler:       _Mnemosyne_ChatStream_Handler,
+			ServerStreams: true,
+		},
+		{
 			StreamName:    "ListTodos",
 			Handler:       _Mnemosyne_ListTodos_Handler,
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mnemosyne.proto",
+	Metadata: "proto/mnemosyne.proto",
+}
+
+const (
+	AgentChat_ChatStream_FullMethodName = "/mnemosyne.AgentChat/ChatStream"
+	AgentChat_Ping_FullMethodName       = "/mnemosyne.AgentChat/Ping"
+)
+
+// AgentChatClient is the client API for AgentChat service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// AgentChat is a lightweight gRPC service exposed by the agent binary
+// for interactive conversations over gRPC. It only implements chat
+// and health, not the full Mnemosyne daemon service.
+type AgentChatClient interface {
+	ChatStream(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatEvent], error)
+	Ping(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
+}
+
+type agentChatClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentChatClient(cc grpc.ClientConnInterface) AgentChatClient {
+	return &agentChatClient{cc}
+}
+
+func (c *agentChatClient) ChatStream(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AgentChat_ServiceDesc.Streams[0], AgentChat_ChatStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ChatRequest, ChatEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentChat_ChatStreamClient = grpc.ServerStreamingClient[ChatEvent]
+
+func (c *agentChatClient) Ping(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HealthCheckResponse)
+	err := c.cc.Invoke(ctx, AgentChat_Ping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentChatServer is the server API for AgentChat service.
+// All implementations must embed UnimplementedAgentChatServer
+// for forward compatibility.
+//
+// AgentChat is a lightweight gRPC service exposed by the agent binary
+// for interactive conversations over gRPC. It only implements chat
+// and health, not the full Mnemosyne daemon service.
+type AgentChatServer interface {
+	ChatStream(*ChatRequest, grpc.ServerStreamingServer[ChatEvent]) error
+	Ping(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
+	mustEmbedUnimplementedAgentChatServer()
+}
+
+// UnimplementedAgentChatServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAgentChatServer struct{}
+
+func (UnimplementedAgentChatServer) ChatStream(*ChatRequest, grpc.ServerStreamingServer[ChatEvent]) error {
+	return status.Error(codes.Unimplemented, "method ChatStream not implemented")
+}
+func (UnimplementedAgentChatServer) Ping(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedAgentChatServer) mustEmbedUnimplementedAgentChatServer() {}
+func (UnimplementedAgentChatServer) testEmbeddedByValue()                   {}
+
+// UnsafeAgentChatServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentChatServer will
+// result in compilation errors.
+type UnsafeAgentChatServer interface {
+	mustEmbedUnimplementedAgentChatServer()
+}
+
+func RegisterAgentChatServer(s grpc.ServiceRegistrar, srv AgentChatServer) {
+	// If the following call panics, it indicates UnimplementedAgentChatServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AgentChat_ServiceDesc, srv)
+}
+
+func _AgentChat_ChatStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ChatRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AgentChatServer).ChatStream(m, &grpc.GenericServerStream[ChatRequest, ChatEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentChat_ChatStreamServer = grpc.ServerStreamingServer[ChatEvent]
+
+func _AgentChat_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentChatServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentChat_Ping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentChatServer).Ping(ctx, req.(*HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentChat_ServiceDesc is the grpc.ServiceDesc for AgentChat service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentChat_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "mnemosyne.AgentChat",
+	HandlerType: (*AgentChatServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ping",
+			Handler:    _AgentChat_Ping_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ChatStream",
+			Handler:       _AgentChat_ChatStream_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/mnemosyne.proto",
 }
