@@ -61,6 +61,7 @@ type MessagingSection struct {
 	Discord  DiscordMessagingConfig  `yaml:"discord"`
 	Telegram TelegramMessagingConfig `yaml:"telegram"`
 	IMessage IMessageMessagingConfig `yaml:"imessage"`
+	Email    EmailMessagingConfig    `yaml:"email"`
 }
 
 type DiscordMessagingConfig struct {
@@ -72,6 +73,10 @@ type TelegramMessagingConfig struct {
 }
 
 type IMessageMessagingConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+type EmailMessagingConfig struct {
 	Enabled bool `yaml:"enabled"`
 }
 
