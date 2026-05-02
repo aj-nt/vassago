@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -250,7 +251,7 @@ func (cs *ChatServer) persistSession(ctx context.Context, sess *chatSession) {
 	}
 	sess.mu.Unlock()
 
-	persistCtx, cancel := context.WithTimeout(ctx, 5)
+	persistCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := cs.mnemo.AddMessages(persistCtx, sess.sessionID, msgs); err != nil {
 		log.Printf("ChatStream: session persist failed: %v", err)
