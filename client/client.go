@@ -336,6 +336,19 @@ func (c *Client) ListChannels(ctx context.Context, platform string) ([]*pb.Chann
 	return resp.Channels, nil
 }
 
+// SubscribeToMessages opens a server-streaming subscription to incoming messages.
+// It returns the gRPC stream for receiving MessageEvents. The caller should
+// call Recv() in a loop to process messages, and CloseSend() when done.
+func (c *Client) SubscribeToMessages(ctx context.Context, agentID string) (pb.Messaging_SubscribeToMessagesClient, error) {
+	stream, err := c.messaging.SubscribeToMessages(ctx, &pb.SubscribeToMessagesRequest{
+		AgentId: agentID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("SubscribeToMessages: %w", err)
+	}
+	return stream, nil
+}
+
 // SessionDetail is a session with its messages.
 type SessionDetail struct {
 	ID           string
