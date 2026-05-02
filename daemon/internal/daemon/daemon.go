@@ -89,6 +89,43 @@ func DefaultConfig() *Config {
 	}
 }
 
+// Validate checks the config for invalid values.
+func (c *Config) Validate() error {
+	// Daemon section validation
+	if c.Daemon.Socket == "" && c.Daemon.TCP == "" {
+		return fmt.Errorf("daemon.socket or daemon.tcp must be configured")
+	}
+
+	// TLS validation - if one is set, both must be set
+	if (c.Daemon.TLS.Cert != "") != (c.Daemon.TLS.Key != "") {
+		return fmt.Errorf("daemon.tls.cert and daemon.tls.key must both be set or both be empty")
+	}
+
+	// Store section validation
+	if c.Store.Path == "" {
+		return fmt.Errorf("database.path is required")
+	}
+	if c.Store.BusyTimeout < 1000 || c.Store.BusyTimeout > 30000 {
+		return fmt.Errorf("database.busy_timeout must be between 1000 and 30000 ms, got %d", c.Store.BusyTimeout)
+	}
+
+	// HotBlock section validation
+	if c.HotBlock.MemoryCharLimit < 1000 || c.HotBlock.MemoryCharLimit > 20000 {
+		return fmt.Errorf("hot_block.memory_char_limit must be between 1000 and 20000, got %d", c.HotBlock.MemoryCharLimit)
+	}
+	if c.HotBlock.UserCharLimit < 500 || c.HotBlock.UserCharLimit > 10000 {
+		return fmt.Errorf("hot_block.user_char_limit must be between 500 and 10000, got %d", c.HotBlock.UserCharLimit)
+	}
+	if c.HotBlock.MinPriority < 1 || c.HotBlock.MinPriority > 5 {
+		return fmt.Errorf("hot_block.min_priority must be between 1 and 5, got %d", c.HotBlock.MinPriority)
+	}
+	if c.HotBlock.ObservationTTLDays < 7 || c.HotBlock.ObservationTTLDays > 365 {
+		return fmt.Errorf("hot_block.observation_ttl_days must be between 7 and 365, got %d", c.HotBlock.ObservationTTLDays)
+	}
+
+	return nil
+}
+
 // Daemon represents the Mnemosyne memory daemon.
 type Daemon struct {
 	config *Config
