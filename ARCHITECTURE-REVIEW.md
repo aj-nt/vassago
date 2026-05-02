@@ -407,11 +407,11 @@ If the last 2 tool results are both errors or both contain "not found", the Cont
 When iteration >= 5, `compactContext` Phase 0 strips tool results to summaries: `[tool result: FileRead (4523 chars)]`. Forces the model to rely on accumulated understanding rather than re-reading detailed outputs.
 
 **MEDIUM: Tool result size limits prevent context blowup**
-- FileRead: max 8000 chars (preserves beginning and end)
+- FileRead: max 20000 chars (head+tail format preserves beginning and end)
 - FileSearch: max 4000 chars
 - Execute: max 4000 chars
-- ContextManagementStage tool results: max 50 lines / 4000 chars
-Oversized results are truncated with a summary line showing total size.
+- ContextManagementStage tool results: max 200 lines / 8000 chars (head+tail format)
+Oversized results are truncated showing the first half and last quarter of the file, with a summary in between. This prevents the model from re-reading files via Execute when key content is at the bottom of a truncated output.
 
 **LOW: Smart routing now detects technical prompts**
 `isTechnicalPrompt()` detects file paths, function calls, and code keywords in short prompts. Queries like "fix the bug in context_management.go:30" are now routed to the primary model instead of the cheap model.
@@ -422,5 +422,5 @@ The system prompt is now: Role + Personality → Tool Usage Guide → Anti-loop 
 **LOW: Execute cwd parameter and path validation**
 Execute tool now supports an optional `cwd` parameter with `~` expansion and allowed_dirs validation. Allows the agent to run commands in the repo directory.
 
-**LOW: `~` expansion in allowed_dirs**
-SetFileConfig now expands `~/...` paths in allowed_dirs to the user's home directory, so the agent can access `~/Documents/repos` properly.
+**LOW: `~` expansion in allowed_dirs AND tool paths**
+SetFileConfig now expands `~/...` paths in allowed_dirs to the user's home directory. More critically, `expandPath()` was added to FileRead, FileWrite, and FileSearch — before this fix, the model would pass paths like `~/Documents/repos/mnemosyne/agent/tools/file.go` but `os.ReadFile` treats `~` as a literal directory, not the home directory. The path was safe (passed `isPathSafe`) but couldn't be read. The fix expands `~` before both safety checks and file access. Path traversal (`../`) is checked before expansion to prevent normalization bypass.
