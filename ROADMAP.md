@@ -676,18 +676,18 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
 
 ### 17B: Session Persistence & Search
 
-- [ ] Session search as an agent tool: `SearchSessions` query past conversations
-- [ ] Agent can query past conversations without `/sessions` CLI command
-- [ ] Session auto-titling based on conversation content
-- [ ] Tests: session search, titling, resume
-- [ ] QA pass
+- [x] Session search as an agent tool: `SearchSessions` query past conversations
+- [x] Agent can query past conversations without `/sessions` CLI command
+- [x] Session auto-titling based on conversation content
+- [x] Tests: session search, titling, resume
+- [x] QA pass
 
 ### 17C: Todo Management
 
-- [ ] TodoService gRPC endpoint: AddTodo, ListTodos, CompleteTodo, RemoveTodo
-- [ ] Agent tools: `AddTodo`, `ListTodos`, `CompleteTodo`, `RemoveTodo`
-- [ ] Persistence in SQLite (todos table)
-- [ ] Tests: todo CRUD, completion tracking, priority sorting
+- [x] TodoService gRPC endpoint: AddTodo, ListTodos, CompleteTodo, RemoveTodo
+- [x] Agent tools: `AddTodo`, `ListTodos`, `CompleteTodo`, `RemoveTodo`
+- [x] Persistence in SQLite (todos table)
+- [x] Tests: todo CRUD, completion tracking, priority sorting
 - [ ] QA pass + Red Team pass
 
 ### 17D: Architecture Cleanup
