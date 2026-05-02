@@ -2,6 +2,8 @@ package iface
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -380,33 +382,225 @@ func TestRunAgentSessionAccumulation(t *testing.T) {
 	}
 }
 
-// TestPlatformFiltering tests that the platform filter correctly
-// includes/excludes messages.
-func TestPlatformFiltering(t *testing.T) {
-	mb := &MessageBridge{
-		config: BridgeConfig{
-			Platforms: []string{"discord"},
-		},
+	// TestPlatformFiltering tests that the platform filter correctly
+	// includes/excludes messages.
+	func TestPlatformFiltering(t *testing.T) {
+		mb := &MessageBridge{
+			config: BridgeConfig{
+				Platforms: []string{"discord"},
+			},
+		}
+
+		if !mb.isAllowedPlatform("discord") {
+			t.Error("discord should be allowed")
+		}
+		if mb.isAllowedPlatform("telegram") {
+			t.Error("telegram should not be allowed when only discord is filtered")
+		}
+
+		// No filter — allow everything
+		mb2 := &MessageBridge{
+			config: BridgeConfig{Platforms: nil},
+		}
+		if !mb2.isAllowedPlatform("discord") {
+			t.Error("empty filter should allow discord")
+		}
+		if !mb2.isAllowedPlatform("telegram") {
+			t.Error("empty filter should allow telegram")
+		}
+		if !mb2.isAllowedPlatform("imessage") {
+			t.Error("empty filter should allow imessage")
+		}
 	}
 
-	if !mb.isAllowedPlatform("discord") {
-		t.Error("discord should be allowed")
-	}
-	if mb.isAllowedPlatform("telegram") {
-		t.Error("telegram should not be allowed when only discord is filtered")
+	// TestEmptyMessageEvent validates handling of empty message events.
+	func TestEmptyMessageEvent(t *testing.T) {
+		mb := &MessageBridge{}
+		event := &pb.MessageEvent{
+			Platform:   "discord",
+			ChannelId:  "123456",
+			ChannelName: "general",
+			Message:    "",
+		}
+		msg := mb.composeUserMessage(event)
+		if !strings.Contains(msg, "general") {
+			t.Error("composeUserMessage should handle empty message gracefully and include channel name")
+		}
 	}
 
-	// No filter — allow everything
-	mb2 := &MessageBridge{
-		config: BridgeConfig{Platforms: nil},
+	// TestVeryLongMessage validates handling of very long messages (10K+ characters).
+	func TestVeryLongMessage(t *testing.T) {
+		mb := &MessageBridge{
+			config: BridgeConfig{MaxResponseLength: 100},
+		}
+		longMsg := strings.Repeat("a", 10000)
+		event := &pb.MessageEvent{
+			Platform:  "discord",
+			ChannelId: "123456",
+			Message:   longMsg,
+		}
+		msg := mb.composeUserMessage(event)
+		if !strings.Contains(msg, longMsg) {
+			t.Error("composeUserMessage should handle very long messages")
+		}
+		truncated := mb.truncateResponse(longMsg)
+		if len(truncated) > 100+20 {
+			t.Errorf("truncated response should not exceed MaxResponseLength + suffix")
+		}
 	}
-	if !mb2.isAllowedPlatform("discord") {
-		t.Error("empty filter should allow discord")
+
+	// TestUnicodeAndSpecialChars validates handling of Unicode and special characters.
+	func TestUnicodeAndSpecialChars(t *testing.T) {
+		mb := &MessageBridge{}
+		specialMsg := "Hello 🌍! 🚀 Test: \n\t\r\u2603"
+		event := &pb.MessageEvent{
+			Platform:  "discord",
+			ChannelId: "123456",
+			Message:   specialMsg,
+		}
+		msg := mb.composeUserMessage(event)
+		if !strings.Contains(msg, specialMsg) {
+			t.Error("composeUserMessage should handle Unicode and special characters")
+		}
 	}
-	if !mb2.isAllowedPlatform("telegram") {
-		t.Error("empty filter should allow telegram")
+
+	// TestRapidSequentialMessagesToSameChannel validates handling of rapid sequential messages.
+	func TestRapidSequentialMessagesToSameChannel(t *testing.T) {
+		mb := &MessageBridge{}
+		convKey := "discord:123456"
+		mu := mb.getChannelMutex(convKey)
+
+		var wg sync.WaitGroup
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				mu.Lock()
+				defer mu.Unlock()
+				// Simulate message processing
+				time.Sleep(1 * time.Millisecond)
+			}(i)
+		}
+		wg.Wait()
 	}
-	if !mb2.isAllowedPlatform("imessage") {
-		t.Error("empty filter should allow imessage")
+
+	// TestMessagesFromMultipleChannelsSimultaneously validates handling of messages from multiple channels.
+	func TestMessagesFromMultipleChannelsSimultaneously(t *testing.T) {
+		mb := &MessageBridge{}
+		var wg sync.WaitGroup
+		for i := 0; i < 5; i++ {
+			wg.Add(1)
+			go func(chID string) {
+				defer wg.Done()
+				convKey := fmt.Sprintf("discord:%s", chID)
+				mu := mb.getChannelMutex(convKey)
+				mu.Lock()
+				defer mu.Unlock()
+				time.Sleep(1 * time.Millisecond)
+			}(fmt.Sprintf("ch%d", i))
+		}
+		wg.Wait()
 	}
-}
+
+	// TestChannelIDCollision validates handling of channel ID collisions.
+	func TestChannelIDCollision(t *testing.T) {
+		mb := &MessageBridge{}
+		ch1 := &pb.MessageEvent{Platform: "discord", ChannelId: "123", ChannelName: "channel1"}
+		ch2 := &pb.MessageEvent{Platform: "telegram", ChannelId: "123", ChannelName: "channel2"}
+		sess1 := mb.getOrCreateSession(context.Background(), mb.conversationKey(ch1), ch1)
+		sess2 := mb.getOrCreateSession(context.Background(), mb.conversationKey(ch2), ch2)
+		if sess1.sessionID == sess2.sessionID {
+			t.Error("different platforms with same channel ID should have different sessions")
+		}
+	}
+
+	// TestPlatformNameInjection validates handling of platform name injection.
+	func TestPlatformNameInjection(t *testing.T) {
+		mb := &MessageBridge{
+			config: BridgeConfig{Platforms: []string{"discord"}},
+		}
+		if !mb.isAllowedPlatform("discord") {
+			t.Error("platform name injection should be handled correctly")
+		}
+		if mb.isAllowedPlatform("malicious-platform") {
+			t.Error("malicious platform names should not be allowed")
+		}
+	}
+
+	// TestEmptyResponseFromAgent validates handling of empty responses from the agent.
+	func TestEmptyResponseFromAgent(t *testing.T) {
+		mb := &MessageBridge{
+			config: BridgeConfig{MaxResponseLength: 100},
+		}
+		emptyResponse := ""
+		truncated := mb.truncateResponse(emptyResponse)
+		if truncated != emptyResponse {
+			t.Error("empty response should remain empty after truncation")
+		}
+	}
+
+	// TestSessionCreationFailure validates handling of session creation failure.
+	func TestSessionCreationFailure(t *testing.T) {
+		mb := &MessageBridge{}
+		event := &pb.MessageEvent{
+			Platform:    "discord",
+			ChannelId:   "123456",
+			ChannelName: "general",
+		}
+		sess := mb.getOrCreateSession(context.Background(), "discord:123456", event)
+		if sess == nil {
+			t.Fatal("getOrCreateSession should return a session even on failure")
+		}
+		if sess.sessionID == "" {
+			t.Error("session ID should not be empty even on failure")
+		}
+	}
+
+	// TestConversationKeyStability validates stability of conversation keys.
+	func TestConversationKeyStability(t *testing.T) {
+		mb := &MessageBridge{}
+		event := &pb.MessageEvent{
+			Platform:  "discord",
+			ChannelId: "123456",
+		}
+		key1 := mb.conversationKey(event)
+		key2 := mb.conversationKey(event)
+		if key1 != key2 {
+			t.Error("conversationKey should be stable for the same event")
+		}
+	}
+
+	// TestMaxResponseTruncationBoundaryCases validates boundary cases for response truncation.
+	func TestMaxResponseTruncationBoundaryCases(t *testing.T) {
+		mb := &MessageBridge{
+			config: BridgeConfig{MaxResponseLength: 10},
+		}
+		tests := []struct {
+			name     string
+			input    string
+			expected string
+		}{
+			{"exactly at boundary", strings.Repeat("a", 10), strings.Repeat("a", 10)},
+			{"one over boundary", strings.Repeat("a", 11), strings.Repeat("a", 10) + "\n... (truncated)"},
+			{"empty string", "", ""},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got := mb.truncateResponse(tt.input)
+				if got != tt.expected {
+					t.Errorf("truncateResponse() = %q, want %q", got, tt.expected)
+				}
+			})
+		}
+	}
+
+	// TestConfigValidation validates configuration validation.
+	func TestConfigValidation(t *testing.T) {
+		cfg := DefaultBridgeConfig()
+		if cfg.MaxResponseLength <= 0 {
+			t.Error("MaxResponseLength should be positive")
+		}
+		if cfg.ResponseTimeout <= 0 {
+			t.Error("ResponseTimeout should be positive")
+		}
+	}
