@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	pb "github.com/aj-nt/mnemosyne/proto"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -114,6 +116,27 @@ func main() {
 
 	log.Printf("Starting agent %q with primary provider %q (model: %s)",
 		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
+
+	// Start gRPC chat server if configured
+	// This allows interactive conversations over gRPC (e.g., from Hermes)
+	// while the CLI runs normally for local interactive use.
+	var grpcServer *grpc.Server
+	if cfg.Mnemosyne.ChatListen != "" {
+		lis, err := net.Listen("tcp", cfg.Mnemosyne.ChatListen)
+		if err != nil {
+			log.Fatalf("Failed to listen for gRPC chat server on %s: %v", cfg.Mnemosyne.ChatListen, err)
+		}
+		grpcServer = grpc.NewServer()
+		chatServer := iface.NewChatServer(a, mnemo)
+		pb.RegisterAgentChatServer(grpcServer, chatServer)
+		go func() {
+			log.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
+			if err := grpcServer.Serve(lis); err != nil {
+				log.Fatalf("gRPC chat server failed: %v", err)
+			}
+		}()
+		defer grpcServer.GracefulStop()
+	}
 
 	// Run
 	cli := iface.NewCLI(a)

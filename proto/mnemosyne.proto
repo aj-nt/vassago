@@ -39,15 +39,28 @@ service Mnemosyne {
   // Pub/sub — agent subscribes to memory changes
   rpc Subscribe(SubscribeRequest) returns (stream UpdateEvent);
 
-  // --- Agent Management ---
-  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
-  rpc Heartbeat(AgentId) returns (Empty);
+	// --- Agent Management ---
+	rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+	rpc Heartbeat(AgentId) returns (Empty);
+
+	// --- Chat API ---
+	// ChatStream sends a message to an agent session and streams back the
+	// response in real-time, including text chunks, tool calls, and status events.
+	rpc ChatStream(ChatRequest) returns (stream ChatEvent);
 
   // --- Todo Management ---
   rpc AddTodo(AddTodoRequest) returns (TodoItem);
   rpc ListTodos(ListTodosRequest) returns (stream TodoItem);
   rpc CompleteTodo(CompleteTodoRequest) returns (TodoItem);
   rpc RemoveTodo(RemoveTodoRequest) returns (Empty);
+}
+
+// AgentChat is a lightweight gRPC service exposed by the agent binary
+// for interactive conversations over gRPC. It only implements chat
+// and health, not the full Mnemosyne daemon service.
+service AgentChat {
+  rpc ChatStream(ChatRequest) returns (stream ChatEvent);
+  rpc Ping(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 // --- Messages ---
@@ -281,6 +294,32 @@ message RegisterAgentResponse {
 
 message AgentId {
   string agent_id = 1;
+}
+
+// Chat messages
+message ChatRequest {
+  string session_id = 1;   // Empty = create new session
+  string agent_id = 2;
+  string message = 3;
+}
+
+message ChatEvent {
+  enum EventType {
+    TEXT = 0;           // Streaming text chunk
+    TOOL_START = 1;     // Agent is calling a tool
+    TOOL_RESULT = 2;    // Tool call completed
+    DONE = 3;           // Turn complete
+    ERROR = 4;          // Error occurred
+    THINKING = 5;       // Agent is processing (no output yet)
+    USAGE = 6;          // Token usage info
+  }
+  EventType event_type = 1;
+  string text = 2;           // For TEXT and ERROR events
+  string tool_name = 3;      // For TOOL_START events
+  string tool_result = 4;   // For TOOL_RESULT events
+  string session_id = 5;    // Session ID (set on first event or DONE)
+  int32 tokens_used = 6;    // For USAGE events
+  int32 turn_number = 7;    // Current turn number
 }
 
 // Health check messages

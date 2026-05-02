@@ -53,7 +53,8 @@ type ProviderSection struct {
 }
 
 type MnemosyneSection struct {
-	Address string `yaml:"address"`
+	Address    string `yaml:"address"`
+	ChatListen string `yaml:"chat_listen"` // gRPC address for ChatStream server (e.g., ":50052")
 }
 
 type MessagingSection struct {

@@ -6,3 +6,4 @@ mnemosyne-agent
 mnemosyne-cli
 coverage.out
 *.out
+mnemosyne-daemon

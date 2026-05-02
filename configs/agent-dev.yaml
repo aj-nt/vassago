@@ -16,6 +16,7 @@ provider:
 
 mnemosyne:
   address: "localhost:50051"
+  chat_listen: ":50052"
 
 hot_block:
   memory_char_limit: 4000
