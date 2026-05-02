@@ -599,7 +599,9 @@ Goal: Send and receive messages through external platforms. This is the highest-
 - [x] Mockable telegramAPI interface, 21 unit tests
 - [x] Daemon + agent config wiring
 - [x] SendMessage tool accepts 'telegram' platform
-- [ ] QA pass + Red Team pass
+- [x] QA pass + Red Team pass (582 tests, 22 new Telegram tests, all green with -race)
+- [x] Bug fix: nil Chat pointer dereference protection
+- [x] Bug fix: empty text messages (photos/stickers) filtered from agent
 
 ### 15C: iMessage (macOS)
 
