@@ -123,58 +123,64 @@ func (ta *TelegramAdapter) processUpdates(ctx context.Context, updates tgbotapi.
 				return
 			}
 
-			if update.Message == nil || update.Message.From == nil {
+		if update.Message == nil || update.Message.From == nil || update.Message.Chat == nil {
+			continue
+		}
+
+		// Ignore non-text messages (photos, stickers, etc.) — nothing useful for the agent
+		if update.Message.Text == "" {
+			continue
+		}
+
+		// Filter out messages from the bot itself
+		if int64(update.Message.From.ID) == ta.botID {
+			continue
+		}
+
+		// Filter by allowed chats if specified
+		if len(ta.config.AllowedChats) > 0 {
+			allowed := false
+			for _, chatID := range ta.config.AllowedChats {
+				if update.Message.Chat.ID == chatID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
 				continue
 			}
+		}
 
-			// Filter out messages from the bot itself
-			if int64(update.Message.From.ID) == ta.botID {
-				continue
-			}
+		// Convert Telegram message to proto.MessageEvent
+		chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
+		channelName := update.Message.Chat.Title
+		if channelName == "" {
+			channelName = chatIDStr
+		}
 
-			// Filter by allowed chats if specified
-			if len(ta.config.AllowedChats) > 0 {
-				allowed := false
-				for _, chatID := range ta.config.AllowedChats {
-					if update.Message.Chat.ID == chatID {
-						allowed = true
-						break
-					}
-				}
-				if !allowed {
-					continue
-				}
-			}
+		senderName := update.Message.From.UserName
+		if senderName == "" {
+			senderName = update.Message.From.FirstName
+		}
 
-			// Convert Telegram message to proto.MessageEvent
-			event := &pb.MessageEvent{
-				Platform:    "telegram",
-				ChannelId:   fmt.Sprintf("%d", update.Message.Chat.ID),
-				ChannelName: update.Message.Chat.Title,
-				SenderId:    fmt.Sprintf("%d", update.Message.From.ID),
-				SenderName: update.Message.From.UserName,
-				Message:     update.Message.Text,
-				Timestamp:   update.Message.Time().Unix(),
-				MessageId:   fmt.Sprintf("%d", update.Message.MessageID),
-			}
+		event := &pb.MessageEvent{
+			Platform:    "telegram",
+			ChannelId:   chatIDStr,
+			ChannelName: channelName,
+			SenderId:    fmt.Sprintf("%d", update.Message.From.ID),
+			SenderName:  senderName,
+			Message:     update.Message.Text,
+			Timestamp:   update.Message.Time().Unix(),
+			MessageId:   fmt.Sprintf("%d", update.Message.MessageID),
+		}
 
-			// Use chat title as channel name fallback
-			if event.ChannelName == "" {
-				event.ChannelName = event.ChannelId
-			}
-
-			// Use first name as sender name fallback if username is empty
-			if event.SenderName == "" {
-				event.SenderName = update.Message.From.FirstName
-			}
-
-			select {
-			case ta.messageChan <- event:
-			case <-ta.closeChan:
-				return
-			case <-ctx.Done():
-				return
-			}
+		select {
+		case ta.messageChan <- event:
+		case <-ta.closeChan:
+			return
+		case <-ctx.Done():
+			return
+		}
 		}
 	}
 }
