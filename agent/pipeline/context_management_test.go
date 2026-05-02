@@ -353,7 +353,8 @@ func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
 }
 
 func TestIsConsecutiveToolIterationLoop_DifferentTools(t *testing.T) {
-	// 3+ consecutive iterations with different tools — IS a loop
+	// 4+ consecutive iterations with different tools — IS a loop
+	// Threshold is 4 to allow legitimate 3-step workflows (read→search→edit)
 	messages := []agentctx.Message{
 		{Role: "user", Content: "check this"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
@@ -361,15 +362,40 @@ func TestIsConsecutiveToolIterationLoop_DifferentTools(t *testing.T) {
 		}},
 		{Role: "tool", Content: "found files", ToolCallID: "1"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
-			{ID: "2", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+			{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
 		}},
-		{Role: "tool", Content: "output", ToolCallID: "2"},
+		{Role: "tool", Content: "file contents", ToolCallID: "2"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "command output", ToolCallID: "3"},
 	}
 	currentCalls := []agentctx.ToolCall{
-		{ID: "3", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+		{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
 	}
 	if !isConsecutiveToolIterationLoop(messages, currentCalls) {
-		t.Error("3+ consecutive tool iterations with different tools should be detected as a loop")
+		t.Error("4+ consecutive tool iterations with different tools should be detected as a loop")
+	}
+}
+
+func TestIsConsecutiveToolIterationLoop_ThreeIterationsAllowed(t *testing.T) {
+	// 3 consecutive tool iterations should still be allowed (legitimate workflow)
+	messages := []agentctx.Message{
+		{Role: "user", Content: "check this"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "found files", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{
+			{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)},
+		}},
+		{Role: "tool", Content: "file contents", ToolCallID: "2"},
+	}
+	currentCalls := []agentctx.ToolCall{
+		{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
+	}
+	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+		t.Error("3 consecutive tool iterations should be allowed (threshold is 4)")
 	}
 }
 

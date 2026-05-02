@@ -211,9 +211,10 @@ func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.T
 	return false
 }
 
-// isConsecutiveToolIterationLoop checks if there have been 3+ consecutive iterations with ANY tool calls.
+// isConsecutiveToolIterationLoop checks if there have been 4+ consecutive iterations with ANY tool calls.
 // This catches cross-tool loops (FileSearch→Execute→FileRead→repeat) that isRepetitiveToolLoop misses
-// because it only checks for same-tool repetition.
+// because it only checks for same-tool repetition. The threshold of 4 allows legitimate 3-step
+// workflows (read→search→edit) while still breaking loops before they consume excessive turns.
 func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
 	count := 0
 
@@ -232,7 +233,7 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 		// Count consecutive iterations with tool calls
 		if len(msg.ToolCalls) > 0 {
 			count++
-			if count >= 3 {
+			if count >= 4 {
 				return true
 			}
 		}
@@ -241,7 +242,7 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 	// Include current calls in the count
 	if len(currentCalls) > 0 {
 		count++
-		if count >= 3 {
+		if count >= 4 {
 			return true
 		}
 	}
