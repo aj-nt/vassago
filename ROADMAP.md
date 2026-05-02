@@ -575,12 +575,16 @@ Goal: Send and receive messages through external platforms. This is the highest-
 - [x] gRPC MessagingService definition: SendMessage, ListChannels, SubscribeToMessages
 - [x] Discord adapter: connect to Discord gateway, listen for messages in allowed channels
 - [x] Incoming message flow: Discord message → daemon → agent → response → Discord
+- [x] MessageBridge: subscribes to daemon's SubscribeToMessages, routes through agent, sends response back
+- [x] Per-channel session management with concurrent access protection
+- [x] Fan-out architecture: single goroutine per adapter broadcasts to all subscribers
 - [x] Config: `messaging.discord.token`, `messaging.discord.guilds`, `messaging.allowed_channels`
 - [x] Rate limiting and message splitting (Discord 2000 char limit)
 - [x] Mock Discord gateway, message round-trip tests, rate limit tests
 - [x] Agent tool: SendMessage with platform/target/message args
-- [x] Client methods: SendMessage(), ListChannels()
-- [x] Daemon startup wiring with MessagingService
+- [x] Client methods: SendMessage(), ListChannels(), SubscribeToMessages()
+- [x] Daemon startup wiring with MessagingService (adapter Connect on first subscription)
+- [x] MessageBridge unit tests (11 tests), messaging_grpc fan-out tests (3 tests)
 - [ ] QA pass + Red Team pass
 
 ### 15B: Telegram Bot
