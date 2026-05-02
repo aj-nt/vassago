@@ -16,6 +16,8 @@ type ToolDispatchStage struct {
 	// Approver is called before executing a tool. Return false to skip.
 	// This is used by the CLI to prompt the user for approval of dangerous tools.
 	Approver func(toolName string, args map[string]interface{}) bool
+	// callCounts tracks how many times each tool has been called in the current turn
+	callCounts map[string]int
 }
 
 // NewToolDispatchStage creates a new Stage 4.
@@ -29,6 +31,11 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 		return agentctx.ToolDispatchResult{}
 	}
 
+	// Initialize call counts map if not already done
+	if s.callCounts == nil {
+		s.callCounts = make(map[string]int)
+	}
+
 	var toolResults []agentctx.ToolResult
 	for _, tc := range parsed.ToolCalls {
 		if s.EventBus != nil {
@@ -40,6 +47,17 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 				CallID:  tc.ID,
 				Name:    tc.Name,
 				Result:  fmt.Sprintf("unknown tool: %s", tc.Name),
+				IsError: true,
+			})
+			continue
+		}
+
+		// Check if the tool has exceeded its budget
+		if !tools.CheckBudget(tc.Name, s.callCounts[tc.Name]) {
+			toolResults = append(toolResults, agentctx.ToolResult{
+				CallID:  tc.ID,
+				Name:    tc.Name,
+				Result:  tools.BudgetExceededMessage(tc.Name, s.callCounts[tc.Name]),
 				IsError: true,
 			})
 			continue
@@ -109,6 +127,9 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 			Result:  result,
 			IsError: isErr,
 		})
+
+		// Increment the call count after successful execution
+		s.callCounts[tc.Name]++
 	}
 
 	return agentctx.ToolDispatchResult{

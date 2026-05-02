@@ -502,3 +502,138 @@ func TestIsConsecutiveToolLoop_TextBreaksLoop(t *testing.T) {
 		t.Error("Expected text-only response to break the loop")
 	}
 }
+
+// --- Stuck detection tests ---
+
+func TestIsStuck_TwoErrors(t *testing.T) {
+	// Two consecutive error results should return true
+	results := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "error 1", IsError: true},
+		{CallID: "2", Name: "Tool2", Result: "error 2", IsError: true},
+	}
+
+	if !isStuck(results) {
+		t.Error("Expected isStuck to return true for two consecutive errors")
+	}
+}
+
+func TestIsStuck_TwoNotFound(t *testing.T) {
+	// Two "not found" results should return true
+	results := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "file not found", IsError: false},
+		{CallID: "2", Name: "Tool2", Result: "no such file or directory", IsError: false},
+	}
+
+	if !isStuck(results) {
+		t.Error("Expected isStuck to return true for two 'not found' messages")
+	}
+}
+
+func TestIsStuck_SuccessAfterError(t *testing.T) {
+	// One error then one success should return false
+	results := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "error 1", IsError: true},
+		{CallID: "2", Name: "Tool2", Result: "success", IsError: false},
+	}
+
+	if isStuck(results) {
+		t.Error("Expected isStuck to return false when one error is followed by success")
+	}
+}
+
+func TestIsStuck_InsufficientResults(t *testing.T) {
+	// Less than 2 results should return false
+	results := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "error 1", IsError: true},
+	}
+
+	if isStuck(results) {
+		t.Error("Expected isStuck to return false when there are less than 2 results")
+	}
+}
+
+// --- Aggressive compaction tests ---
+
+func TestCompactContext_HighIteration(t *testing.T) {
+	// Test that iteration 5+ strips long tool results
+	args, _ := json.Marshal(map[string]interface{}{})
+
+	// Create a context with a long tool result
+	longResult := "This is a very long tool result that contains lots of information " +
+		"and should be stripped down to a summary during aggressive compaction for " +
+		"high iteration counts. This text needs to be over 200 characters to trigger " +
+		"the aggressive compaction logic that replaces long tool results with summaries."
+
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "What's my name?"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
+			{Role: "tool", Content: longResult, ToolCallID: "1", Name: "SearchMemories"},
+		},
+		MaxIterations: 10,
+		Iteration:     5, // High iteration should trigger aggressive compaction
+	}
+
+	// Trigger compaction
+	compactContext(convCtx, 1000) // High limit so we don't trigger normal compaction
+
+	// The long tool result should be replaced with a summary
+	foundSummary := false
+	for _, m := range convCtx.Messages {
+		if m.Role == "tool" && strings.Contains(m.Content, "[tool result:") {
+			foundSummary = true
+			// Verify the format
+			expectedFormat := fmt.Sprintf("[tool result: %s (%d chars)]", m.Name, len(longResult))
+			if m.Content != expectedFormat {
+				t.Errorf("Expected summary format: %s, got: %s", expectedFormat, m.Content)
+			}
+		}
+	}
+
+	if !foundSummary {
+		t.Error("Expected long tool result to be replaced with summary during aggressive compaction")
+	}
+}
+
+// --- Stuck detection integration test ---
+
+func TestContextManagement_BreaksStuckLoop(t *testing.T) {
+	// Test that stuck detection (two consecutive errors) causes YIELD
+	stage := NewContextManagementStage(0)
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "find something"}},
+		MaxIterations: 20,
+		Iteration:     2,
+	}
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	parsed := agentctx.ParsedResponse{
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "3", Name: "FindTool", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+
+	// Two consecutive error results
+	toolResults := []agentctx.ToolResult{
+		{CallID: "1", Name: "FindTool", Result: "not found", IsError: true},
+		{CallID: "2", Name: "FindTool", Result: "file not found", IsError: true},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// Should YIELD with helpful message instead of continuing
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD when stuck (two consecutive errors), got %v", action)
+	}
+
+	// Should add helpful message
+	if len(convCtx.Messages) < 2 {
+		t.Error("Expected helpful message to be added when stuck")
+	}
+
+	lastMessage := convCtx.Messages[len(convCtx.Messages)-1]
+	if !strings.Contains(lastMessage.Content, "wasn't able to find") {
+		t.Errorf("Expected helpful message about not finding results, got: %s", lastMessage.Content)
+	}
+}

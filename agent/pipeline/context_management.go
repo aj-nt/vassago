@@ -27,10 +27,36 @@ func truncateToolResult(result string, isError bool) string {
 
 	// Truncate to 50 lines
 	truncated := strings.Join(lines[:maxToolResultLines], "\n")
-	
+
 	// Add summary line
 	return fmt.Sprintf("%s\n... (truncated: %d total lines, %d chars)", 
 		truncated, len(lines), len(result))
+}
+
+// isStuck detects if the agent is stuck by checking if the last 2 tool results
+// were both errors or contained "not found" messages.
+func isStuck(results []agentctx.ToolResult) bool {
+	if len(results) < 2 {
+		return false
+	}
+
+	// Check the last 2 tool results
+	lastResult := results[len(results)-1]
+	secondLastResult := results[len(results)-2]
+
+	// Check if both are errors
+	if lastResult.IsError && secondLastResult.IsError {
+		return true
+	}
+
+	// Check if both contain "not found" or "no such file" (case insensitive)
+	lastContent := strings.ToLower(lastResult.Result)
+	secondLastContent := strings.ToLower(secondLastResult.Result)
+	
+	containsNotFoundLast := strings.Contains(lastContent, "not found") || strings.Contains(lastContent, "no such file")
+	containsNotFoundSecondLast := strings.Contains(secondLastContent, "not found") || strings.Contains(secondLastContent, "no such file")
+	
+	return containsNotFoundLast && containsNotFoundSecondLast
 }
 
 // ContextManagementStage appends results, checks limits, and decides whether to loop.
@@ -61,6 +87,16 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 	// Detect cross-tool loop: if there have been 5+ consecutive iterations with ANY tool calls,
 	// break the loop to prevent agents from looping across different tools.
 	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
+		return agentctx.StageActionYIELD
+	}
+
+	// Detect stuck agent — last 2 tool calls both failed or returned "not found"
+	if isStuck(toolResults) {
+		// Replace tool calls with a text-only response asking for clarification
+		convCtx.AddMessage(agentctx.Message{
+			Role:    "assistant",
+			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
+		})
 		return agentctx.StageActionYIELD
 	}
 
@@ -112,6 +148,17 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 //
 // The system prompt is not compacted — it's always included.
 func compactContext(convCtx *agentctx.ConversationContext, maxTokens int) {
+	// Phase 0: For high iterations (5+), aggressively strip tool results
+	// The model has had multiple chances to read the details — now force it
+	// to rely on accumulated understanding.
+	if convCtx.Iteration >= 5 {
+		for i, msg := range convCtx.Messages {
+			if msg.Role == "tool" && len(msg.Content) > 200 {
+				convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", msg.Name, len(msg.Content))
+			}
+		}
+	}
+
 	// Phase 1: Strip old tool results and summarize tool calls
 	// Find the last YIELD point (assistant text response with no tool calls)
 	lastYieldIdx := -1
