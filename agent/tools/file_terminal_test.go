@@ -238,7 +238,7 @@ func TestIsUnderAllowedDir(t *testing.T) {
 		{tmpDir + "ish/main.go", false}, // prefix match must be directory boundary
 	}
 	for _, tc := range tests {
-		result := isUnderAllowedDir(tc.path)
+		result := IsUnderAllowedDir(tc.path)
 		if result != tc.expected {
 			t.Errorf("isUnderAllowedDir(%q) = %v, expected %v", tc.path, result, tc.expected)
 		}

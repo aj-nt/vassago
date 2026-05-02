@@ -91,7 +91,7 @@ func isPathSafe(path string) bool {
 
 	// If allowedDirs is configured, enforce it
 	if len(allowedDirs) > 0 {
-		return isUnderAllowedDir(resolved)
+		return IsUnderAllowedDir(resolved)
 	}
 
 	// No allowlist configured — allow all (dev mode)
@@ -117,9 +117,9 @@ func isDevicePath(path string) bool {
 	return false
 }
 
-// isUnderAllowedDir checks if the path falls under any of the configured allowed directories.
+// IsUnderAllowedDir checks if the path falls under any of the configured allowed directories.
 // Resolves symlinks on the input path to handle macOS /tmp → /private/tmp, /var → /private/var.
-func isUnderAllowedDir(path string) bool {
+func IsUnderAllowedDir(path string) bool {
 	// Try to resolve symlinks on the input path
 	resolvedPath := path
 	if r, err := filepath.EvalSymlinks(path); err == nil {
@@ -169,6 +169,10 @@ func FileRead(args map[string]interface{}) (string, bool) {
 	}
 
 	return string(content), false
+
+	// Truncate output for large files
+	const maxResultChars = 8000
+	return truncateOutput(string(content), maxResultChars), false
 }
 
 // FileWrite writes content to a file.
@@ -220,6 +224,10 @@ func FileSearch(args map[string]interface{}) (string, bool) {
 	}
 
 	return strings.Join(matches, "\n"), false
+
+	// Truncate output for file listings
+	const maxResultChars = 4000
+	return truncateOutput(strings.Join(matches, "\n"), maxResultChars), false
 }
 
 // RegisterFileTools adds all file tool handlers to the registry.

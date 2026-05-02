@@ -3,7 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -26,6 +28,25 @@ func Execute(args map[string]interface{}) (string, bool) {
 	}
 
 	cmd := exec.Command("sh", "-c", command)
+
+	// Set working directory if provided
+	if cwd, ok := args["cwd"].(string); ok && cwd != "" {
+		// Expand ~ to home directory
+		if strings.HasPrefix(cwd, "~") {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Sprintf("Error expanding home directory: %v", err), true
+			}
+			cwd = filepath.Join(homeDir, cwd[1:])
+		}
+
+		// Validate that cwd is within allowed directories
+		if !IsUnderAllowedDir(cwd) {
+			return fmt.Sprintf("Access denied: working directory %q is not in an allowed directory", cwd), true
+		}
+
+		cmd.Dir = cwd
+	}
 
 	// Support context cancellation if provided
 	if ctx, ok := args["_context"].(context.Context); ok {
@@ -57,6 +78,10 @@ func Execute(args map[string]interface{}) (string, bool) {
 	}
 
 	return string(output), false
+
+	// Truncate output for command results
+	const maxResultChars = 4000
+	return truncateOutput(string(output), maxResultChars), false
 }
 
 // isDangerousCommand checks if a command matches dangerous patterns.
@@ -208,6 +233,10 @@ var ExecuteSchema = map[string]interface{}{
 			"command": map[string]interface{}{
 				"type":        "string",
 				"description": "The command to execute",
+			},
+			"cwd": map[string]interface{}{
+				"type":        "string",
+				"description": "Working directory for the command. Defaults to the agent's current directory.",
 			},
 		},
 		"required": []string{"command"},
