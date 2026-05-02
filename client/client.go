@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	pb "github.com/aj-nt/mnemosyne/proto"
@@ -344,4 +345,94 @@ type SessionDetail struct {
 	CreatedAt    int64
 	LastActiveAt int64
 	Messages     []Message
+}
+
+// --- Todo management ---
+
+// TodoItem represents a todo task.
+type TodoItem struct {
+	ID          string
+	Content     string
+	Completed   bool
+	Priority    int32
+	SourceAgent string
+	CreatedAt   int64
+	UpdatedAt   int64
+	CompletedAt int64
+}
+
+// AddTodo creates a new todo item.
+func (c *Client) AddTodo(ctx context.Context, content string, priority int32, sourceAgent string) (*TodoItem, error) {
+	resp, err := c.api.AddTodo(ctx, &pb.AddTodoRequest{
+		Content:     content,
+		Priority:    priority,
+		SourceAgent: sourceAgent,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("AddTodo: %w", err)
+	}
+	return protoTodoToItem(resp), nil
+}
+
+// ListTodos returns todos, optionally filtering by completion status and agent.
+func (c *Client) ListTodos(ctx context.Context, includeCompleted bool, sourceAgent string) ([]TodoItem, error) {
+	stream, err := c.api.ListTodos(ctx, &pb.ListTodosRequest{
+		IncludeCompleted: includeCompleted,
+		SourceAgent:      optionalString(sourceAgent),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListTodos: %w", err)
+	}
+
+	var todos []TodoItem
+	for {
+		todo, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("ListTodos stream: %w", err)
+		}
+		todos = append(todos, *protoTodoToItem(todo))
+	}
+	return todos, nil
+}
+
+// CompleteTodo marks a todo as completed.
+func (c *Client) CompleteTodo(ctx context.Context, id string) (*TodoItem, error) {
+	resp, err := c.api.CompleteTodo(ctx, &pb.CompleteTodoRequest{Id: id})
+	if err != nil {
+		return nil, fmt.Errorf("CompleteTodo: %w", err)
+	}
+	return protoTodoToItem(resp), nil
+}
+
+// RemoveTodo removes a todo item.
+func (c *Client) RemoveTodo(ctx context.Context, id string) error {
+	_, err := c.api.RemoveTodo(ctx, &pb.RemoveTodoRequest{Id: id})
+	if err != nil {
+		return fmt.Errorf("RemoveTodo: %w", err)
+	}
+	return nil
+}
+
+func protoTodoToItem(pb *pb.TodoItem) *TodoItem {
+	return &TodoItem{
+		ID:          pb.Id,
+		Content:     pb.Content,
+		Completed:   pb.Completed,
+		Priority:    pb.Priority,
+		SourceAgent: pb.SourceAgent,
+		CreatedAt:   pb.CreatedAt,
+		UpdatedAt:   pb.UpdatedAt,
+		CompletedAt: pb.CompletedAt,
+	}
+}
+
+// optionalString returns a pointer to the string, or nil if empty.
+func optionalString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

@@ -90,6 +90,22 @@ var SchemaStmts = []string{
 
 	// --- Schema version tracking ---
 	`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)`,
+
+	// --- Todos ---
+	`CREATE TABLE IF NOT EXISTS todos (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)),
+    priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+    source_agent TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    completed_at INTEGER NOT NULL DEFAULT 0
+)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)`,
+	`CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)`,
+	`CREATE INDEX IF NOT EXISTS idx_todos_source_agent ON todos(source_agent)`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.

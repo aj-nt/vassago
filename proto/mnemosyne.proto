@@ -42,6 +42,12 @@ service Mnemosyne {
   // --- Agent Management ---
   rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
   rpc Heartbeat(AgentId) returns (Empty);
+
+  // --- Todo Management ---
+  rpc AddTodo(AddTodoRequest) returns (TodoItem);
+  rpc ListTodos(ListTodosRequest) returns (stream TodoItem);
+  rpc CompleteTodo(CompleteTodoRequest) returns (TodoItem);
+  rpc RemoveTodo(RemoveTodoRequest) returns (Empty);
 }
 
 // --- Messages ---
@@ -289,3 +295,34 @@ message HealthCheckResponse {
 }
 
 message Empty {}
+// --- Todo Service ---
+
+message TodoItem {
+  string id = 1;
+  string content = 2;
+  bool completed = 3;
+  int32 priority = 4;       // 1-5, higher = more important
+  string source_agent = 5;  // Agent that created the todo
+  int64 created_at = 6;
+  int64 updated_at = 7;
+  int64 completed_at = 8;   // 0 = not completed
+}
+
+message AddTodoRequest {
+  string content = 1;
+  int32 priority = 2;
+  string source_agent = 3;
+}
+
+message ListTodosRequest {
+  bool include_completed = 1;  // Include completed todos (default: false)
+  optional string source_agent = 2;  // Filter by agent
+}
+
+message CompleteTodoRequest {
+  string id = 1;
+}
+
+message RemoveTodoRequest {
+  string id = 1;
+}
