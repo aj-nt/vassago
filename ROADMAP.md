@@ -589,11 +589,16 @@ Goal: Send and receive messages through external platforms. This is the highest-
 
 ### 15B: Telegram Bot
 
-- [ ] Telegram Bot API adapter: long-polling or webhook
-- [ ] Same gRPC MessagingService interface (platform-agnostic)
-- [ ] Config: `telegram.token`, `telegram.allowed_chats`
-- [ ] Markdown formatting for Telegram (HTML mode)
-- [ ] Mock Telegram API tests, message round-trip tests
+- [x] Telegram Bot API adapter: long-polling via GetUpdatesChan
+- [x] Same gRPC MessagingService interface (platform-agnostic)
+- [x] Config: `telegram.token`, `telegram.allowed_chats`
+- [x] HTML formatting for Telegram messages (ParseMode=HTML)
+- [x] Bot self-message filtering
+- [x] Allowed chats filter (optional whitelist)
+- [x] Message splitting for 4096 char limit
+- [x] Mockable telegramAPI interface, 21 unit tests
+- [x] Daemon + agent config wiring
+- [x] SendMessage tool accepts 'telegram' platform
 - [ ] QA pass + Red Team pass
 
 ### 15C: iMessage (macOS)
