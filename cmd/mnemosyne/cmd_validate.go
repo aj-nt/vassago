@@ -463,16 +463,7 @@ func checkDataDirs(home string) []ValidationIssue {
 	return issues
 }
 
-// expandHome expands ~ to the user's home directory.
-func expandHome(path string) string {
-	if stringsHasPrefix(path, "~") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path[1:])
-	}
-	return path
-}
-
-// stringsHasPrefix checks if a string has the given prefix.
+// expandHome is defined in cmd_init.go
 func stringsHasPrefix(s, prefix string) bool {
 	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
