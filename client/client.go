@@ -49,6 +49,17 @@ type Config struct {
 	Address string // "unix:///path/to/socket" or "localhost:50051"
 }
 
+// NewClientFromConn creates a Client from an existing gRPC connection.
+// This is useful for testing with bufconn or other in-memory connections.
+func NewClientFromConn(conn *grpc.ClientConn) *Client {
+	return &Client{
+		conn:      conn,
+		api:       pb.NewMnemosyneClient(conn),
+		messaging: pb.NewMessagingClient(conn),
+		cron:      pb.NewCronServiceClient(conn),
+	}
+}
+
 // Connect creates a new client connection to the Mnemosyne daemon.
 func Connect(ctx context.Context, cfg Config) (*Client, error) {
 	opts := []grpc.DialOption{
