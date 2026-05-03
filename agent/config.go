@@ -152,6 +152,7 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"AddTodo": true, "ListTodos": true, "CompleteTodo": true, "RemoveTodo": true,
 			"SendMessage": true,
 			"Delegate": true,
+			"ScheduleCron": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {

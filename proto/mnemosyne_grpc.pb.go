@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: proto/mnemosyne.proto
+// source: mnemosyne.proto
 
 package proto
 
@@ -1025,7 +1025,7 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/mnemosyne.proto",
+	Metadata: "mnemosyne.proto",
 }
 
 const (
@@ -1177,5 +1177,235 @@ var AgentChat_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/mnemosyne.proto",
+	Metadata: "mnemosyne.proto",
+}
+
+const (
+	CronService_CreateCronJob_FullMethodName = "/mnemosyne.CronService/CreateCronJob"
+	CronService_ListCronJobs_FullMethodName  = "/mnemosyne.CronService/ListCronJobs"
+	CronService_UpdateCronJob_FullMethodName = "/mnemosyne.CronService/UpdateCronJob"
+	CronService_DeleteCronJob_FullMethodName = "/mnemosyne.CronService/DeleteCronJob"
+)
+
+// CronServiceClient is the client API for CronService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CronService manages scheduled recurring jobs that trigger agent actions.
+// Jobs are stored durably in the daemon and fire at their scheduled intervals.
+type CronServiceClient interface {
+	// Create a new cron job
+	CreateCronJob(ctx context.Context, in *CreateCronJobRequest, opts ...grpc.CallOption) (*CronJob, error)
+	// List cron jobs, optionally filtered by agent
+	ListCronJobs(ctx context.Context, in *ListCronJobsRequest, opts ...grpc.CallOption) (*CronJobList, error)
+	// Update an existing cron job (partial update — only set fields are changed)
+	UpdateCronJob(ctx context.Context, in *UpdateCronJobRequest, opts ...grpc.CallOption) (*CronJob, error)
+	// Delete a cron job
+	DeleteCronJob(ctx context.Context, in *DeleteCronJobRequest, opts ...grpc.CallOption) (*Empty, error)
+}
+
+type cronServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCronServiceClient(cc grpc.ClientConnInterface) CronServiceClient {
+	return &cronServiceClient{cc}
+}
+
+func (c *cronServiceClient) CreateCronJob(ctx context.Context, in *CreateCronJobRequest, opts ...grpc.CallOption) (*CronJob, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CronJob)
+	err := c.cc.Invoke(ctx, CronService_CreateCronJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronServiceClient) ListCronJobs(ctx context.Context, in *ListCronJobsRequest, opts ...grpc.CallOption) (*CronJobList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CronJobList)
+	err := c.cc.Invoke(ctx, CronService_ListCronJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronServiceClient) UpdateCronJob(ctx context.Context, in *UpdateCronJobRequest, opts ...grpc.CallOption) (*CronJob, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CronJob)
+	err := c.cc.Invoke(ctx, CronService_UpdateCronJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronServiceClient) DeleteCronJob(ctx context.Context, in *DeleteCronJobRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, CronService_DeleteCronJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CronServiceServer is the server API for CronService service.
+// All implementations must embed UnimplementedCronServiceServer
+// for forward compatibility.
+//
+// CronService manages scheduled recurring jobs that trigger agent actions.
+// Jobs are stored durably in the daemon and fire at their scheduled intervals.
+type CronServiceServer interface {
+	// Create a new cron job
+	CreateCronJob(context.Context, *CreateCronJobRequest) (*CronJob, error)
+	// List cron jobs, optionally filtered by agent
+	ListCronJobs(context.Context, *ListCronJobsRequest) (*CronJobList, error)
+	// Update an existing cron job (partial update — only set fields are changed)
+	UpdateCronJob(context.Context, *UpdateCronJobRequest) (*CronJob, error)
+	// Delete a cron job
+	DeleteCronJob(context.Context, *DeleteCronJobRequest) (*Empty, error)
+	mustEmbedUnimplementedCronServiceServer()
+}
+
+// UnimplementedCronServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCronServiceServer struct{}
+
+func (UnimplementedCronServiceServer) CreateCronJob(context.Context, *CreateCronJobRequest) (*CronJob, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCronJob not implemented")
+}
+func (UnimplementedCronServiceServer) ListCronJobs(context.Context, *ListCronJobsRequest) (*CronJobList, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCronJobs not implemented")
+}
+func (UnimplementedCronServiceServer) UpdateCronJob(context.Context, *UpdateCronJobRequest) (*CronJob, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCronJob not implemented")
+}
+func (UnimplementedCronServiceServer) DeleteCronJob(context.Context, *DeleteCronJobRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCronJob not implemented")
+}
+func (UnimplementedCronServiceServer) mustEmbedUnimplementedCronServiceServer() {}
+func (UnimplementedCronServiceServer) testEmbeddedByValue()                     {}
+
+// UnsafeCronServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CronServiceServer will
+// result in compilation errors.
+type UnsafeCronServiceServer interface {
+	mustEmbedUnimplementedCronServiceServer()
+}
+
+func RegisterCronServiceServer(s grpc.ServiceRegistrar, srv CronServiceServer) {
+	// If the following call panics, it indicates UnimplementedCronServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CronService_ServiceDesc, srv)
+}
+
+func _CronService_CreateCronJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCronJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServiceServer).CreateCronJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CronService_CreateCronJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServiceServer).CreateCronJob(ctx, req.(*CreateCronJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CronService_ListCronJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCronJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServiceServer).ListCronJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CronService_ListCronJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServiceServer).ListCronJobs(ctx, req.(*ListCronJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CronService_UpdateCronJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCronJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServiceServer).UpdateCronJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CronService_UpdateCronJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServiceServer).UpdateCronJob(ctx, req.(*UpdateCronJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CronService_DeleteCronJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCronJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServiceServer).DeleteCronJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CronService_DeleteCronJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServiceServer).DeleteCronJob(ctx, req.(*DeleteCronJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CronService_ServiceDesc is the grpc.ServiceDesc for CronService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CronService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "mnemosyne.CronService",
+	HandlerType: (*CronServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateCronJob",
+			Handler:    _CronService_CreateCronJob_Handler,
+		},
+		{
+			MethodName: "ListCronJobs",
+			Handler:    _CronService_ListCronJobs_Handler,
+		},
+		{
+			MethodName: "UpdateCronJob",
+			Handler:    _CronService_UpdateCronJob_Handler,
+		},
+		{
+			MethodName: "DeleteCronJob",
+			Handler:    _CronService_DeleteCronJob_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mnemosyne.proto",
 }
