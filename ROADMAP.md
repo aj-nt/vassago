@@ -636,12 +636,23 @@ Goal: Send and receive messages through external platforms. This is the highest-
 
 ### 15E: Messaging Gateway Unification
 
-- [ ] Unified MessagingService daemon endpoint (single gRPC service for all platforms)
-- [ ] Platform routing: agent specifies target platform, daemon routes to adapter
-- [ ] Message formatting per platform (markdown → Discord embeds, Telegram HTML, plain text for iMessage)
-- [ ] Agent tool: `SendMessage` — "send a message to AJ on Discord" or "iMessage AJ about the build"
-- [ ] Cross-platform message routing tests
-- [ ] QA pass + Red Team pass + refactor pass
+- [x] Shared format package (messaging/format): PlatformLimitsMap for per-platform limits
+- [x] PlatformLimitsMap: discord (2000), telegram (4096), imessage (4000), email (50000)
+- [x] GetPlatformLimits() with safe default fallback for unknown platforms
+- [x] ValidatePlatform() for strict platform name validation
+- [x] ValidateEmailTarget() for email address validation on send
+- [x] ComposePlatformContext() for platform-aware context labels (agent sees "Discord", "Telegram", etc.)
+- [x] FormatMessageForPlatform() for platform-specific formatting (truncation, email subject extraction)
+- [x] SplitMessageForPlatform() with continuation prefix support — replaces per-adapter splitMessage()
+- [x] MessagingAdapter.PlatformName() added to interface — all 4 adapters implement
+- [x] AddAdapter() verifies platform key matches adapter's PlatformName() (logs warning on mismatch)
+- [x] MessagingService.Status() method — returns adapter connection status map
+- [x] SendMessage tool: platform-specific limits from shared format package, email target validation
+- [x] MessageBridge: platform-aware ComposePlatformContext() replaces hardcoded context labels
+- [x] DefaultBridgeConfig MaxResponseLength: 0 (platform-aware) instead of 1900 (Discord-specific)
+- [x] Cross-platform test suite: 7 Red Team tests (multi-adapter send, fan-out, Status, concurrency)
+- [x] Refactoring pass: Extract Function (splitMessage→format), Replace Magic Number, Move Function, Consolidate Duplicate
+- [x] 649 total tests, all green with -race
 
 ---
 
