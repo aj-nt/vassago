@@ -68,7 +68,7 @@ func main() {
 		Registry: registry,
 		Router:   nil, // will be set below if routing is configured
 	}
-	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, mnemo, cfg.Agent.ID, subRunner)
+	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, &cfg.Vision, &cfg.ImageGen, mnemo, cfg.Agent.ID, subRunner, registry)
 
 	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
@@ -261,7 +261,7 @@ func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 }
 
 // setupTools creates the tool registry and registers tools per the config's enabled list.
-func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner) *tools.ToolRegistry {
+func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, visionCfg *agent.VisionSection, imageGenCfg *agent.ImageGenSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner, providerRegistry *provider.ProviderRegistry) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.Enabled
 
@@ -285,6 +285,22 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, b
 				Enabled:  browserCfg.Enabled,
 				Headless: browserCfg.Headless,
 				CacheDir: browserCfg.CacheDir,
+			})
+		}
+		if visionCfg.Enabled {
+			tools.RegisterVisionTools(toolReg, tools.VisionConfig{
+				Enabled:      visionCfg.Enabled,
+				MaxImageSize: visionCfg.MaxImageSize,
+			}, providerRegistry)
+		}
+		if imageGenCfg.Enabled {
+			tools.RegisterImageGenTools(toolReg, tools.ImageGenConfig{
+				Enabled:         imageGenCfg.Enabled,
+				Provider:       imageGenCfg.Provider,
+				Model:          imageGenCfg.Model,
+				APIKeyEnv:      imageGenCfg.APIKeyEnv,
+				MaxPromptLength: imageGenCfg.MaxPromptLength,
+				CacheDir:       imageGenCfg.CacheDir,
 			})
 		}
 		return toolReg
@@ -320,6 +336,22 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, b
 			Enabled:  browserCfg.Enabled,
 			Headless: browserCfg.Headless,
 			CacheDir: browserCfg.CacheDir,
+		})
+	}
+	if anyEnabled(enabled, "AnalyzeImage") && visionCfg.Enabled {
+		tools.RegisterVisionTools(toolReg, tools.VisionConfig{
+			Enabled:      visionCfg.Enabled,
+			MaxImageSize: visionCfg.MaxImageSize,
+		}, providerRegistry)
+	}
+	if anyEnabled(enabled, "GenerateImage") && imageGenCfg.Enabled {
+		tools.RegisterImageGenTools(toolReg, tools.ImageGenConfig{
+			Enabled:         imageGenCfg.Enabled,
+			Provider:       imageGenCfg.Provider,
+			Model:          imageGenCfg.Model,
+			APIKeyEnv:      imageGenCfg.APIKeyEnv,
+			MaxPromptLength: imageGenCfg.MaxPromptLength,
+			CacheDir:       imageGenCfg.CacheDir,
 		})
 	}
 	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {

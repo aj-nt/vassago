@@ -21,6 +21,8 @@ type AgentConfig struct {
 	Browser          BrowserSection    `yaml:"browser"`
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
 	Messaging        MessagingSection  `yaml:"messaging"`
+	Vision           VisionSection     `yaml:"vision"`
+	ImageGen         ImageGenSection    `yaml:"image_gen"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -102,6 +104,22 @@ type BrowserSection struct {
 	CacheDir string `yaml:"cache_dir"` // Directory for screenshots (default: ~/.mnemosyne/screenshots)
 }
 
+// VisionSection configures image analysis.
+type VisionSection struct {
+	Enabled      bool `yaml:"enabled"`
+	MaxImageSize int  `yaml:"max_image_size"` // in bytes, default 20MB
+}
+
+// ImageGenSection configures image generation.
+type ImageGenSection struct {
+	Enabled         bool   `yaml:"enabled"`
+	Provider        string `yaml:"provider"`          // openai or stability
+	Model           string `yaml:"model"`             // default: dall-e-3
+	APIKeyEnv       string `yaml:"api_key_env"`        // env var for API key
+	MaxPromptLength int    `yaml:"max_prompt_length"`  // default: 1000
+	CacheDir        string `yaml:"cache_dir"`           // directory for generated images
+}
+
 // DelegationSection configures sub-agent spawning.
 type DelegationSection struct {
 	Enabled  bool `yaml:"enabled"`
@@ -152,6 +170,25 @@ func LoadConfig(path string) (*AgentConfig, error) {
 		cfg.Browser.Headless = true // default to headless
 	}
 
+	// Vision defaults
+	if cfg.Vision.MaxImageSize == 0 {
+		cfg.Vision.MaxImageSize = 20 * 1024 * 1024 // 20MB
+	}
+
+	// Image generation defaults
+	if cfg.ImageGen.MaxPromptLength == 0 {
+		cfg.ImageGen.MaxPromptLength = 1000
+	}
+	if cfg.ImageGen.Provider == "" {
+		cfg.ImageGen.Provider = "openai"
+	}
+	if cfg.ImageGen.Model == "" {
+		cfg.ImageGen.Model = "dall-e-3"
+	}
+	if cfg.ImageGen.APIKeyEnv == "" {
+		cfg.ImageGen.APIKeyEnv = "OPENAI_API_KEY"
+	}
+
 	// Validate tool names in tools.enabled (#16)
 	if len(cfg.Tools.Enabled) > 0 {
 		knownTools := map[string]bool{
@@ -166,6 +203,8 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"Delegate": true,
 			"ScheduleCron": true,
 			"Browse": true,
+			"AnalyzeImage": true,
+			"GenerateImage": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {
@@ -262,6 +301,25 @@ func (c *AgentConfig) Validate() error {
 	// Scheduler section validation
 	if c.Scheduler.Interval < 60 || c.Scheduler.Interval > 86400 {
 		return fmt.Errorf("scheduler.interval must be between 60 and 86400 seconds, got %d", c.Scheduler.Interval)
+	}
+
+	// Vision section validation
+	if c.Vision.Enabled && c.Vision.MaxImageSize < 1024*1024 {
+		return fmt.Errorf("vision.max_image_size must be at least 1MB, got %d", c.Vision.MaxImageSize)
+	}
+	if c.Vision.MaxImageSize > 100*1024*1024 {
+		return fmt.Errorf("vision.max_image_size must be at most 100MB, got %d", c.Vision.MaxImageSize)
+	}
+
+	// ImageGen section validation
+	if c.ImageGen.Enabled {
+		validProviders := map[string]bool{"openai": true, "stability": true}
+		if !validProviders[c.ImageGen.Provider] {
+			return fmt.Errorf("image_gen.provider must be one of: openai, stability, got %s", c.ImageGen.Provider)
+		}
+		if c.ImageGen.MaxPromptLength < 100 || c.ImageGen.MaxPromptLength > 4000 {
+			return fmt.Errorf("image_gen.max_prompt_length must be between 100 and 4000, got %d", c.ImageGen.MaxPromptLength)
+		}
 	}
 
 	return nil

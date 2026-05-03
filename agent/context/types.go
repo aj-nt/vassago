@@ -35,6 +35,14 @@ type PreparedRequest struct {
 	Messages     []Message
 	Tools        []ToolDefinition
 	APIKwargs    map[string]interface{}
+	ImageContent *ImageContent
+}
+
+// ImageContent represents image data for vision-capable providers
+type ImageContent struct {
+	Data     string
+	MimeType string
+	Detail   string
 }
 
 // ToolDefinition describes a tool the LLM can call.
