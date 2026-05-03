@@ -17,6 +17,7 @@ type Client struct {
     conn      *grpc.ClientConn
     api       pb.MnemosyneClient
     messaging pb.MessagingClient
+    cron      pb.CronServiceClient
 }
 
 // RegisterAgent registers the agent with the daemon.
@@ -70,7 +71,7 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("health check: %w", err)
 	}
 
-	return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn)}, nil
+    return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn), cron: pb.NewCronServiceClient(conn)}, nil
 }
 
 // Close closes the connection to the daemon.
@@ -448,4 +449,95 @@ func optionalString(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// optionalBool returns a pointer to the bool.
+func optionalBool(b bool) *bool {
+	return &b
+}
+
+// --- Cron job management ---
+
+// CronJobInfo is a client-side representation of a cron job.
+type CronJobInfo struct {
+	ID         string
+	Name       string
+	Schedule   string
+	AgentID    string
+	Message    string
+	Enabled    bool
+	CreatedAt  int64
+	UpdatedAt  int64
+	LastFireAt int64
+	NextFireAt int64
+}
+
+// CreateCronJob creates a new cron job.
+func (c *Client) CreateCronJob(ctx context.Context, name, schedule, agentID, message string, enabled *bool) (*CronJobInfo, error) {
+	resp, err := c.cron.CreateCronJob(ctx, &pb.CreateCronJobRequest{
+		Name:     name,
+		Schedule: schedule,
+		AgentId:  agentID,
+		Message:  message,
+		Enabled:  enabled,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("CreateCronJob: %w", err)
+	}
+	return protoCronJobToInfo(resp), nil
+}
+
+// ListCronJobs returns cron jobs, optionally filtered by agent.
+func (c *Client) ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error) {
+	resp, err := c.cron.ListCronJobs(ctx, &pb.ListCronJobsRequest{
+		AgentId:         agentID,
+		IncludeDisabled: includeDisabled,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListCronJobs: %w", err)
+	}
+	result := make([]CronJobInfo, len(resp.Jobs))
+	for i, job := range resp.Jobs {
+		result[i] = *protoCronJobToInfo(job)
+	}
+	return result, nil
+}
+
+// UpdateCronJob updates an existing cron job.
+func (c *Client) UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error) {
+	resp, err := c.cron.UpdateCronJob(ctx, &pb.UpdateCronJobRequest{
+		Id:       id,
+		Name:     name,
+		Schedule: schedule,
+		Message:  message,
+		Enabled:  enabled,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("UpdateCronJob: %w", err)
+	}
+	return protoCronJobToInfo(resp), nil
+}
+
+// DeleteCronJob deletes a cron job.
+func (c *Client) DeleteCronJob(ctx context.Context, id string) error {
+	_, err := c.cron.DeleteCronJob(ctx, &pb.DeleteCronJobRequest{Id: id})
+	if err != nil {
+		return fmt.Errorf("DeleteCronJob: %w", err)
+	}
+	return nil
+}
+
+func protoCronJobToInfo(pb *pb.CronJob) *CronJobInfo {
+	return &CronJobInfo{
+		ID:         pb.Id,
+		Name:       pb.Name,
+		Schedule:   pb.Schedule,
+		AgentID:    pb.AgentId,
+		Message:    pb.Message,
+		Enabled:    pb.Enabled,
+		CreatedAt:  pb.CreatedAt,
+		UpdatedAt:  pb.UpdatedAt,
+		LastFireAt: pb.LastFireAt,
+		NextFireAt: pb.NextFireAt,
+	}
 }
