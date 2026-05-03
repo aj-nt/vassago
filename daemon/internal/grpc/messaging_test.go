@@ -22,6 +22,14 @@ type mockAdapter struct {
 	listenFunc    func(ctx context.Context) (<-chan *pb.MessageEvent, error)
 	closeFunc     func(ctx context.Context) error
 	connectFunc   func(ctx context.Context) error
+	platformName  string
+}
+
+func (m *mockAdapter) PlatformName() string {
+	if m.platformName != "" {
+		return m.platformName
+	}
+	return "mock"
 }
 
 func (m *mockAdapter) Send(ctx context.Context, target, message string) (string, error) {
