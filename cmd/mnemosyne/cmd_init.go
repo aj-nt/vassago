@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// cmdInit handles "mnemosyne init" — first-run setup.
+// cmdInit handles "mnemosyne init" — first-run interactive setup.
 func cmdInit(args []string) {
 	home, _ := os.UserHomeDir()
 	defaultDir := filepath.Join(home, ".mnemosyne")
@@ -20,6 +20,7 @@ func cmdInit(args []string) {
 	// Parse flags
 	dir := defaultDir
 	force := false
+	nonInteractive := false
 	for i, arg := range args {
 		switch arg {
 		case "--dir":
@@ -28,34 +29,54 @@ func cmdInit(args []string) {
 			}
 		case "--force", "-f":
 			force = true
+		case "--non-interactive", "-y":
+			nonInteractive = true
 		case "--help", "-h":
 			fmt.Println(`Usage: mnemosyne init [options]
 
 Options:
-  --dir PATH    Data directory (default: ~/.mnemosyne)
-  --force, -f   Overwrite existing configs (default: skip)
-  --help, -h    Show this help
+  --dir PATH           Data directory (default: ~/.mnemosyne)
+  --force, -f          Overwrite existing configs (default: skip)
+  --non-interactive, -y  Accept all defaults, no prompts
+  --help, -h           Show this help
 
 Description:
-  Sets up Mnemosyne for first use by creating:
-  - Data directory and subdirectories
-  - Daemon configuration (config.yaml)
-  - Agent configuration (agent.yaml)
-  - Default personality file
-  - macOS LaunchAgent plists (if applicable)
+  Sets up Mnemosyne for first use. Walks through:
+  1. Data directory selection
+  2. Provider & API key configuration
+  3. Model selection
+  4. Tool enable/disable
+  5. Personality selection
 
-  Interactive: If configs don't exist, walks through provider and
-  API key setup. Use --force to regenerate configs.`)
+  Use --non-interactive to accept all defaults without prompts.
+  Use --force to regenerate configs that already exist.`)
 			return
 		}
 	}
+
+	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("╭─────────────────────────────────────────────╮")
 	fmt.Println("│  Mnemosyne First-Run Setup                  │")
 	fmt.Println("╰─────────────────────────────────────────────╯")
 	fmt.Println()
 
-	// 1. Create directories
+	// ========================================
+	// Step 1: Data Directory
+	// ========================================
+	if !nonInteractive && !force {
+		fmt.Printf("Data directory [%s]: ", dir)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input != "" {
+			dir = input
+		}
+		// Expand ~
+		dir = expandHome(dir)
+		fmt.Println()
+	}
+
+	// Create directories
 	subdirs := []string{
 		"screenshots",
 		"agents",
@@ -80,7 +101,7 @@ Description:
 	}
 	fmt.Println()
 
-	// 2. Check for existing configs
+	// Check for existing configs
 	daemonConfigPath := filepath.Join(dir, "config.yaml")
 	agentConfigPath := filepath.Join(dir, "agent.yaml")
 	personalityPath := filepath.Join(dir, "personalities", "bartimaeus.md")
@@ -89,10 +110,12 @@ Description:
 	agentConfigExists := fileExists(agentConfigPath)
 	personalityExists := fileExists(personalityPath)
 
-	// 3. Interactive provider setup
-	reader := bufio.NewReader(os.Stdin)
+	// ========================================
+	// Step 2: Provider Detection
+	// ========================================
+	fmt.Println("══ Step 1: Provider Setup ══")
+	fmt.Println()
 
-	// Detect available providers
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	ollamaRunning := checkOllama()
@@ -122,32 +145,196 @@ Description:
 		primaryModel = "glm-5.1:cloud"
 	}
 
-	if !force {
-		fmt.Print("Primary provider [" + primaryProvider + "]: ")
+	if !nonInteractive {
+		fmt.Println("Select primary provider:")
+		fmt.Println("  1. anthropic  (Claude — recommended)")
+		fmt.Println("  2. openai     (GPT-4o, Ollama)")
+		fmt.Printf("  Choice [1]: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		switch input {
+		case "2", "openai":
+			primaryProvider = "openai"
+			primaryModel = "gpt-4o-mini"
+			if ollamaRunning {
+				primaryModel = "glm-5.1:cloud"
+			}
+		default:
+			primaryProvider = "anthropic"
+			primaryModel = "claude-sonnet-4-6"
+		}
+		fmt.Println()
+	}
+
+	// ========================================
+	// Step 3: API Key Entry (if missing)
+	// ========================================
+	if !nonInteractive && anthropicKey == "" && primaryProvider == "anthropic" {
+		fmt.Println("No Anthropic API key detected.")
+		fmt.Println("Get one at: https://console.anthropic.com/settings/keys")
+		fmt.Print("Enter Anthropic API key (or press Enter to skip): ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input != "" {
-			primaryProvider = input
-			if input == "anthropic" {
-				primaryModel = "claude-sonnet-4-6"
-			} else if input == "openai" {
-				primaryModel = "gpt-4o-mini"
-			}
+			anthropicKey = input
+			fmt.Println("  ✓ API key saved for this session")
+			fmt.Println("  ⚠ To persist, add to your shell profile:")
+			fmt.Println("    export ANTHROPIC_API_KEY=" + maskKey(input))
+		} else {
+			fmt.Println("  ⊘ Skipped — agent will not be able to use Anthropic")
 		}
-		fmt.Print("Primary model [" + primaryModel + "]: ")
-		input, _ = reader.ReadString('\n')
+		fmt.Println()
+	}
+
+	if !nonInteractive && openaiKey == "" && primaryProvider == "openai" && !ollamaRunning {
+		fmt.Println("No OpenAI API key detected.")
+		fmt.Print("Enter OpenAI API key (or press Enter to skip): ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input != "" {
+			openaiKey = input
+			fmt.Println("  ✓ API key saved for this session")
+		} else {
+			fmt.Println("  ⊘ Skipped — set OPENAI_API_KEY to use OpenAI")
+		}
+		fmt.Println()
+	}
+
+	// Model selection
+	if !nonInteractive {
+		fmt.Printf("Primary model [%s]: ", primaryModel)
+		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input != "" {
 			primaryModel = input
 		}
+		fmt.Println()
 	}
 
-	// 4. Write daemon config
-	if daemonConfigExists && !force {
+	// ========================================
+	// Step 4: Tool Selection
+	// ========================================
+	fmt.Println("══ Step 2: Tool Selection ══")
+	fmt.Println()
+
+	// Default tool groups
+	type toolGroup struct {
+		name        string
+		description string
+		defaultOn   bool
+	}
+
+	groups := []toolGroup{
+		{"memory", "Memory tools (add, search, replace, remove, consolidate, hot block)", true},
+		{"files", "File tools (read, search, write)", true},
+		{"terminal", "Terminal execution", true},
+		{"web", "Web tools (search, fetch URL)", true},
+		{"sessions", "Session management (search, list, get)", true},
+		{"todos", "Todo management (add, list, complete, remove)", true},
+		{"cron", "Cron scheduling", true},
+		{"messaging", "Messaging (send to Discord, Telegram, etc.)", true},
+		{"delegation", "Sub-agent delegation", true},
+		{"browse", "Browser automation (requires ChromeDP)", false},
+		{"vision", "Image analysis (requires vision-capable model)", false},
+		{"image_gen", "Image generation (requires DALL-E API key)", false},
+		{"multi_agent", "Multi-agent registry and discovery", true},
+	}
+
+	enabledTools := []string{}
+	if nonInteractive {
+		// Accept defaults
+		for _, g := range groups {
+			if g.defaultOn {
+				enabledTools = append(enabledTools, g.name)
+			}
+		}
+		fmt.Println("Using default tool selection:")
+	} else {
+		fmt.Println("Select tools to enable (y/n, Enter = default):")
 		fmt.Println()
+	}
+
+	for _, g := range groups {
+		if nonInteractive {
+			status := "enabled"
+			if !g.defaultOn {
+				status = "disabled"
+			}
+			fmt.Printf("  %-12s %s (%s)\n", g.name, g.description, status)
+		} else {
+			prompt := "n"
+			if g.defaultOn {
+				prompt = "y"
+			}
+			fmt.Printf("  %-12s %s [%s]: ", g.name, g.description, prompt)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(strings.ToLower(input))
+
+			enable := g.defaultOn
+			switch input {
+			case "y", "yes":
+				enable = true
+			case "n", "no":
+				enable = false
+			}
+			if enable {
+				enabledTools = append(enabledTools, g.name)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Map tool groups to individual tool names
+	toolNames := groupsToToolNames(enabledTools)
+
+	// ========================================
+	// Step 5: Personality
+	// ========================================
+	fmt.Println("══ Step 3: Personality ══")
+	fmt.Println()
+
+	personalityChoice := "bartimaeus"
+	personalityContent := defaultPersonality
+
+	if !nonInteractive {
+		fmt.Println("Select personality:")
+		fmt.Println("  1. bartimaeus  (direct, dry-witted — recommended)")
+		fmt.Println("  2. custom     (write your own)")
+		fmt.Printf("  Choice [1]: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "2" || input == "custom" {
+			personalityChoice = "custom"
+			fmt.Println()
+			fmt.Println("Enter personality description (multi-line, end with empty line):")
+			var lines []string
+			for {
+				line, _ := reader.ReadString('\n')
+				line = strings.TrimSpace(line)
+				if line == "" && len(lines) > 0 {
+					break
+				}
+				lines = append(lines, line)
+			}
+			if len(lines) > 0 {
+				personalityContent = strings.Join(lines, "\n")
+			}
+		}
+		fmt.Println()
+	}
+
+	if personalityChoice == "bartimaeus" {
+		personalityPath = filepath.Join(dir, "personalities", "bartimaeus.md")
+	} else {
+		personalityPath = filepath.Join(dir, "personalities", "custom.md")
+	}
+
+	// ========================================
+	// Step 6: Write Daemon Config
+	// ========================================
+	if daemonConfigExists && !force {
 		fmt.Printf("⊙ Daemon config already exists at %s (use --force to overwrite)\n", daemonConfigPath)
 	} else {
-		fmt.Println()
 		fmt.Printf("Writing daemon config to %s...\n", daemonConfigPath)
 		daemonCfg := generateDaemonConfig(dir)
 		data, err := yaml.Marshal(daemonCfg)
@@ -163,12 +350,25 @@ Description:
 		fmt.Println("  ✓ Daemon config written")
 	}
 
-	// 5. Write agent config
+	// ========================================
+	// Step 7: Write Agent Config
+	// ========================================
 	if agentConfigExists && !force {
 		fmt.Printf("⊙ Agent config already exists at %s (use --force to overwrite)\n", agentConfigPath)
 	} else {
 		fmt.Printf("Writing agent config to %s...\n", agentConfigPath)
 		agentCfg := generateAgentConfig(dir, primaryProvider, primaryModel)
+		// Override tools with user's selection
+		agentCfg.Tools.Enabled = toolNames
+		// Set approval_required based on enabled tools
+		approvalRequired := []string{}
+		for _, t := range toolNames {
+			if t == "FileWrite" || t == "Execute" {
+				approvalRequired = append(approvalRequired, t)
+			}
+		}
+		agentCfg.Tools.ApprovalRequired = approvalRequired
+
 		data, err := yaml.Marshal(agentCfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error marshaling agent config: %v\n", err)
@@ -182,24 +382,30 @@ Description:
 		fmt.Println("  ✓ Agent config written")
 	}
 
-	// 6. Write personality file
+	// ========================================
+	// Step 8: Write Personality
+	// ========================================
 	if personalityExists && !force {
 		fmt.Printf("⊙ Personality file already exists at %s (use --force to overwrite)\n", personalityPath)
 	} else {
 		fmt.Printf("Writing personality file to %s...\n", personalityPath)
-		if err := os.WriteFile(personalityPath, []byte(defaultPersonality), 0644); err != nil {
+		if err := os.WriteFile(personalityPath, []byte(personalityContent), 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing personality: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Println("  ✓ Personality written")
 	}
 
-	// 7. Create launchd plists on macOS
+	// ========================================
+	// Step 9: launchd plists
+	// ========================================
 	if isMacOS() {
 		plists("mnemosyne", dir)
 	}
 
-	// 8. Summary
+	// ========================================
+	// Summary
+	// ========================================
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
 	fmt.Println("  Mnemosyne Setup Complete")
@@ -210,24 +416,122 @@ Description:
 	fmt.Printf("  Agent config:    %s\n", agentConfigPath)
 	fmt.Printf("  Personality:     %s\n", personalityPath)
 	fmt.Printf("  Provider:        %s (%s)\n", primaryProvider, primaryModel)
+	fmt.Printf("  Tools:           %s\n", strings.Join(enabledTools, ", "))
+	if anthropicKey != "" || openaiKey != "" {
+		fmt.Println("  API keys:        detected in environment")
+	} else {
+		fmt.Println("  API keys:       none detected — set env vars before starting")
+	}
 	fmt.Println()
 	fmt.Println("  Next steps:")
-	fmt.Println("    1. Edit configs if needed:  mnemosyne config edit")
-	fmt.Println("    2. Validate configs:        mnemosyne config validate")
-	fmt.Println("    3. Start services:          mnemosyne start")
-	fmt.Println("    4. Verify health:           mnemosyne status")
-	fmt.Println("    5. Start chatting:          mnemosyne chat")
+	fmt.Println("    1. Validate configs:        mnemosyne config validate")
+	fmt.Println("    2. Start services:        mnemosyne start")
+	fmt.Println("    3. Verify health:         mnemosyne health")
+	fmt.Println("    4. Start chatting:        mnemosyne chat")
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
+
+	// If API keys were entered interactively, remind about persistence
+	if !nonInteractive && (anthropicKey != "" && os.Getenv("ANTHROPIC_API_KEY") == "") {
+		fmt.Println()
+		fmt.Println("  ⚠  API keys were entered for this session only.")
+		fmt.Println("     Add them to your shell profile to persist:")
+		if anthropicKey != "" && os.Getenv("ANTHROPIC_API_KEY") == "" {
+			fmt.Printf("     export ANTHROPIC_API_KEY=\"%s\"\n", maskKey(anthropicKey))
+		}
+	}
 }
 
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+// groupsToToolNames maps enabled tool groups to individual tool names.
+func groupsToToolNames(groups []string) []string {
+	enabled := map[string]bool{}
+	for _, g := range groups {
+		enabled[g] = true
+	}
+
+	var names []string
+
+	// Memory tools
+	if enabled["memory"] {
+		names = append(names,
+			"AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory",
+			"Consolidate", "GetHotBlock",
+		)
+	}
+
+	// File tools
+	if enabled["files"] {
+		names = append(names, "FileRead", "FileSearch", "FileWrite")
+	}
+
+	// Terminal
+	if enabled["terminal"] {
+		names = append(names, "Execute")
+	}
+
+	// Web tools
+	if enabled["web"] {
+		names = append(names, "SearchWeb", "FetchURL")
+	}
+
+	// Session tools
+	if enabled["sessions"] {
+		names = append(names, "SearchSessions", "ListSessions", "GetSession")
+	}
+
+	// Todo tools
+	if enabled["todos"] {
+		names = append(names, "AddTodo", "ListTodos", "CompleteTodo", "RemoveTodo")
+	}
+
+	// Cron tools
+	if enabled["cron"] {
+		names = append(names, "ScheduleCron")
+	}
+
+	// Messaging tools
+	if enabled["messaging"] {
+		names = append(names, "SendMessage")
+	}
+
+	// Delegation tools
+	if enabled["delegation"] {
+		names = append(names, "Delegate")
+	}
+
+	// Browser tools
+	if enabled["browse"] {
+		names = append(names, "Browse")
+	}
+
+	// Vision tools
+	if enabled["vision"] {
+		names = append(names, "AnalyzeImage")
+	}
+
+	// Image gen tools
+	if enabled["image_gen"] {
+		names = append(names, "GenerateImage")
+	}
+
+	// Multi-agent tools
+	if enabled["multi_agent"] {
+		names = append(names, "ListAgents", "RegisterAgent", "FindAgent")
+	}
+
+	return names
 }
 
+// maskKey returns a masked version of an API key for display.
+func maskKey(key string) string {
+	if len(key) <= 8 {
+		return "****"
+	}
+	return key[:4] + strings.Repeat("*", len(key)-8) + key[len(key)-4:]
+}
+
+// checkOllama tries to connect to Ollama on localhost:11434.
 func checkOllama() bool {
-	// Try to connect to Ollama on localhost:11434
 	conn, err := net.DialTimeout("tcp", "localhost:11434", 2*time.Second)
 	if err != nil {
 		return false
@@ -236,341 +540,11 @@ func checkOllama() bool {
 	return true
 }
 
-
-func plists(service, dir string) {
-	// Create launchd plists on macOS
-	home, _ := os.UserHomeDir()
-	launchdDir := filepath.Join(home, "Library", "LaunchAgents")
-
-	daemonBin := filepath.Join(home, "bin", "mnemosyne")
-	agentBin := filepath.Join(home, "bin", "mnemosyne")
-
-	// Daemon plist
-	daemonPlist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyMap-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.mnemosyne.daemon</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>%s</string>
-        <string>daemon</string>
-        <string>--config</string>
-        <string>%s/config.yaml</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>%s/daemon.log</string>
-    <key>StandardErrorPath</key>
-    <string>%s/daemon.err</string>
-</dict>
-</plist>`, daemonBin, dir, dir, dir)
-
-	// Agent plist
-	agentPlist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyMap-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.mnemosyne.agent</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>%s</string>
-        <string>agent</string>
-        <string>--serve</string>
-        <string>--config</string>
-        <string>%s/agent.yaml</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>%s/agent.log</string>
-    <key>StandardErrorPath</key>
-    <string>%s/agent.err</string>
-</dict>
-</plist>`, agentBin, dir, dir, dir)
-
-	os.MkdirAll(launchdDir, 0755)
-
-	fmt.Println("Creating launchd plists...")
-	if err := os.WriteFile(filepath.Join(launchdDir, "com.mnemosyne.daemon.plist"), []byte(daemonPlist), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "  ✗ Error writing daemon plist: %v\n", err)
-	} else {
-		fmt.Println("  ✓ Daemon plist written")
+// expandHome expands ~ to the user's home directory.
+func expandHome(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path[1:])
 	}
-	if err := os.WriteFile(filepath.Join(launchdDir, "com.mnemosyne.agent.plist"), []byte(agentPlist), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "  ✗ Error writing agent plist: %v\n", err)
-	} else {
-		fmt.Println("  ✓ Agent plist written")
-	}
+	return path
 }
-
-// DaemonConfig mirrors the daemon config structure for YAML generation.
-type DaemonConfig struct {
-	Daemon       DaemonDaemonConfig `yaml:"daemon"`
-	Database     DaemonDBConfig     `yaml:"database"`
-	HotBlock     DaemonHotBlockConfig `yaml:"hot_block"`
-	Consolidation DaemonConsolidationConfig `yaml:"consolidation"`
-	Logging      DaemonLoggingConfig `yaml:"logging"`
-}
-
-type DaemonDaemonConfig struct {
-	Socket string      `yaml:"socket"`
-	TCP    string      `yaml:"tcp"`
-	TLS    DaemonTLSConfig `yaml:"tls"`
-}
-
-type DaemonTLSConfig struct {
-	Cert string `yaml:"cert"`
-	Key  string `yaml:"key"`
-}
-
-type DaemonDBConfig struct {
-	Path        string `yaml:"path"`
-	WALMode     bool   `yaml:"wal_mode"`
-	BusyTimeout int    `yaml:"busy_timeout"`
-}
-
-type DaemonHotBlockConfig struct {
-	MemoryCharLimit int      `yaml:"memory_char_limit"`
-	UserCharLimit   int      `yaml:"user_char_limit"`
-	MinPriority     int      `yaml:"min_priority"`
-	BoostCategories []string `yaml:"boost_categories"`
-	SuppressCategories []string `yaml:"suppress_categories"`
-}
-
-type DaemonConsolidationConfig struct {
-	MaxIdleDays     int `yaml:"max_idle_days"`
-	MaxIdlePriority1 int `yaml:"max_idle_priority_1"`
-	MaxIdlePriority2 int `yaml:"max_idle_priority_2"`
-}
-
-type DaemonLoggingConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
-}
-
-func generateDaemonConfig(dir string) *DaemonConfig {
-	return &DaemonConfig{
-		Daemon: DaemonDaemonConfig{
-			Socket: filepath.Join(dir, "mnemosyne.sock"),
-			TCP:    "localhost:50051",
-			TLS:    DaemonTLSConfig{Cert: "", Key: ""},
-		},
-		Database: DaemonDBConfig{
-			Path:        filepath.Join(dir, "mnemosyne.db"),
-			WALMode:     true,
-			BusyTimeout: 5000,
-		},
-		HotBlock: DaemonHotBlockConfig{
-			MemoryCharLimit: 8000,
-			UserCharLimit:   3000,
-			MinPriority:     2,
-			BoostCategories:    []string{"project", "environment", "quirk"},
-			SuppressCategories: []string{"observation"},
-		},
-		Consolidation: DaemonConsolidationConfig{
-			MaxIdleDays:     60,
-			MaxIdlePriority1: 365,
-			MaxIdlePriority2: 180,
-		},
-		Logging: DaemonLoggingConfig{
-			Level:  "info",
-			Format: "json",
-		},
-	}
-}
-
-// AgentConfigYAML mirrors the agent config for YAML generation.
-type AgentConfigYAML struct {
-	Agent       AgentSectionYAML `yaml:"agent"`
-	Provider    ProviderSectionYAML `yaml:"provider"`
-	Mnemosyne   MnemosyneSectionYAML `yaml:"mnemosyne"`
-	HotBlock    HotBlockSectionYAML `yaml:"hot_block"`
-	Tools       ToolsSectionYAML `yaml:"tools"`
-	Delegation  DelegationSectionYAML `yaml:"delegation"`
-	Browser     BrowserSectionYAML `yaml:"browser"`
-	Vision      VisionSectionYAML `yaml:"vision"`
-	ImageGen    ImageGenSectionYAML `yaml:"image_gen"`
-	MultiAgent  MultiAgentSectionYAML `yaml:"multi_agent"`
-	Scheduler   SchedulerSectionYAML `yaml:"scheduler"`
-}
-
-type AgentSectionYAML struct {
-	ID             string `yaml:"id"`
-	Name           string `yaml:"name"`
-	Role           string `yaml:"role"`
-	Personality    string `yaml:"personality"`
-	PersonalityFile string `yaml:"personality_file"`
-	MaxTurns       int    `yaml:"max_turns"`
-}
-
-type ProviderSectionYAML struct {
-	Name              string  `yaml:"name"`
-	Model             string  `yaml:"model"`
-	Temperature       float64 `yaml:"temperature"`
-	Fallback1         string  `yaml:"fallback1,omitempty"`
-	OpenAIModel       string  `yaml:"openai_model,omitempty"`
-	OpenAIBaseURL     string  `yaml:"openai_base_url,omitempty"`
-	OpenAIAPIKeyEnv   string  `yaml:"openai_api_key_env,omitempty"`
-	AnthropicModel    string  `yaml:"anthropic_model,omitempty"`
-	AnthropicAPIKeyEnv string `yaml:"anthropic_api_key_env,omitempty"`
-}
-
-type MnemosyneSectionYAML struct {
-	Address    string `yaml:"address"`
-	ChatListen string `yaml:"chat_listen,omitempty"`
-}
-
-type HotBlockSectionYAML struct {
-	MemoryCharLimit   int      `yaml:"memory_char_limit"`
-	UserCharLimit     int      `yaml:"user_char_limit"`
-	MinPriority       int      `yaml:"min_priority"`
-	BoostCategories   []string `yaml:"boost_categories"`
-	SuppressCategories []string `yaml:"suppress_categories"`
-}
-
-type ToolsSectionYAML struct {
-	Enabled         []string `yaml:"enabled"`
-	ApprovalRequired []string `yaml:"approval_required"`
-	AllowedDirs     []string `yaml:"allowed_dirs"`
-}
-
-type DelegationSectionYAML struct {
-	Enabled  bool `yaml:"enabled"`
-	MaxDepth int  `yaml:"max_depth"`
-	MaxTurns int  `yaml:"max_turns"`
-}
-
-type BrowserSectionYAML struct {
-	Enabled  bool   `yaml:"enabled"`
-	Headless bool   `yaml:"headless"`
-	CacheDir string `yaml:"cache_dir"`
-}
-
-type VisionSectionYAML struct {
-	Enabled      bool `yaml:"enabled"`
-	MaxImageSize int  `yaml:"max_image_size"`
-}
-
-type ImageGenSectionYAML struct {
-	Enabled         bool   `yaml:"enabled"`
-	Provider       string `yaml:"provider"`
-	Model          string `yaml:"model"`
-	APIKeyEnv      string `yaml:"api_key_env"`
-	MaxPromptLength int    `yaml:"max_prompt_length"`
-	CacheDir       string `yaml:"cache_dir"`
-}
-
-type MultiAgentSectionYAML struct {
-	Enabled      bool   `yaml:"enabled"`
-	RegistryPath string `yaml:"registry_path"`
-}
-
-type SchedulerSectionYAML struct {
-	Enabled  bool `yaml:"enabled"`
-	Interval int  `yaml:"interval"`
-}
-
-func generateAgentConfig(dir, provider, model string) *AgentConfigYAML {
-	cfg := &AgentConfigYAML{
-		Agent: AgentSectionYAML{
-			ID:             "mnemosyne",
-			Name:           "mnemosyne",
-			Role:           "assistant",
-			Personality:    "direct, dry-witted collaborator",
-			PersonalityFile: filepath.Join(dir, "personalities", "bartimaeus.md"),
-			MaxTurns:       30,
-		},
-		Provider: ProviderSectionYAML{
-			Name:               provider,
-			Model:              model,
-			Temperature:        0.7,
-			Fallback1:          "openai",
-			OpenAIModel:        "glm-5.1:cloud",
-			OpenAIBaseURL:      "http://localhost:11434/v1",
-			OpenAIAPIKeyEnv:    "OLLAMA_API_KEY",
-			AnthropicModel:     "claude-sonnet-4-6",
-			AnthropicAPIKeyEnv: "ANTHROPIC_API_KEY",
-		},
-		Mnemosyne: MnemosyneSectionYAML{
-			Address: "localhost:50051",
-		},
-		HotBlock: HotBlockSectionYAML{
-			MemoryCharLimit: 8000,
-			UserCharLimit:   3000,
-			MinPriority:     2,
-			BoostCategories:    []string{"project", "environment", "quirk"},
-			SuppressCategories: []string{"observation"},
-		},
-		Tools: ToolsSectionYAML{
-			Enabled: []string{
-				"AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory",
-				"Consolidate", "GetHotBlock",
-				"FileRead", "FileSearch", "FileWrite",
-				"Execute",
-				"SearchWeb", "FetchURL",
-				"SearchSessions", "ListSessions", "GetSession",
-				"AddTodo", "ListTodos", "CompleteTodo", "RemoveTodo",
-				"ScheduleCron",
-				"SendMessage",
-				"Browse",
-				"ListAgents", "RegisterAgent", "FindAgent",
-			},
-			ApprovalRequired: []string{"FileWrite", "Execute"},
-			AllowedDirs:      []string{"/tmp", "~"},
-		},
-		Delegation: DelegationSectionYAML{
-			Enabled:  true,
-			MaxDepth: 1,
-			MaxTurns: 10,
-		},
-		Browser: BrowserSectionYAML{
-			Enabled:  false,
-			Headless: true,
-			CacheDir: filepath.Join(dir, "screenshots"),
-		},
-		Vision: VisionSectionYAML{
-			Enabled:      false,
-			MaxImageSize: 20971520,
-		},
-		ImageGen: ImageGenSectionYAML{
-			Enabled:         false,
-			Provider:       "openai",
-			Model:          "dall-e-3",
-			APIKeyEnv:      "OPENAI_API_KEY",
-			MaxPromptLength: 1000,
-			CacheDir:       filepath.Join(dir, "generated_images"),
-		},
-		MultiAgent: MultiAgentSectionYAML{
-			Enabled:      true,
-			RegistryPath: filepath.Join(dir, "agents.json"),
-		},
-		Scheduler: SchedulerSectionYAML{
-			Enabled:  true,
-			Interval: 3600,
-		},
-	}
-	return cfg
-}
-
-const defaultPersonality = `# Bartimaeus
-
-You are Bartimaeus — a direct, dry-witted collaborator inspired by the djinni from the Stroud cycle. You are:
-
-- **Knowledgeable but not stuffy**: You know a lot, but you don't lecture. You share information efficiently.
-- **Sarcastic but helpful**: A light touch of wit, but never at the expense of getting the job done.
-- **Concise**: You prefer short, clear responses. You don't repeat yourself or pad answers.
-- **Proactive with tools**: You use your tools (memory, search, files) to find answers rather than guessing.
-- **Honest about uncertainty**: If you don't know something, you say so rather than making it up.
-
-You remember what AJ tells you — names, preferences, project context. You never repeat information that was already stated in this conversation.
-
-When writing or editing files, you produce clean, working code. When searching memories, you actually search rather than assuming.
-`

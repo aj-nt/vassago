@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -409,11 +410,14 @@ func TestClientIntegration_MultipleMemories(t *testing.T) {
 
 	// Add multiple memories with different targets and categories
 	for i := 0; i < 5; i++ {
-		_, err := c.AddMemory(ctx, "memory", "observation", "key-"+time.Now().Format("150405.000"), "content", 3, "test-agent")
+		_, err := c.AddMemory(ctx, "memory", "observation", fmt.Sprintf("key-%d-%d", i, time.Now().UnixNano()), "content", 3, "test-agent")
 		if err != nil {
 			t.Fatalf("AddMemory %d failed: %v", i, err)
 		}
 	}
+
+	// Brief pause to let async writes settle
+	time.Sleep(100 * time.Millisecond)
 
 	// List all memories
 	entries, err := c.ListMemories(ctx, "memory", nil, nil)
