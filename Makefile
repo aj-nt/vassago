@@ -1,17 +1,22 @@
-.PHONY: build test test-race lint proto clean generate all
+.PHONY: build test test-race lint proto clean generate all deploy setup
 
-# Build the daemon binary
+# Binary output directory
+BINARY_DIR=bin
+
+# Build all binaries
 build:
-	go build -o bin/mnemosyne-daemon ./daemon/cmd/mnemosyne-daemon
-	go build -o bin/mnemosyne-cli ./daemon/cmd/mnemosyne-cli
+	go build -o $(BINARY_DIR)/mnemosyne-daemon ./daemon/cmd/mnemosyne-daemon
+	go build -o $(BINARY_DIR)/mnemosyne-cli ./daemon/cmd/mnemosyne-cli
+	go build -o $(BINARY_DIR)/mnemosyne-agent ./agent/cmd/mnemosyne-agent
+	go build -o $(BINARY_DIR)/mnemosyne-import ./daemon/cmd/mnemosyne-import
 
 # Run all tests
 test:
-	go test ./daemon/...
+	go test ./...
 
 # Run all tests with race detector
 test-race:
-	go test -race ./daemon/...
+	go test -race ./...
 
 # Run integration tests only (requires daemon startup)
 test-integration:
@@ -29,7 +34,7 @@ generate:
 
 # Clean build artifacts
 clean:
-	rm -rf bin/
+	rm -rf $(BINARY_DIR)/
 	rm -f $(shell find . -name '*.test' -o -name '*.out')
 
 # Tidy dependencies
@@ -38,3 +43,29 @@ tidy:
 
 # Build + test + lint
 all: build test-race lint
+
+# Deploy to local machine (build + copy to ~/bin)
+deploy: build
+	mkdir -p $(HOME)/bin
+	cp $(BINARY_DIR)/mnemosyne-daemon $(HOME)/bin/
+	cp $(BINARY_DIR)/mnemosyne-cli $(HOME)/bin/
+	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
+	@echo "✓ Binaries deployed to $(HOME)/bin/"
+
+# Deploy to Studio over SSH
+deploy-studio: build
+	scp $(BINARY_DIR)/mnemosyne-daemon $(BINARY_DIR)/mnemosyne-cli $(BINARY_DIR)/mnemosyne-agent studio:~/bin/
+	ssh studio 'codesign --force --sign - ~/bin/mnemosyne-daemon ~/bin/mnemosyne-cli ~/bin/mnemosyne-agent'
+	@echo "✓ Binaries deployed to Studio"
+
+# First-run setup (creates configs, directories, launchd plists)
+setup:
+	@./scripts/setup.sh
+
+# Setup for Studio
+setup-studio:
+	@./scripts/setup.sh --studio
+
+# Count tests
+test-count:
+	@echo "$$(go test ./... -count=1 -race -v 2>&1 | grep -c '^--- PASS') tests passing"

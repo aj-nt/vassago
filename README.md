@@ -35,17 +35,32 @@ A shared memory daemon for AI agents. Mnemosyne gives agents persistent, searcha
 ## Quick Start
 
 ```bash
-# Build
-go build ./daemon/cmd/mnemosyne-daemon/
-go build ./daemon/cmd/mnemosyne-cli/
-go build ./daemon/cmd/mnemosyne-import/
+# Clone and build
+git clone https://github.com/aj-nt/mnemosyne.git
+cd mnemosyne
+make all           # build + test + lint
 
-# Run daemon (uses defaults: localhost:50051, ~/.mnemosyne/mnemosyne.db)
-./mnemosyne-daemon
+# Set up (creates configs, directories, launchd plists)
+make setup          # or: ./scripts/setup.sh
 
-# Or with config
-./mnemosyne-daemon --config ~/.mnemosyne/config.yaml
+# Deploy locally
+make deploy         # copies binaries to ~/bin/
+
+# Or deploy to Studio
+make deploy-studio  # scp + codesign
+
+# Verify
+mnemosyne-cli health
 ```
+
+The setup script creates `~/.mnemosyne/` with:
+- `config.yaml` — Daemon config (SQLite, hot block, consolidation)
+- `agent.yaml` — Agent config (provider, tools, personality)
+- `personalities/bartimaeus.md` — Default personality
+- LaunchAgent plists for macOS auto-start
+
+For Studio (always-on server), use `./scripts/setup.sh --studio` which configures
+the daemon to listen on all interfaces (`0.0.0.0:50051`) and enables the chat server.
 
 ## CLI Reference
 
