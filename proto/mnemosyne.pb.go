@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: proto/mnemosyne.proto
+// source: mnemosyne.proto
 
 package proto
 
@@ -60,11 +60,11 @@ func (x ConsolidateScope) String() string {
 }
 
 func (ConsolidateScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_mnemosyne_proto_enumTypes[0].Descriptor()
+	return file_mnemosyne_proto_enumTypes[0].Descriptor()
 }
 
 func (ConsolidateScope) Type() protoreflect.EnumType {
-	return &file_proto_mnemosyne_proto_enumTypes[0]
+	return &file_mnemosyne_proto_enumTypes[0]
 }
 
 func (x ConsolidateScope) Number() protoreflect.EnumNumber {
@@ -73,7 +73,7 @@ func (x ConsolidateScope) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ConsolidateScope.Descriptor instead.
 func (ConsolidateScope) EnumDescriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{0}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{0}
 }
 
 type UpdateEvent_EventType int32
@@ -115,11 +115,11 @@ func (x UpdateEvent_EventType) String() string {
 }
 
 func (UpdateEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_mnemosyne_proto_enumTypes[1].Descriptor()
+	return file_mnemosyne_proto_enumTypes[1].Descriptor()
 }
 
 func (UpdateEvent_EventType) Type() protoreflect.EnumType {
-	return &file_proto_mnemosyne_proto_enumTypes[1]
+	return &file_mnemosyne_proto_enumTypes[1]
 }
 
 func (x UpdateEvent_EventType) Number() protoreflect.EnumNumber {
@@ -128,7 +128,7 @@ func (x UpdateEvent_EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UpdateEvent_EventType.Descriptor instead.
 func (UpdateEvent_EventType) EnumDescriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{31, 0}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{31, 0}
 }
 
 type ChatEvent_EventType int32
@@ -176,11 +176,11 @@ func (x ChatEvent_EventType) String() string {
 }
 
 func (ChatEvent_EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_mnemosyne_proto_enumTypes[2].Descriptor()
+	return file_mnemosyne_proto_enumTypes[2].Descriptor()
 }
 
 func (ChatEvent_EventType) Type() protoreflect.EnumType {
-	return &file_proto_mnemosyne_proto_enumTypes[2]
+	return &file_mnemosyne_proto_enumTypes[2]
 }
 
 func (x ChatEvent_EventType) Number() protoreflect.EnumNumber {
@@ -189,7 +189,7 @@ func (x ChatEvent_EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ChatEvent_EventType.Descriptor instead.
 func (ChatEvent_EventType) EnumDescriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{36, 0}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{36, 0}
 }
 
 type MemoryEntry struct {
@@ -211,7 +211,7 @@ type MemoryEntry struct {
 
 func (x *MemoryEntry) Reset() {
 	*x = MemoryEntry{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[0]
+	mi := &file_mnemosyne_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -223,7 +223,7 @@ func (x *MemoryEntry) String() string {
 func (*MemoryEntry) ProtoMessage() {}
 
 func (x *MemoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[0]
+	mi := &file_mnemosyne_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -236,7 +236,7 @@ func (x *MemoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryEntry.ProtoReflect.Descriptor instead.
 func (*MemoryEntry) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{0}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MemoryEntry) GetId() string {
@@ -331,7 +331,7 @@ type AddMemoryRequest struct {
 
 func (x *AddMemoryRequest) Reset() {
 	*x = AddMemoryRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[1]
+	mi := &file_mnemosyne_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -343,7 +343,7 @@ func (x *AddMemoryRequest) String() string {
 func (*AddMemoryRequest) ProtoMessage() {}
 
 func (x *AddMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[1]
+	mi := &file_mnemosyne_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,7 +356,7 @@ func (x *AddMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemoryRequest.ProtoReflect.Descriptor instead.
 func (*AddMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{1}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AddMemoryRequest) GetTarget() string {
@@ -417,7 +417,7 @@ type AddMemoryResponse struct {
 
 func (x *AddMemoryResponse) Reset() {
 	*x = AddMemoryResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[2]
+	mi := &file_mnemosyne_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +429,7 @@ func (x *AddMemoryResponse) String() string {
 func (*AddMemoryResponse) ProtoMessage() {}
 
 func (x *AddMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[2]
+	mi := &file_mnemosyne_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +442,7 @@ func (x *AddMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemoryResponse.ProtoReflect.Descriptor instead.
 func (*AddMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{2}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AddMemoryResponse) GetEntry() *MemoryEntry {
@@ -461,7 +461,7 @@ type GetMemoryRequest struct {
 
 func (x *GetMemoryRequest) Reset() {
 	*x = GetMemoryRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[3]
+	mi := &file_mnemosyne_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +473,7 @@ func (x *GetMemoryRequest) String() string {
 func (*GetMemoryRequest) ProtoMessage() {}
 
 func (x *GetMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[3]
+	mi := &file_mnemosyne_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +486,7 @@ func (x *GetMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMemoryRequest.ProtoReflect.Descriptor instead.
 func (*GetMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{3}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetMemoryRequest) GetId() string {
@@ -509,7 +509,7 @@ type UpdateMemoryRequest struct {
 
 func (x *UpdateMemoryRequest) Reset() {
 	*x = UpdateMemoryRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[4]
+	mi := &file_mnemosyne_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -521,7 +521,7 @@ func (x *UpdateMemoryRequest) String() string {
 func (*UpdateMemoryRequest) ProtoMessage() {}
 
 func (x *UpdateMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[4]
+	mi := &file_mnemosyne_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -534,7 +534,7 @@ func (x *UpdateMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMemoryRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{4}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdateMemoryRequest) GetId() string {
@@ -581,7 +581,7 @@ type RemoveMemoryRequest struct {
 
 func (x *RemoveMemoryRequest) Reset() {
 	*x = RemoveMemoryRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[5]
+	mi := &file_mnemosyne_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -593,7 +593,7 @@ func (x *RemoveMemoryRequest) String() string {
 func (*RemoveMemoryRequest) ProtoMessage() {}
 
 func (x *RemoveMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[5]
+	mi := &file_mnemosyne_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +606,7 @@ func (x *RemoveMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryRequest.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{5}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RemoveMemoryRequest) GetId() string {
@@ -625,7 +625,7 @@ type RemoveMemoryResponse struct {
 
 func (x *RemoveMemoryResponse) Reset() {
 	*x = RemoveMemoryResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[6]
+	mi := &file_mnemosyne_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +637,7 @@ func (x *RemoveMemoryResponse) String() string {
 func (*RemoveMemoryResponse) ProtoMessage() {}
 
 func (x *RemoveMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[6]
+	mi := &file_mnemosyne_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +650,7 @@ func (x *RemoveMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{6}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RemoveMemoryResponse) GetDeleted() bool {
@@ -672,7 +672,7 @@ type ListMemoriesRequest struct {
 
 func (x *ListMemoriesRequest) Reset() {
 	*x = ListMemoriesRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[7]
+	mi := &file_mnemosyne_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -684,7 +684,7 @@ func (x *ListMemoriesRequest) String() string {
 func (*ListMemoriesRequest) ProtoMessage() {}
 
 func (x *ListMemoriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[7]
+	mi := &file_mnemosyne_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -697,7 +697,7 @@ func (x *ListMemoriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMemoriesRequest.ProtoReflect.Descriptor instead.
 func (*ListMemoriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{7}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListMemoriesRequest) GetTarget() string {
@@ -737,7 +737,7 @@ type MemoryList struct {
 
 func (x *MemoryList) Reset() {
 	*x = MemoryList{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[8]
+	mi := &file_mnemosyne_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -749,7 +749,7 @@ func (x *MemoryList) String() string {
 func (*MemoryList) ProtoMessage() {}
 
 func (x *MemoryList) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[8]
+	mi := &file_mnemosyne_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -762,7 +762,7 @@ func (x *MemoryList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryList.ProtoReflect.Descriptor instead.
 func (*MemoryList) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{8}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MemoryList) GetEntries() []*MemoryEntry {
@@ -783,7 +783,7 @@ type SearchRequest struct {
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[9]
+	mi := &file_mnemosyne_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -795,7 +795,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[9]
+	mi := &file_mnemosyne_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -808,7 +808,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{9}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SearchRequest) GetQuery() string {
@@ -841,7 +841,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[10]
+	mi := &file_mnemosyne_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -853,7 +853,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[10]
+	mi := &file_mnemosyne_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -866,7 +866,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{10}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SearchResponse) GetEntries() []*MemoryEntry {
@@ -886,7 +886,7 @@ type SearchSessionsRequest struct {
 
 func (x *SearchSessionsRequest) Reset() {
 	*x = SearchSessionsRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[11]
+	mi := &file_mnemosyne_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -898,7 +898,7 @@ func (x *SearchSessionsRequest) String() string {
 func (*SearchSessionsRequest) ProtoMessage() {}
 
 func (x *SearchSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[11]
+	mi := &file_mnemosyne_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -911,7 +911,7 @@ func (x *SearchSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSessionsRequest.ProtoReflect.Descriptor instead.
 func (*SearchSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{11}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SearchSessionsRequest) GetQuery() string {
@@ -937,7 +937,7 @@ type SearchSessionsResponse struct {
 
 func (x *SearchSessionsResponse) Reset() {
 	*x = SearchSessionsResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[12]
+	mi := &file_mnemosyne_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -949,7 +949,7 @@ func (x *SearchSessionsResponse) String() string {
 func (*SearchSessionsResponse) ProtoMessage() {}
 
 func (x *SearchSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[12]
+	mi := &file_mnemosyne_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -962,7 +962,7 @@ func (x *SearchSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSessionsResponse.ProtoReflect.Descriptor instead.
 func (*SearchSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{12}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SearchSessionsResponse) GetSessions() []*Session {
@@ -981,7 +981,7 @@ type ListSessionsRequest struct {
 
 func (x *ListSessionsRequest) Reset() {
 	*x = ListSessionsRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[13]
+	mi := &file_mnemosyne_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -993,7 +993,7 @@ func (x *ListSessionsRequest) String() string {
 func (*ListSessionsRequest) ProtoMessage() {}
 
 func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[13]
+	mi := &file_mnemosyne_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1006,7 +1006,7 @@ func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{13}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListSessionsRequest) GetLimit() int32 {
@@ -1025,7 +1025,7 @@ type ListSessionsResponse struct {
 
 func (x *ListSessionsResponse) Reset() {
 	*x = ListSessionsResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[14]
+	mi := &file_mnemosyne_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1037,7 +1037,7 @@ func (x *ListSessionsResponse) String() string {
 func (*ListSessionsResponse) ProtoMessage() {}
 
 func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[14]
+	mi := &file_mnemosyne_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1050,7 +1050,7 @@ func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{14}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListSessionsResponse) GetSessions() []*Session {
@@ -1071,7 +1071,7 @@ type HotBlockConfig struct {
 
 func (x *HotBlockConfig) Reset() {
 	*x = HotBlockConfig{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[15]
+	mi := &file_mnemosyne_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1083,7 +1083,7 @@ func (x *HotBlockConfig) String() string {
 func (*HotBlockConfig) ProtoMessage() {}
 
 func (x *HotBlockConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[15]
+	mi := &file_mnemosyne_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1096,7 +1096,7 @@ func (x *HotBlockConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockConfig.ProtoReflect.Descriptor instead.
 func (*HotBlockConfig) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{15}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *HotBlockConfig) GetBoostCategories() []string {
@@ -1132,7 +1132,7 @@ type HotBlockRequest struct {
 
 func (x *HotBlockRequest) Reset() {
 	*x = HotBlockRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[16]
+	mi := &file_mnemosyne_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1144,7 +1144,7 @@ func (x *HotBlockRequest) String() string {
 func (*HotBlockRequest) ProtoMessage() {}
 
 func (x *HotBlockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[16]
+	mi := &file_mnemosyne_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1157,7 +1157,7 @@ func (x *HotBlockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockRequest.ProtoReflect.Descriptor instead.
 func (*HotBlockRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{16}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *HotBlockRequest) GetTarget() string {
@@ -1200,7 +1200,7 @@ type HotBlockResponse struct {
 
 func (x *HotBlockResponse) Reset() {
 	*x = HotBlockResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[17]
+	mi := &file_mnemosyne_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1212,7 +1212,7 @@ func (x *HotBlockResponse) String() string {
 func (*HotBlockResponse) ProtoMessage() {}
 
 func (x *HotBlockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[17]
+	mi := &file_mnemosyne_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1225,7 +1225,7 @@ func (x *HotBlockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HotBlockResponse.ProtoReflect.Descriptor instead.
 func (*HotBlockResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{17}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *HotBlockResponse) GetContent() string {
@@ -1272,7 +1272,7 @@ type Session struct {
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[18]
+	mi := &file_mnemosyne_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1284,7 +1284,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[18]
+	mi := &file_mnemosyne_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1297,7 +1297,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{18}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Session) GetId() string {
@@ -1369,7 +1369,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[19]
+	mi := &file_mnemosyne_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1381,7 +1381,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[19]
+	mi := &file_mnemosyne_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1394,7 +1394,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{19}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Message) GetRole() string {
@@ -1443,7 +1443,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[20]
+	mi := &file_mnemosyne_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1455,7 +1455,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[20]
+	mi := &file_mnemosyne_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1468,7 +1468,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{20}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateSessionRequest) GetAgentId() string {
@@ -1502,7 +1502,7 @@ type AddMessagesRequest struct {
 
 func (x *AddMessagesRequest) Reset() {
 	*x = AddMessagesRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[21]
+	mi := &file_mnemosyne_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1514,7 @@ func (x *AddMessagesRequest) String() string {
 func (*AddMessagesRequest) ProtoMessage() {}
 
 func (x *AddMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[21]
+	mi := &file_mnemosyne_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1527,7 @@ func (x *AddMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMessagesRequest.ProtoReflect.Descriptor instead.
 func (*AddMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{21}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AddMessagesRequest) GetSessionId() string {
@@ -1553,7 +1553,7 @@ type EndSessionRequest struct {
 
 func (x *EndSessionRequest) Reset() {
 	*x = EndSessionRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[22]
+	mi := &file_mnemosyne_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1565,7 +1565,7 @@ func (x *EndSessionRequest) String() string {
 func (*EndSessionRequest) ProtoMessage() {}
 
 func (x *EndSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[22]
+	mi := &file_mnemosyne_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1578,7 +1578,7 @@ func (x *EndSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionRequest.ProtoReflect.Descriptor instead.
 func (*EndSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{22}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *EndSessionRequest) GetSessionId() string {
@@ -1597,7 +1597,7 @@ type EndSessionResponse struct {
 
 func (x *EndSessionResponse) Reset() {
 	*x = EndSessionResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[23]
+	mi := &file_mnemosyne_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1609,7 +1609,7 @@ func (x *EndSessionResponse) String() string {
 func (*EndSessionResponse) ProtoMessage() {}
 
 func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[23]
+	mi := &file_mnemosyne_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1622,7 +1622,7 @@ func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionResponse.ProtoReflect.Descriptor instead.
 func (*EndSessionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{23}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *EndSessionResponse) GetEnded() bool {
@@ -1642,7 +1642,7 @@ type GetSessionRequest struct {
 
 func (x *GetSessionRequest) Reset() {
 	*x = GetSessionRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[24]
+	mi := &file_mnemosyne_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1654,7 +1654,7 @@ func (x *GetSessionRequest) String() string {
 func (*GetSessionRequest) ProtoMessage() {}
 
 func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[24]
+	mi := &file_mnemosyne_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1667,7 +1667,7 @@ func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{24}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetSessionRequest) GetSessionId() string {
@@ -1695,7 +1695,7 @@ type ConsolidateRequest struct {
 
 func (x *ConsolidateRequest) Reset() {
 	*x = ConsolidateRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[25]
+	mi := &file_mnemosyne_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1707,7 +1707,7 @@ func (x *ConsolidateRequest) String() string {
 func (*ConsolidateRequest) ProtoMessage() {}
 
 func (x *ConsolidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[25]
+	mi := &file_mnemosyne_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1720,7 +1720,7 @@ func (x *ConsolidateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidateRequest.ProtoReflect.Descriptor instead.
 func (*ConsolidateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{25}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ConsolidateRequest) GetScope() ConsolidateScope {
@@ -1755,7 +1755,7 @@ type ConsolidateResponse struct {
 
 func (x *ConsolidateResponse) Reset() {
 	*x = ConsolidateResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[26]
+	mi := &file_mnemosyne_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1767,7 +1767,7 @@ func (x *ConsolidateResponse) String() string {
 func (*ConsolidateResponse) ProtoMessage() {}
 
 func (x *ConsolidateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[26]
+	mi := &file_mnemosyne_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1780,7 +1780,7 @@ func (x *ConsolidateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidateResponse.ProtoReflect.Descriptor instead.
 func (*ConsolidateResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{26}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ConsolidateResponse) GetRemoved() int32 {
@@ -1815,7 +1815,7 @@ type GetConsolidationCandidatesRequest struct {
 
 func (x *GetConsolidationCandidatesRequest) Reset() {
 	*x = GetConsolidationCandidatesRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[27]
+	mi := &file_mnemosyne_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1827,7 +1827,7 @@ func (x *GetConsolidationCandidatesRequest) String() string {
 func (*GetConsolidationCandidatesRequest) ProtoMessage() {}
 
 func (x *GetConsolidationCandidatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[27]
+	mi := &file_mnemosyne_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1840,7 +1840,7 @@ func (x *GetConsolidationCandidatesRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetConsolidationCandidatesRequest.ProtoReflect.Descriptor instead.
 func (*GetConsolidationCandidatesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{27}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetConsolidationCandidatesRequest) GetScope() ConsolidateScope {
@@ -1874,7 +1874,7 @@ type ConsolidationCandidate struct {
 
 func (x *ConsolidationCandidate) Reset() {
 	*x = ConsolidationCandidate{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[28]
+	mi := &file_mnemosyne_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1886,7 +1886,7 @@ func (x *ConsolidationCandidate) String() string {
 func (*ConsolidationCandidate) ProtoMessage() {}
 
 func (x *ConsolidationCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[28]
+	mi := &file_mnemosyne_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1899,7 +1899,7 @@ func (x *ConsolidationCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidationCandidate.ProtoReflect.Descriptor instead.
 func (*ConsolidationCandidate) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{28}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ConsolidationCandidate) GetEntry() *MemoryEntry {
@@ -1925,7 +1925,7 @@ type ConsolidationCandidatesResponse struct {
 
 func (x *ConsolidationCandidatesResponse) Reset() {
 	*x = ConsolidationCandidatesResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[29]
+	mi := &file_mnemosyne_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1937,7 +1937,7 @@ func (x *ConsolidationCandidatesResponse) String() string {
 func (*ConsolidationCandidatesResponse) ProtoMessage() {}
 
 func (x *ConsolidationCandidatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[29]
+	mi := &file_mnemosyne_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1950,7 +1950,7 @@ func (x *ConsolidationCandidatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsolidationCandidatesResponse.ProtoReflect.Descriptor instead.
 func (*ConsolidationCandidatesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{29}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ConsolidationCandidatesResponse) GetCandidates() []*ConsolidationCandidate {
@@ -1972,7 +1972,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[30]
+	mi := &file_mnemosyne_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1984,7 +1984,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[30]
+	mi := &file_mnemosyne_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1997,7 +1997,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{30}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SubscribeRequest) GetAgentId() string {
@@ -2043,7 +2043,7 @@ type UpdateEvent struct {
 
 func (x *UpdateEvent) Reset() {
 	*x = UpdateEvent{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[31]
+	mi := &file_mnemosyne_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2055,7 @@ func (x *UpdateEvent) String() string {
 func (*UpdateEvent) ProtoMessage() {}
 
 func (x *UpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[31]
+	mi := &file_mnemosyne_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2068,7 @@ func (x *UpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEvent.ProtoReflect.Descriptor instead.
 func (*UpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{31}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *UpdateEvent) GetEventType() UpdateEvent_EventType {
@@ -2131,7 +2131,7 @@ type RegisterAgentRequest struct {
 
 func (x *RegisterAgentRequest) Reset() {
 	*x = RegisterAgentRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[32]
+	mi := &file_mnemosyne_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2143,7 +2143,7 @@ func (x *RegisterAgentRequest) String() string {
 func (*RegisterAgentRequest) ProtoMessage() {}
 
 func (x *RegisterAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[32]
+	mi := &file_mnemosyne_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2156,7 +2156,7 @@ func (x *RegisterAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterAgentRequest.ProtoReflect.Descriptor instead.
 func (*RegisterAgentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{32}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RegisterAgentRequest) GetAgentId() string {
@@ -2190,7 +2190,7 @@ type RegisterAgentResponse struct {
 
 func (x *RegisterAgentResponse) Reset() {
 	*x = RegisterAgentResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[33]
+	mi := &file_mnemosyne_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2202,7 +2202,7 @@ func (x *RegisterAgentResponse) String() string {
 func (*RegisterAgentResponse) ProtoMessage() {}
 
 func (x *RegisterAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[33]
+	mi := &file_mnemosyne_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2215,7 +2215,7 @@ func (x *RegisterAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterAgentResponse.ProtoReflect.Descriptor instead.
 func (*RegisterAgentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{33}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RegisterAgentResponse) GetAgentId() string {
@@ -2241,7 +2241,7 @@ type AgentId struct {
 
 func (x *AgentId) Reset() {
 	*x = AgentId{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[34]
+	mi := &file_mnemosyne_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2253,7 +2253,7 @@ func (x *AgentId) String() string {
 func (*AgentId) ProtoMessage() {}
 
 func (x *AgentId) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[34]
+	mi := &file_mnemosyne_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2266,7 +2266,7 @@ func (x *AgentId) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentId.ProtoReflect.Descriptor instead.
 func (*AgentId) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{34}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AgentId) GetAgentId() string {
@@ -2288,7 +2288,7 @@ type ChatRequest struct {
 
 func (x *ChatRequest) Reset() {
 	*x = ChatRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[35]
+	mi := &file_mnemosyne_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2300,7 +2300,7 @@ func (x *ChatRequest) String() string {
 func (*ChatRequest) ProtoMessage() {}
 
 func (x *ChatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[35]
+	mi := &file_mnemosyne_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2313,7 +2313,7 @@ func (x *ChatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRequest.ProtoReflect.Descriptor instead.
 func (*ChatRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{35}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ChatRequest) GetSessionId() string {
@@ -2352,7 +2352,7 @@ type ChatEvent struct {
 
 func (x *ChatEvent) Reset() {
 	*x = ChatEvent{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[36]
+	mi := &file_mnemosyne_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2364,7 +2364,7 @@ func (x *ChatEvent) String() string {
 func (*ChatEvent) ProtoMessage() {}
 
 func (x *ChatEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[36]
+	mi := &file_mnemosyne_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2377,7 +2377,7 @@ func (x *ChatEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatEvent.ProtoReflect.Descriptor instead.
 func (*ChatEvent) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{36}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ChatEvent) GetEventType() ChatEvent_EventType {
@@ -2438,7 +2438,7 @@ type HealthCheckRequest struct {
 
 func (x *HealthCheckRequest) Reset() {
 	*x = HealthCheckRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[37]
+	mi := &file_mnemosyne_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2450,7 +2450,7 @@ func (x *HealthCheckRequest) String() string {
 func (*HealthCheckRequest) ProtoMessage() {}
 
 func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[37]
+	mi := &file_mnemosyne_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2463,7 +2463,7 @@ func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{37}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{37}
 }
 
 type HealthCheckResponse struct {
@@ -2477,7 +2477,7 @@ type HealthCheckResponse struct {
 
 func (x *HealthCheckResponse) Reset() {
 	*x = HealthCheckResponse{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[38]
+	mi := &file_mnemosyne_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2489,7 +2489,7 @@ func (x *HealthCheckResponse) String() string {
 func (*HealthCheckResponse) ProtoMessage() {}
 
 func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[38]
+	mi := &file_mnemosyne_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2502,7 +2502,7 @@ func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthCheckResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{38}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *HealthCheckResponse) GetStatus() string {
@@ -2534,7 +2534,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[39]
+	mi := &file_mnemosyne_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2546,7 +2546,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[39]
+	mi := &file_mnemosyne_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2559,7 +2559,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{39}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{39}
 }
 
 type TodoItem struct {
@@ -2578,7 +2578,7 @@ type TodoItem struct {
 
 func (x *TodoItem) Reset() {
 	*x = TodoItem{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[40]
+	mi := &file_mnemosyne_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2590,7 +2590,7 @@ func (x *TodoItem) String() string {
 func (*TodoItem) ProtoMessage() {}
 
 func (x *TodoItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[40]
+	mi := &file_mnemosyne_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2603,7 +2603,7 @@ func (x *TodoItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
 func (*TodoItem) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{40}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TodoItem) GetId() string {
@@ -2673,7 +2673,7 @@ type AddTodoRequest struct {
 
 func (x *AddTodoRequest) Reset() {
 	*x = AddTodoRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[41]
+	mi := &file_mnemosyne_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2685,7 +2685,7 @@ func (x *AddTodoRequest) String() string {
 func (*AddTodoRequest) ProtoMessage() {}
 
 func (x *AddTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[41]
+	mi := &file_mnemosyne_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2698,7 +2698,7 @@ func (x *AddTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTodoRequest.ProtoReflect.Descriptor instead.
 func (*AddTodoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{41}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AddTodoRequest) GetContent() string {
@@ -2732,7 +2732,7 @@ type ListTodosRequest struct {
 
 func (x *ListTodosRequest) Reset() {
 	*x = ListTodosRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[42]
+	mi := &file_mnemosyne_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2744,7 +2744,7 @@ func (x *ListTodosRequest) String() string {
 func (*ListTodosRequest) ProtoMessage() {}
 
 func (x *ListTodosRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[42]
+	mi := &file_mnemosyne_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2757,7 +2757,7 @@ func (x *ListTodosRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTodosRequest.ProtoReflect.Descriptor instead.
 func (*ListTodosRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{42}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListTodosRequest) GetIncludeCompleted() bool {
@@ -2783,7 +2783,7 @@ type CompleteTodoRequest struct {
 
 func (x *CompleteTodoRequest) Reset() {
 	*x = CompleteTodoRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[43]
+	mi := &file_mnemosyne_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2795,7 +2795,7 @@ func (x *CompleteTodoRequest) String() string {
 func (*CompleteTodoRequest) ProtoMessage() {}
 
 func (x *CompleteTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[43]
+	mi := &file_mnemosyne_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2808,7 +2808,7 @@ func (x *CompleteTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTodoRequest.ProtoReflect.Descriptor instead.
 func (*CompleteTodoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{43}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CompleteTodoRequest) GetId() string {
@@ -2827,7 +2827,7 @@ type RemoveTodoRequest struct {
 
 func (x *RemoveTodoRequest) Reset() {
 	*x = RemoveTodoRequest{}
-	mi := &file_proto_mnemosyne_proto_msgTypes[44]
+	mi := &file_mnemosyne_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2839,7 +2839,7 @@ func (x *RemoveTodoRequest) String() string {
 func (*RemoveTodoRequest) ProtoMessage() {}
 
 func (x *RemoveTodoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mnemosyne_proto_msgTypes[44]
+	mi := &file_mnemosyne_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2852,7 +2852,7 @@ func (x *RemoveTodoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTodoRequest.ProtoReflect.Descriptor instead.
 func (*RemoveTodoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mnemosyne_proto_rawDescGZIP(), []int{44}
+	return file_mnemosyne_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *RemoveTodoRequest) GetId() string {
@@ -2862,11 +2862,419 @@ func (x *RemoveTodoRequest) GetId() string {
 	return ""
 }
 
-var File_proto_mnemosyne_proto protoreflect.FileDescriptor
+type CronJob struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                       // Unique job ID (auto-generated)
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                   // Human-readable name
+	Schedule      string                 `protobuf:"bytes,3,opt,name=schedule,proto3" json:"schedule,omitempty"`                           // Cron expression (e.g., "0 9 * * *")
+	AgentId       string                 `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`              // Agent that owns this job
+	Message       string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`                             // Message to send the agent when job fires
+	Enabled       bool                   `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`                            // Whether the job is active
+	CreatedAt     int64                  `protobuf:"varint,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`       // Unix timestamp
+	UpdatedAt     int64                  `protobuf:"varint,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`       // Unix timestamp
+	LastFireAt    int64                  `protobuf:"varint,9,opt,name=last_fire_at,json=lastFireAt,proto3" json:"last_fire_at,omitempty"`  // When the job last fired (0 = never)
+	NextFireAt    int64                  `protobuf:"varint,10,opt,name=next_fire_at,json=nextFireAt,proto3" json:"next_fire_at,omitempty"` // When the job will fire next (0 = not scheduled)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_proto_mnemosyne_proto_rawDesc = "" +
+func (x *CronJob) Reset() {
+	*x = CronJob{}
+	mi := &file_mnemosyne_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CronJob) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CronJob) ProtoMessage() {}
+
+func (x *CronJob) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CronJob.ProtoReflect.Descriptor instead.
+func (*CronJob) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *CronJob) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CronJob) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CronJob) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
+}
+
+func (x *CronJob) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *CronJob) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CronJob) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *CronJob) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *CronJob) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *CronJob) GetLastFireAt() int64 {
+	if x != nil {
+		return x.LastFireAt
+	}
+	return 0
+}
+
+func (x *CronJob) GetNextFireAt() int64 {
+	if x != nil {
+		return x.NextFireAt
+	}
+	return 0
+}
+
+type CreateCronJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                      // Required: human-readable name
+	Schedule      string                 `protobuf:"bytes,2,opt,name=schedule,proto3" json:"schedule,omitempty"`              // Required: cron expression
+	AgentId       string                 `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"` // Required: agent that owns this job
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`                // Required: message to send when job fires
+	Enabled       *bool                  `protobuf:"varint,5,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`         // Default: true if not set
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCronJobRequest) Reset() {
+	*x = CreateCronJobRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCronJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCronJobRequest) ProtoMessage() {}
+
+func (x *CreateCronJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCronJobRequest.ProtoReflect.Descriptor instead.
+func (*CreateCronJobRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *CreateCronJobRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateCronJobRequest) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
+}
+
+func (x *CreateCronJobRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *CreateCronJobRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CreateCronJobRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+type ListCronJobsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AgentId         string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`                          // Filter by agent (empty = all)
+	IncludeDisabled bool                   `protobuf:"varint,2,opt,name=include_disabled,json=includeDisabled,proto3" json:"include_disabled,omitempty"` // Include disabled jobs (default: false)
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListCronJobsRequest) Reset() {
+	*x = ListCronJobsRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCronJobsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCronJobsRequest) ProtoMessage() {}
+
+func (x *ListCronJobsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCronJobsRequest.ProtoReflect.Descriptor instead.
+func (*ListCronJobsRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ListCronJobsRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *ListCronJobsRequest) GetIncludeDisabled() bool {
+	if x != nil {
+		return x.IncludeDisabled
+	}
+	return false
+}
+
+type CronJobList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Jobs          []*CronJob             `protobuf:"bytes,1,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CronJobList) Reset() {
+	*x = CronJobList{}
+	mi := &file_mnemosyne_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CronJobList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CronJobList) ProtoMessage() {}
+
+func (x *CronJobList) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CronJobList.ProtoReflect.Descriptor instead.
+func (*CronJobList) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *CronJobList) GetJobs() []*CronJob {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+type UpdateCronJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                   // Required: job ID to update
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`         // New name
+	Schedule      *string                `protobuf:"bytes,3,opt,name=schedule,proto3,oneof" json:"schedule,omitempty"` // New schedule
+	Message       *string                `protobuf:"bytes,4,opt,name=message,proto3,oneof" json:"message,omitempty"`   // New message
+	Enabled       *bool                  `protobuf:"varint,5,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`  // Toggle enabled/disabled
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCronJobRequest) Reset() {
+	*x = UpdateCronJobRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCronJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCronJobRequest) ProtoMessage() {}
+
+func (x *UpdateCronJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCronJobRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCronJobRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *UpdateCronJobRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateCronJobRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateCronJobRequest) GetSchedule() string {
+	if x != nil && x.Schedule != nil {
+		return *x.Schedule
+	}
+	return ""
+}
+
+func (x *UpdateCronJobRequest) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
+func (x *UpdateCronJobRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+type DeleteCronJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Job ID to delete
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCronJobRequest) Reset() {
+	*x = DeleteCronJobRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCronJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCronJobRequest) ProtoMessage() {}
+
+func (x *DeleteCronJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCronJobRequest.ProtoReflect.Descriptor instead.
+func (*DeleteCronJobRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *DeleteCronJobRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+var File_mnemosyne_proto protoreflect.FileDescriptor
+
+const file_mnemosyne_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/mnemosyne.proto\x12\tmnemosyne\"\xba\x02\n" +
+	"\x0fmnemosyne.proto\x12\tmnemosyne\"\xba\x02\n" +
 	"\vMemoryEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12\x1a\n" +
@@ -3106,6 +3514,49 @@ const file_proto_mnemosyne_proto_rawDesc = "" +
 	"\x13CompleteTodoRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"#\n" +
 	"\x11RemoveTodoRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x9a\x02\n" +
+	"\aCronJob\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bschedule\x18\x03 \x01(\tR\bschedule\x12\x19\n" +
+	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\x12\x18\n" +
+	"\aenabled\x18\x06 \x01(\bR\aenabled\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\x03R\tupdatedAt\x12 \n" +
+	"\flast_fire_at\x18\t \x01(\x03R\n" +
+	"lastFireAt\x12 \n" +
+	"\fnext_fire_at\x18\n" +
+	" \x01(\x03R\n" +
+	"nextFireAt\"\xa6\x01\n" +
+	"\x14CreateCronJobRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
+	"\bschedule\x18\x02 \x01(\tR\bschedule\x12\x19\n" +
+	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12\x1d\n" +
+	"\aenabled\x18\x05 \x01(\bH\x00R\aenabled\x88\x01\x01B\n" +
+	"\n" +
+	"\b_enabled\"[\n" +
+	"\x13ListCronJobsRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12)\n" +
+	"\x10include_disabled\x18\x02 \x01(\bR\x0fincludeDisabled\"5\n" +
+	"\vCronJobList\x12&\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x12.mnemosyne.CronJobR\x04jobs\"\xcc\x01\n" +
+	"\x14UpdateCronJobRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1f\n" +
+	"\bschedule\x18\x03 \x01(\tH\x01R\bschedule\x88\x01\x01\x12\x1d\n" +
+	"\amessage\x18\x04 \x01(\tH\x02R\amessage\x88\x01\x01\x12\x1d\n" +
+	"\aenabled\x18\x05 \x01(\bH\x03R\aenabled\x88\x01\x01B\a\n" +
+	"\x05_nameB\v\n" +
+	"\t_scheduleB\n" +
+	"\n" +
+	"\b_messageB\n" +
+	"\n" +
+	"\b_enabled\"&\n" +
+	"\x14DeleteCronJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id*\xb3\x01\n" +
 	"\x10ConsolidateScope\x12!\n" +
 	"\x1dCONSOLIDATE_SCOPE_UNSPECIFIED\x10\x00\x12\x19\n" +
@@ -3145,23 +3596,28 @@ const file_proto_mnemosyne_proto_rawDesc = "" +
 	"\tAgentChat\x12<\n" +
 	"\n" +
 	"ChatStream\x12\x16.mnemosyne.ChatRequest\x1a\x14.mnemosyne.ChatEvent0\x01\x12E\n" +
-	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponseB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
+	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponse2\xa5\x02\n" +
+	"\vCronService\x12D\n" +
+	"\rCreateCronJob\x12\x1f.mnemosyne.CreateCronJobRequest\x1a\x12.mnemosyne.CronJob\x12F\n" +
+	"\fListCronJobs\x12\x1e.mnemosyne.ListCronJobsRequest\x1a\x16.mnemosyne.CronJobList\x12D\n" +
+	"\rUpdateCronJob\x12\x1f.mnemosyne.UpdateCronJobRequest\x1a\x12.mnemosyne.CronJob\x12B\n" +
+	"\rDeleteCronJob\x12\x1f.mnemosyne.DeleteCronJobRequest\x1a\x10.mnemosyne.EmptyB\"Z github.com/aj-nt/mnemosyne/protob\x06proto3"
 
 var (
-	file_proto_mnemosyne_proto_rawDescOnce sync.Once
-	file_proto_mnemosyne_proto_rawDescData []byte
+	file_mnemosyne_proto_rawDescOnce sync.Once
+	file_mnemosyne_proto_rawDescData []byte
 )
 
-func file_proto_mnemosyne_proto_rawDescGZIP() []byte {
-	file_proto_mnemosyne_proto_rawDescOnce.Do(func() {
-		file_proto_mnemosyne_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mnemosyne_proto_rawDesc), len(file_proto_mnemosyne_proto_rawDesc)))
+func file_mnemosyne_proto_rawDescGZIP() []byte {
+	file_mnemosyne_proto_rawDescOnce.Do(func() {
+		file_mnemosyne_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)))
 	})
-	return file_proto_mnemosyne_proto_rawDescData
+	return file_mnemosyne_proto_rawDescData
 }
 
-var file_proto_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
-var file_proto_mnemosyne_proto_goTypes = []any{
+var file_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_mnemosyne_proto_goTypes = []any{
 	(ConsolidateScope)(0),                     // 0: mnemosyne.ConsolidateScope
 	(UpdateEvent_EventType)(0),                // 1: mnemosyne.UpdateEvent.EventType
 	(ChatEvent_EventType)(0),                  // 2: mnemosyne.ChatEvent.EventType
@@ -3210,8 +3666,14 @@ var file_proto_mnemosyne_proto_goTypes = []any{
 	(*ListTodosRequest)(nil),                  // 45: mnemosyne.ListTodosRequest
 	(*CompleteTodoRequest)(nil),               // 46: mnemosyne.CompleteTodoRequest
 	(*RemoveTodoRequest)(nil),                 // 47: mnemosyne.RemoveTodoRequest
+	(*CronJob)(nil),                           // 48: mnemosyne.CronJob
+	(*CreateCronJobRequest)(nil),              // 49: mnemosyne.CreateCronJobRequest
+	(*ListCronJobsRequest)(nil),               // 50: mnemosyne.ListCronJobsRequest
+	(*CronJobList)(nil),                       // 51: mnemosyne.CronJobList
+	(*UpdateCronJobRequest)(nil),              // 52: mnemosyne.UpdateCronJobRequest
+	(*DeleteCronJobRequest)(nil),              // 53: mnemosyne.DeleteCronJobRequest
 }
-var file_proto_mnemosyne_proto_depIdxs = []int32{
+var file_mnemosyne_proto_depIdxs = []int32{
 	3,  // 0: mnemosyne.AddMemoryResponse.entry:type_name -> mnemosyne.MemoryEntry
 	3,  // 1: mnemosyne.MemoryList.entries:type_name -> mnemosyne.MemoryEntry
 	3,  // 2: mnemosyne.SearchResponse.entries:type_name -> mnemosyne.MemoryEntry
@@ -3228,95 +3690,106 @@ var file_proto_mnemosyne_proto_depIdxs = []int32{
 	3,  // 13: mnemosyne.UpdateEvent.entry:type_name -> mnemosyne.MemoryEntry
 	20, // 14: mnemosyne.UpdateEvent.hot_block:type_name -> mnemosyne.HotBlockResponse
 	2,  // 15: mnemosyne.ChatEvent.event_type:type_name -> mnemosyne.ChatEvent.EventType
-	40, // 16: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
-	4,  // 17: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
-	6,  // 18: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
-	7,  // 19: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
-	8,  // 20: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
-	10, // 21: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
-	12, // 22: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
-	14, // 23: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
-	16, // 24: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
-	19, // 25: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
-	23, // 26: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
-	24, // 27: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
-	25, // 28: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
-	27, // 29: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
-	28, // 30: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
-	30, // 31: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
-	33, // 32: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
-	35, // 33: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
-	37, // 34: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
-	38, // 35: mnemosyne.Mnemosyne.ChatStream:input_type -> mnemosyne.ChatRequest
-	44, // 36: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
-	45, // 37: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
-	46, // 38: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
-	47, // 39: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
-	38, // 40: mnemosyne.AgentChat.ChatStream:input_type -> mnemosyne.ChatRequest
-	40, // 41: mnemosyne.AgentChat.Ping:input_type -> mnemosyne.HealthCheckRequest
-	41, // 42: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
-	5,  // 43: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
-	3,  // 44: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
-	3,  // 45: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
-	9,  // 46: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
-	11, // 47: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
-	13, // 48: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
-	15, // 49: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
-	17, // 50: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
-	20, // 51: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
-	21, // 52: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
-	21, // 53: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
-	26, // 54: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
-	21, // 55: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
-	29, // 56: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
-	32, // 57: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
-	34, // 58: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
-	36, // 59: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
-	42, // 60: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
-	39, // 61: mnemosyne.Mnemosyne.ChatStream:output_type -> mnemosyne.ChatEvent
-	43, // 62: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
-	43, // 63: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
-	43, // 64: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
-	42, // 65: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
-	39, // 66: mnemosyne.AgentChat.ChatStream:output_type -> mnemosyne.ChatEvent
-	41, // 67: mnemosyne.AgentChat.Ping:output_type -> mnemosyne.HealthCheckResponse
-	42, // [42:68] is the sub-list for method output_type
-	16, // [16:42] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	48, // 16: mnemosyne.CronJobList.jobs:type_name -> mnemosyne.CronJob
+	40, // 17: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
+	4,  // 18: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
+	6,  // 19: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
+	7,  // 20: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
+	8,  // 21: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
+	10, // 22: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
+	12, // 23: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
+	14, // 24: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
+	16, // 25: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
+	19, // 26: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
+	23, // 27: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
+	24, // 28: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
+	25, // 29: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
+	27, // 30: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
+	28, // 31: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
+	30, // 32: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
+	33, // 33: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
+	35, // 34: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
+	37, // 35: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
+	38, // 36: mnemosyne.Mnemosyne.ChatStream:input_type -> mnemosyne.ChatRequest
+	44, // 37: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
+	45, // 38: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
+	46, // 39: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
+	47, // 40: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
+	38, // 41: mnemosyne.AgentChat.ChatStream:input_type -> mnemosyne.ChatRequest
+	40, // 42: mnemosyne.AgentChat.Ping:input_type -> mnemosyne.HealthCheckRequest
+	49, // 43: mnemosyne.CronService.CreateCronJob:input_type -> mnemosyne.CreateCronJobRequest
+	50, // 44: mnemosyne.CronService.ListCronJobs:input_type -> mnemosyne.ListCronJobsRequest
+	52, // 45: mnemosyne.CronService.UpdateCronJob:input_type -> mnemosyne.UpdateCronJobRequest
+	53, // 46: mnemosyne.CronService.DeleteCronJob:input_type -> mnemosyne.DeleteCronJobRequest
+	41, // 47: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
+	5,  // 48: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
+	3,  // 49: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
+	3,  // 50: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
+	9,  // 51: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
+	11, // 52: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
+	13, // 53: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
+	15, // 54: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
+	17, // 55: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
+	20, // 56: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
+	21, // 57: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
+	21, // 58: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
+	26, // 59: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
+	21, // 60: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
+	29, // 61: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
+	32, // 62: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
+	34, // 63: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
+	36, // 64: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
+	42, // 65: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
+	39, // 66: mnemosyne.Mnemosyne.ChatStream:output_type -> mnemosyne.ChatEvent
+	43, // 67: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
+	43, // 68: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
+	43, // 69: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
+	42, // 70: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
+	39, // 71: mnemosyne.AgentChat.ChatStream:output_type -> mnemosyne.ChatEvent
+	41, // 72: mnemosyne.AgentChat.Ping:output_type -> mnemosyne.HealthCheckResponse
+	48, // 73: mnemosyne.CronService.CreateCronJob:output_type -> mnemosyne.CronJob
+	51, // 74: mnemosyne.CronService.ListCronJobs:output_type -> mnemosyne.CronJobList
+	48, // 75: mnemosyne.CronService.UpdateCronJob:output_type -> mnemosyne.CronJob
+	42, // 76: mnemosyne.CronService.DeleteCronJob:output_type -> mnemosyne.Empty
+	47, // [47:77] is the sub-list for method output_type
+	17, // [17:47] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
-func init() { file_proto_mnemosyne_proto_init() }
-func file_proto_mnemosyne_proto_init() {
-	if File_proto_mnemosyne_proto != nil {
+func init() { file_mnemosyne_proto_init() }
+func file_mnemosyne_proto_init() {
+	if File_mnemosyne_proto != nil {
 		return
 	}
-	file_proto_mnemosyne_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[7].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[13].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[24].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[25].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[27].OneofWrappers = []any{}
-	file_proto_mnemosyne_proto_msgTypes[42].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[4].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[7].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[9].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[11].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[13].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[24].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[25].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[27].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[42].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[46].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mnemosyne_proto_rawDesc), len(file_proto_mnemosyne_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   45,
+			NumMessages:   51,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
-		GoTypes:           file_proto_mnemosyne_proto_goTypes,
-		DependencyIndexes: file_proto_mnemosyne_proto_depIdxs,
-		EnumInfos:         file_proto_mnemosyne_proto_enumTypes,
-		MessageInfos:      file_proto_mnemosyne_proto_msgTypes,
+		GoTypes:           file_mnemosyne_proto_goTypes,
+		DependencyIndexes: file_mnemosyne_proto_depIdxs,
+		EnumInfos:         file_mnemosyne_proto_enumTypes,
+		MessageInfos:      file_mnemosyne_proto_msgTypes,
 	}.Build()
-	File_proto_mnemosyne_proto = out.File
-	file_proto_mnemosyne_proto_goTypes = nil
-	file_proto_mnemosyne_proto_depIdxs = nil
+	File_mnemosyne_proto = out.File
+	file_mnemosyne_proto_goTypes = nil
+	file_mnemosyne_proto_depIdxs = nil
 }

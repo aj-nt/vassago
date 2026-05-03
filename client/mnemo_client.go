@@ -78,6 +78,12 @@ type MnemoClient interface {
 	// RemoveTodo removes a todo item.
 	RemoveTodo(ctx context.Context, id string) error
 
+	// Cron job management
+	CreateCronJob(ctx context.Context, name, schedule, agentID, message string, enabled *bool) (*CronJobInfo, error)
+	ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error)
+	UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error)
+	DeleteCronJob(ctx context.Context, id string) error
+
 	// Close closes the connection to the daemon.
 	Close() error
 }
