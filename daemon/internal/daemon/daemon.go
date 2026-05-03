@@ -287,7 +287,8 @@ func New(cfg *Config) (*Daemon, error) {
 	var cronRunner *cron.CronRunner
 	if cfg.Cron.Enabled {
 		cronAdapter := newCronStoreAdapter(st)
-		cronRunner = cron.NewCronRunner(cronAdapter, nil, cron.Config{
+		fireCallback := newCronFireCallback(st, hub)
+		cronRunner = cron.NewCronRunner(cronAdapter, fireCallback, cron.Config{
 			Enabled:  cfg.Cron.Enabled,
 			Interval: cfg.Cron.Interval,
 			MaxJobs:  cfg.Cron.MaxJobs,

@@ -4,14 +4,17 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/aj-nt/mnemosyne/agent"
+	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 	"github.com/aj-nt/mnemosyne/agent/scheduler"
 	"github.com/aj-nt/mnemosyne/agent/tools"
@@ -88,11 +91,25 @@ func main() {
 			cache := memoclient.NewHotBlockCache("memory", cfg.Agent.ID, hotBlock, len([]rune(hotBlock)), 0)
 			a.SetHotBlockCache(cache)
 		}
-		// Subscribe to memory changes and invalidate hot block on events
+			// Subscribe to memory changes and handle cron fire events
 		agentSession.OnEvent = func(event *pb.UpdateEvent) {
-			a.InvalidateHotBlock()
-			log.Printf("Telepathy: %s event from %s (key=%s)",
-				event.EventType.String(), event.AgentId, event.Key)
+			switch event.EventType {
+			case pb.UpdateEvent_CRON_FIRE:
+				// Handle cron fire: invoke the agent with the cron job's message
+				if event.CronFire != nil {
+					log.Printf("Telepathy: CRON_FIRE event from %s (job=%s, name=%s)",
+						event.CronFire.AgentId, event.CronFire.JobId, event.CronFire.JobName)
+					// Only handle if this job belongs to our agent
+					if event.CronFire.AgentId == cfg.Agent.ID {
+						go handleCronFire(a, cfg.Agent.ID, cfg.Agent.MaxTurns, cfg.Provider.Temperature, event.CronFire)
+					}
+				}
+			default:
+				// Memory/other events — invalidate hot block
+				a.InvalidateHotBlock()
+				log.Printf("Telepathy: %s event from %s (key=%s)",
+					event.EventType.String(), event.AgentId, event.Key)
+			}
 		}
 		subCtx := context.Background()
 		if eventCh, err := agentSession.Subscribe(subCtx, []string{"memory"}, nil); err != nil {
@@ -347,4 +364,53 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// handleCronFire processes a cron fire event by invoking the agent with the
+// cron job's message. This is the core of the proactive agent: the daemon
+// fires a cron job, publishes the event, and the agent picks it up and acts on it.
+func handleCronFire(a *agent.Agent, agentID string, maxTurns int, temperature float64, event *pb.CronFireEvent) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	// Build the prompt prefix with cron context
+	prompt := fmt.Sprintf("[Scheduled Task: %s (ID: %s, Schedule: %s)]\n\n%s",
+		event.JobName, event.JobId, event.Schedule, event.Message)
+
+	log.Printf("CronFire: invoking agent for job %q (%s)", event.JobName, event.JobId)
+
+	// Build a conversation context for this cron fire
+	hotBlock, _ := a.GetHotBlock(ctx)
+
+	toolDefs := a.BuildToolDefinitions()
+	convCtx := &agentctx.ConversationContext{
+		AgentID:         agentID,
+		Messages: []agentctx.Message{
+			{Role: "user", Content: prompt},
+		},
+		Tools:           toolDefs,
+		MaxIterations:   maxTurns,
+		Iteration:       0,
+		Interrupt:       agentctx.NewInterruptSignal(),
+		HotBlockContent: hotBlock,
+		Temperature:     temperature,
+	}
+
+	// Run the agent and collect the response
+	out := make(chan agent.StreamEvent, 100)
+	go a.RunStreaming(ctx, convCtx, out)
+
+	var responseText string
+	for evt := range out {
+		if evt.Type == agentctx.StreamText {
+			responseText += evt.Text
+		} else if evt.Type == agentctx.StreamError {
+			log.Printf("CronFire: stream error for job %q: %v", event.JobName, evt.Error)
+			return
+		} else if evt.Type == agentctx.StreamDone {
+			break
+		}
+	}
+
+	log.Printf("CronFire: agent completed job %q (response: %d chars)", event.JobName, len(responseText))
 }
