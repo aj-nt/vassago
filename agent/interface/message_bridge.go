@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	memoclient "github.com/aj-nt/mnemosyne/client"
+	"github.com/aj-nt/mnemosyne/messaging/format"
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
@@ -66,9 +66,11 @@ type bridgeSession struct {
 }
 
 // DefaultBridgeConfig returns sensible defaults for a BridgeConfig.
+// MaxResponseLength is 0 (no truncation) by default because formatting
+// is now platform-aware — each platform has its own limits.
 func DefaultBridgeConfig() BridgeConfig {
 	return BridgeConfig{
-		MaxResponseLength: 1900, // Under Discord's 2000 char limit
+		MaxResponseLength: 0, // 0 = no truncation; platform limits apply
 		ResponseTimeout:   120 * time.Second,
 	}
 }
@@ -270,19 +272,10 @@ func (mb *MessageBridge) runAgent(ctx context.Context, sess *bridgeSession, user
 }
 
 // composeUserMessage builds the user-facing message text from the event.
-// It prepends sender info so the agent knows who's talking and which channel.
+// It uses platform-aware context labels so the agent knows where the
+// message came from.
 func (mb *MessageBridge) composeUserMessage(event *pb.MessageEvent) string {
-	var parts []string
-
-	// Add context about the message source
-	if event.SenderName != "" {
-		parts = append(parts, fmt.Sprintf("[Message from %s in #%s]", event.SenderName, event.ChannelName))
-	} else {
-		parts = append(parts, fmt.Sprintf("[Message in #%s]", event.ChannelName))
-	}
-
-	parts = append(parts, event.Message)
-	return strings.Join(parts, "\n")
+	return format.ComposePlatformContext(event.Platform, event.ChannelName, event.SenderName) + "\n" + event.Message
 }
 
 // getOrCreateSession returns an existing session for the conversation key,

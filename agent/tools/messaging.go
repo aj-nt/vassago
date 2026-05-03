@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aj-nt/mnemosyne/client"
+	"github.com/aj-nt/mnemosyne/messaging/format"
 )
 
 // RegisterMessagingTools adds messaging tool handlers to the registry.
@@ -22,20 +23,29 @@ func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
 		}
 
 		// Validate platform
-		validPlatforms := map[string]bool{"discord": true, "telegram": true, "imessage": true, "email": true}
-		if !validPlatforms[platform] {
-			return fmt.Sprintf("unsupported platform: %s. Supported: discord, telegram, imessage, email", platform), true
+		if err := format.ValidatePlatform(platform); err != nil {
+			return err.Error(), true
 		}
 
-		// Reject oversized messages
-		const maxMessageLen = 2000 // Discord message limit
-		if len(message) > maxMessageLen {
-			return fmt.Sprintf("Message too long (%d chars, max %d). Break into smaller messages.", len(message), maxMessageLen), true
+		// Validate email target format
+		if platform == "email" {
+			validated, err := format.ValidateEmailTarget(target)
+			if err != nil {
+				return fmt.Sprintf("invalid email address: %s", target), true
+			}
+			target = validated
+		}
+
+		// Check platform-specific message length limits
+		limits := format.GetPlatformLimits(platform)
+		if len(message) > limits.MaxMessageLen {
+			return fmt.Sprintf("Message too long (%d chars, max %d for %s). Break into smaller messages.",
+				len(message), limits.MaxMessageLen, platform), true
 		}
 
 		ctx, cancel := withTimeout(DefaultTimeout)
 		defer cancel()
-		
+
 		messageID, err := mnemo.SendMessage(ctx, platform, target, message)
 		if err != nil {
 			return fmt.Sprintf("SendMessage failed: %v", err), true
@@ -49,14 +59,14 @@ func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
 var SendMessageSchema = map[string]interface{}{
 	"type": "object",
 	"properties": map[string]interface{}{
-			"platform": map[string]interface{}{
-				"type":        "string",
-				"description": "Messaging platform (discord, telegram, imessage, or email)",
-				"enum":        []string{"discord", "telegram", "imessage", "email"},
-			},
+		"platform": map[string]interface{}{
+			"type":        "string",
+			"description": "Messaging platform (discord, telegram, imessage, or email)",
+			"enum":        format.SupportedPlatforms(),
+		},
 		"target": map[string]interface{}{
 			"type":        "string",
-			"description": "Target channel ID or user ID",
+			"description": "Target channel ID, user ID, or email address",
 		},
 		"message": map[string]interface{}{
 			"type":        "string",

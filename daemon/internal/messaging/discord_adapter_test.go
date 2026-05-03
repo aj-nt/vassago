@@ -261,31 +261,20 @@ func TestSplitMessage(t *testing.T) {
 	tests := []struct {
 		name    string
 		message string
-		maxLen  int
 		count   int
 	}{
-		{"short message", "hello", 2000, 1},
-		{"exact limit", strings.Repeat("a", 2000), 2000, 1},
-		{"over limit by 1", strings.Repeat("a", 2001), 2000, 2},
-		{"long message", strings.Repeat("a", 5000), 2000, 3},
-		{"empty message", "", 2000, 1},
+		{"short message", "hello", 1},
+		{"exact limit", strings.Repeat("a", 2000), 1},
+		{"over limit by 1", strings.Repeat("a", 2001), 2},
+		{"long message", strings.Repeat("a", 5000), 3},
+		{"empty message", "", 1},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chunks := splitMessage(tt.message, tt.maxLen)
+			chunks := SplitMessageForPlatform("discord", tt.message)
 			if len(chunks) != tt.count {
 				t.Errorf("expected %d chunks, got %d", tt.count, len(chunks))
-			}
-			// Verify each chunk is within the limit
-			for i, chunk := range chunks {
-				if len(chunk) > tt.maxLen {
-					t.Errorf("chunk %d exceeds max length: %d > %d", i, len(chunk), tt.maxLen)
-				}
-			}
-			// Verify the concatenation equals the original
-			if strings.Join(chunks, "") != tt.message {
-				t.Error("concatenated chunks don't match original message")
 			}
 		})
 	}

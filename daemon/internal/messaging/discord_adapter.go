@@ -3,7 +3,6 @@ package messaging
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -38,6 +37,11 @@ type DiscordAdapter struct {
 	messageChan chan *proto.MessageEvent
 	closeChan   chan struct{}
 	mu          sync.Mutex
+}
+
+// PlatformName returns the platform identifier for Discord.
+func (d *DiscordAdapter) PlatformName() string {
+	return "discord"
 }
 
 // NewDiscordAdapter creates a new Discord adapter.
@@ -111,15 +115,12 @@ func (d *DiscordAdapter) Send(ctx context.Context, target, message string) (stri
 
 // sendSplitMessage handles messages longer than 2000 characters.
 func (d *DiscordAdapter) sendSplitMessage(target, message string) (string, error) {
-	chunks := splitMessage(message, 2000)
+	chunks := SplitMessageForPlatform("discord", message)
 
 	var lastMsgID string
 	for i, chunk := range chunks {
-		prefix := ""
-		if i > 0 {
-			prefix = "(continued) "
-		}
-		msg, err := d.session.ChannelMessageSend(target, prefix+chunk)
+		// SplitMessageForPlatform already adds "(continued) " prefix
+		msg, err := d.session.ChannelMessageSend(target, chunk)
 		if err != nil {
 			return "", fmt.Errorf("failed to send Discord message chunk %d: %w", i, err)
 		}
@@ -235,31 +236,4 @@ func (d *DiscordAdapter) isAllowedChannel(channelID string) bool {
 		}
 	}
 	return false
-}
-
-// splitMessage splits a message into chunks of at most maxLen characters,
-// trying to break on newline boundaries when possible.
-func splitMessage(message string, maxLen int) []string {
-	if len(message) <= maxLen {
-		return []string{message}
-	}
-
-	var chunks []string
-	for len(message) > 0 {
-		if len(message) <= maxLen {
-			chunks = append(chunks, message)
-			break
-		}
-
-		// Try to break on a newline within the chunk
-		chunkEnd := maxLen
-		if idx := strings.LastIndex(message[:chunkEnd], "\n"); idx > 0 {
-			chunkEnd = idx + 1
-		}
-
-		chunks = append(chunks, message[:chunkEnd])
-		message = message[chunkEnd:]
-	}
-
-	return chunks
 }

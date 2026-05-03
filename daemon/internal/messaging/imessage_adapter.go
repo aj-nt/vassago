@@ -175,6 +175,11 @@ func (q *chatDBQuerier) LastROWID() (int64, error) {
 	return maxID.Int64, nil
 }
 
+// PlatformName returns the platform identifier for iMessage.
+func (a *IMessageAdapter) PlatformName() string {
+	return "imessage"
+}
+
 // NewIMessageAdapter creates a new iMessage adapter.
 func NewIMessageAdapter(config IMessageConfig) *IMessageAdapter {
 	if config.PollInterval == 0 {
@@ -385,16 +390,12 @@ func (a *IMessageAdapter) Send(ctx context.Context, target, message string) (str
 
 // sendSplitMessage handles messages longer than 4000 characters.
 func (a *IMessageAdapter) sendSplitMessage(target, message string) (string, error) {
-	chunks := splitMessage(message, 4000)
+	chunks := SplitMessageForPlatform("imessage", message)
 
 	var lastResult string
 	for i, chunk := range chunks {
-		prefix := ""
-		if i > 0 {
-			prefix = "(continued) "
-		}
-
-		result, err := a.sender.Send(target, prefix+chunk)
+		// SplitMessageForPlatform already adds "(continued) " prefix
+		result, err := a.sender.Send(target, chunk)
 		if err != nil {
 			return "", fmt.Errorf("failed to send iMessage chunk %d: %w", i, err)
 		}

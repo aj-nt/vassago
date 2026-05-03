@@ -219,8 +219,8 @@ func TestGetChannelMutex(t *testing.T) {
 
 func TestBridgeConfigDefaults(t *testing.T) {
 	cfg := DefaultBridgeConfig()
-	if cfg.MaxResponseLength != 1900 {
-		t.Errorf("Default MaxResponseLength = %d, want 1900", cfg.MaxResponseLength)
+	if cfg.MaxResponseLength != 0 {
+		t.Errorf("Default MaxResponseLength = %d, want 0 (platform-aware formatting)", cfg.MaxResponseLength)
 	}
 	if cfg.ResponseTimeout != 120*time.Second {
 		t.Errorf("Default ResponseTimeout = %v, want 120s", cfg.ResponseTimeout)
@@ -597,9 +597,7 @@ func TestRunAgentSessionAccumulation(t *testing.T) {
 	// TestConfigValidation validates configuration validation.
 	func TestConfigValidation(t *testing.T) {
 		cfg := DefaultBridgeConfig()
-		if cfg.MaxResponseLength <= 0 {
-			t.Error("MaxResponseLength should be positive")
-		}
+		// MaxResponseLength of 0 means platform-aware formatting (no global truncation)
 		if cfg.ResponseTimeout <= 0 {
 			t.Error("ResponseTimeout should be positive")
 		}
