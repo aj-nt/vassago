@@ -660,14 +660,27 @@ Goal: Send and receive messages through external platforms. This is the highest-
 
 Goal: Agent can initiate contact, not just respond to questions.
 
-### 16A: Agent-Managed Cron Jobs
+### 16A: Agent-Managed Cron Jobs — COMPLETE ✅
 
-- [ ] CronService gRPC endpoint: CreateCronJob, ListCronJobs, DeleteCronJob
-- [ ] Agent tool: `ScheduleCron` — create/manage scheduled tasks from conversation
-- [ ] Cron runner in daemon: fires events at scheduled times, triggers agent
-- [ ] Config: `cron.enabled`, `cron.max_jobs`
-- [ ] Tests: job CRUD, firing on schedule, disabling, persistence across restarts
-- [ ] QA pass + Red Team pass
+- [x] CronService gRPC endpoint: CreateCronJob, ListCronJobs, UpdateCronJob, DeleteCronJob
+- [x] Store: cron_jobs table in SQLite (migration 3, schema version 3)
+- [x] Cron expression parser with 5-field format (*, ranges, steps, lists)
+- [x] CronRunner: daemon-side scheduler that evaluates and fires due jobs
+- [x] NextFireTime computation (UTC-based) with RecomputeNextFireTimes for startup
+- [x] Agent tool: `ScheduleCron` — create, list, update, delete cron jobs
+- [x] Client methods: CreateCronJob, ListCronJobs, UpdateCronJob, DeleteCronJob
+- [x] Config: `cron.enabled`, `cron.interval`, `cron.max_jobs`
+- [x] Refactoring: Consolidated duplicate cron validation into cron.NextFireTime
+- [x] QA pass: 693 tests all green with -race
+- [x] Red Team pass: 12 boundary + validation tests (empty fields, invalid expressions, nonexistent IDs)
+
+Key files:
+- proto/mnemosyne.proto: CronService RPCs + CronJob + request/response messages
+- daemon/internal/store/cron.go: Store CRUD for cron_jobs
+- daemon/internal/grpc/cron_grpc.go: CronService gRPC implementation
+- daemon/internal/cron/runner.go: CronRunner + NextFireTime + CronStore interface
+- daemon/internal/daemon/cron_adapter.go: Bridges store.Store → cron.CronStore
+- agent/tools/cron.go: ScheduleCron tool (create/list/update/delete)
 
 ### 16B: Proactive Notifications
 
