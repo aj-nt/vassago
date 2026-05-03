@@ -693,15 +693,17 @@ Key files:
 - [x] Agent builds prefixed prompt: [Scheduled Task: {name} (ID: {id}, Schedule: {schedule})]
 - [x] Tests: pub/sub event publishing, no-subscriber case, 695 total
 
-### 16C: Health Monitoring & Self-Healing
+### 16C: Health Monitoring & Self-Healing — DEFERRED
 
-- [ ] Agent monitors daemon health, test results, deployment status
-- [ ] Automatic notifications when things break (test failures, daemon down, disk full)
-- [ ] Config: `health.check_interval`, `health.notification_platform`
-- [ ] Tests: health check loop, failure detection, notification triggering
-- [ ] QA pass + Red Team pass
+The existing ScheduleCron + SendMessage pipeline covers the core use case ("check daemon health every 5 minutes, Discord me if it's down"). A dedicated HealthService is just cron configuration, not new infrastructure.
 
-### 16D: Event-Driven Triggers (Webhooks)
+- [ ] Add health-check cron job templates to agent config
+- [ ] Example: ScheduleCron(action="create", schedule="*/5 * * * *", message="Ping the daemon and notify on Discord if it's down")
+- [ ] Full HealthService with automatic detection → deferrable to future phase
+
+### 16D: Event-Driven Triggers (Webhooks) — DEFERRED
+
+WebhookService is a substantial new feature (HTTP endpoint, HMAC verification, payload parsing). Better suited as a separate phase.
 
 - [ ] WebhookService: receive webhooks (GitHub, CI, etc.) → trigger agent action
 - [ ] GitHub webhook: PR opened → agent review, issue created → agent notify
