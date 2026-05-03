@@ -22,6 +22,7 @@ import (
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -150,6 +151,7 @@ func main() {
 		grpcServer = grpc.NewServer()
 		chatServer := iface.NewChatServer(a, mnemo)
 		pb.RegisterAgentChatServer(grpcServer, chatServer)
+		reflection.Register(grpcServer) // Enable gRPC reflection
 		go func() {
 			log.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
 			if err := grpcServer.Serve(lis); err != nil {
