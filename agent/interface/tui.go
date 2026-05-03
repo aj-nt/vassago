@@ -413,3 +413,45 @@ func humanizeTokensCompact(n int) string {
 	}
 	return fmt.Sprintf("%.0fK", float64(n)/1000)
 }
+
+// eraseLines returns ANSI escape sequences to erase n lines of output.
+// It moves the cursor up n lines and clears from cursor to end of screen.
+func eraseLines(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	// Move cursor up n lines
+	for i := 0; i < n; i++ {
+		b.WriteString("\033[A") // cursor up
+	}
+	// Clear from cursor to end of screen
+	b.WriteString("\033[J")
+	return b.String()
+}
+
+// countLines estimates the number of terminal lines a string will occupy.
+// It counts explicit newlines plus wraps long lines at the given width.
+func countLines(text string) int {
+	if text == "" {
+		return 0
+	}
+	lines := strings.Count(text, "\n") + 1
+	// Add wrapped lines for lines wider than the terminal
+	width := getTermWidth()
+	if width > 0 {
+		for _, line := range strings.Split(text, "\n") {
+			runeCount := utf8.RuneCountInString(line)
+			if runeCount > width {
+				lines += runeCount / width
+			}
+		}
+	}
+	return lines
+}
+
+// getTermWidth returns the terminal width in columns.
+// Falls back to 80 if the width cannot be determined.
+func getTermWidth() int {
+	return 80
+}

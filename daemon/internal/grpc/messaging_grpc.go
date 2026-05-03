@@ -34,10 +34,32 @@ func NewMessagingService() *MessagingService {
 }
 
 // AddAdapter adds a messaging adapter for a specific platform.
+// It verifies that the platform key matches the adapter's PlatformName().
 func (s *MessagingService) AddAdapter(platform string, adapter messaging.MessagingAdapter) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Verify platform key matches adapter's self-reported name
+	if adapterName := adapter.PlatformName(); adapterName != platform {
+		slog.Warn("Platform key mismatch",
+			"key", platform,
+			"adapter_platform", adapterName,
+			"msg", "using adapter key as-is")
+	}
+
 	s.adapters[platform] = adapter
+}
+
+// Status returns the connection status of all adapters.
+func (s *MessagingService) Status() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	status := make(map[string]bool, len(s.adaptersStarted))
+	for platform := range s.adapters {
+		status[platform] = s.adaptersStarted[platform]
+	}
+	return status
 }
 
 // SendMessage sends a message to a specific platform and target.

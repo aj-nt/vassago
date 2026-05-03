@@ -52,6 +52,11 @@ type TelegramAdapter struct {
 	mu          sync.Mutex
 }
 
+// PlatformName returns the platform identifier for Telegram.
+func (t *TelegramAdapter) PlatformName() string {
+	return "telegram"
+}
+
 // NewTelegramAdapter creates a new Telegram adapter.
 func NewTelegramAdapter(config TelegramConfig) *TelegramAdapter {
 	return &TelegramAdapter{
@@ -218,16 +223,12 @@ func (ta *TelegramAdapter) Send(ctx context.Context, target, message string) (st
 
 // sendSplitMessage handles messages longer than 4096 characters.
 func (ta *TelegramAdapter) sendSplitMessage(chatID int64, message string) (string, error) {
-	chunks := splitMessage(message, 4096)
+	chunks := SplitMessageForPlatform("telegram", message)
 
 	var lastMsgID string
 	for i, chunk := range chunks {
-		prefix := ""
-		if i > 0 {
-			prefix = "(continued) "
-		}
-
-		msg := tgbotapi.NewMessage(chatID, prefix+chunk)
+		// SplitMessageForPlatform already adds "(continued) " prefix
+		msg := tgbotapi.NewMessage(chatID, chunk)
 		msg.ParseMode = tgbotapi.ModeHTML
 
 		sentMsg, err := ta.api.Send(msg)

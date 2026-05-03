@@ -303,10 +303,20 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 		// Update message history from the context
 		messages = convCtx.Messages
 
-		// Wrap the response in a bordered panel
-		if responseText.Len() > 0 {
-			fmt.Println()
+		// Replace the streamed text with a bordered panel.
+		// The streaming text is already on screen. We erase it and redraw
+		// as a clean panel. This avoids the double-display bug where both
+		// the raw streamed text AND the panel appear.
+		if responseText.Len() > 0 && useColor() {
+			// Count lines in the streamed response to erase them
+			lines := countLines(responseText.String())
+			if lines > 0 {
+				fmt.Print(eraseLines(lines))
+			}
 			fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
+		} else if responseText.Len() > 0 {
+			// No color mode: just print the text (already streamed)
+			fmt.Println()
 		}
 
 		// Show context usage
@@ -407,8 +417,15 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	}
 
 	fmt.Println()
-	if responseText.Len() > 0 {
+	if responseText.Len() > 0 && useColor() {
+		// In single-query mode, text was already streamed. Erase it and show a clean panel.
+		lines := countLines(responseText.String())
+		if lines > 0 {
+			fmt.Print(eraseLines(lines))
+		}
 		fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
+	} else if responseText.Len() > 0 {
+		// No color: text already streamed
 	}
 	return nil
 }
