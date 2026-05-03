@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/aj-nt/mnemosyne/agent/setup"
+	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
 )
 
@@ -33,12 +38,11 @@ func cmdDaemon(args []string) {
 	}
 }
 
-// cmdAgent handles "mnemosyne agent" — runs the agent process.
+// cmdAgent handles "mnemosyne agent" — runs the agent process (server mode).
 func cmdAgent(args []string) {
 	fs := flag.NewFlagSet("agent", flag.ExitOnError)
 	configPath := fs.String("config", "", "Path to agent config (default: ~/.mnemosyne/agent.yaml)")
 	serve := fs.Bool("serve", false, "Server mode: start gRPC chat server and wait")
-	message := fs.String("message", "", "Single message (non-interactive)")
 	fs.Parse(args)
 
 	if *configPath == "" {
@@ -46,20 +50,36 @@ func cmdAgent(args []string) {
 		*configPath = filepath.Join(home, ".mnemosyne", "agent.yaml")
 	}
 
-	agentBin := findStandaloneBinary("mnemosyne-agent")
-	if agentBin != "" {
-		agentArgs := []string{"--config", *configPath}
-		if *serve {
-			agentArgs = append(agentArgs, "--serve")
-		}
-		if *message != "" {
-			agentArgs = append(agentArgs, "--message", *message)
-		}
-		runBinaryForeground(agentBin, agentArgs...)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: mnemosyne-agent binary not found.\n")
-		fmt.Fprintf(os.Stderr, "Build it with: go build -o ~/bin/mnemosyne-agent ./agent/cmd/mnemosyne-agent\n")
+	ctx := context.Background()
+
+	// Check daemon is running before starting agent
+	c, err := memoclient.Connect(ctx, memoclient.Config{Address: "localhost:50051"})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Cannot connect to Mnemosyne daemon.\n")
+		fmt.Fprintf(os.Stderr, "Make sure the daemon is running: mnemosyne start\n")
 		os.Exit(1)
+	}
+	c.Close()
+
+	result, err := setup.InitAgent(ctx, *configPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize agent: %v", err)
+	}
+	defer result.Close()
+
+	if *serve {
+		if result.Config.Mnemosyne.ChatListen == "" {
+			log.Fatal("--serve requires chat_listen to be configured")
+		}
+		log.Printf("Agent running in server mode (gRPC chat on %s)", result.Config.Mnemosyne.ChatListen)
+		setup.WaitForSignal()
+		return
+	}
+
+	// Interactive mode via mnemosyne agent (without --serve)
+	cli := iface.NewCLI(result.Agent)
+	if err := cli.RunInteractive(ctx); err != nil {
+		log.Fatalf("Error: %v", err)
 	}
 }
 
@@ -68,36 +88,45 @@ func cmdChat(args []string) {
 	configPath := ""
 	message := ""
 
-	for i, arg := range args {
-		switch arg {
-		case "--config":
-			if i+1 < len(args) {
-				configPath = args[i+1]
-			}
-		case "--message", "-m":
-			if i+1 < len(args) {
-				message = args[i+1]
-			}
-		case "--help", "-h":
-			fmt.Println(`Usage: mnemosyne chat [options]
+	fs := flag.NewFlagSet("chat", flag.ExitOnError)
+	fs.StringVar(&configPath, "config", "", "Path to agent config (default: ~/.mnemosyne/agent.yaml)")
+	fs.StringVar(&message, "message", "", "Send a single message and exit (non-interactive)")
+	fs.StringVar(&message, "m", "", "Shorthand for --message")
+	fs.Parse(args)
 
-Options:
-  --config PATH   Path to agent config (default: ~/.mnemosyne/agent.yaml)
-  --message, -m   Send a single message and exit (non-interactive)
-  --help, -h      Show this help
-
-Description:
-  Start an interactive chat session with the Mnemosyne agent.
-  If --message is provided, sends the message and exits.
-
-  The daemon must be running (use 'mnemosyne start').`)
-			return
-		}
+	// Re-parse remaining args for any positional message
+	remaining := fs.Args()
+	if message == "" && len(remaining) > 0 {
+		message = strings.Join(remaining, " ")
 	}
 
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
 		configPath = filepath.Join(home, ".mnemosyne", "agent.yaml")
+	}
+
+	// Check if help was requested
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			fmt.Println(`Usage: mnemosyne chat [options] [message]
+
+Options:
+  --config PATH    Path to agent config (default: ~/.mnemosyne/agent.yaml)
+  --message, -m    Send a single message and exit (non-interactive)
+  --help, -h       Show this help
+
+Description:
+  Start an interactive chat session with the Mnemosyne agent.
+  If a message is provided, sends it and exits.
+
+  The daemon must be running (use 'mnemosyne start').
+
+Examples:
+  mnemosyne chat                    # Interactive REPL
+  mnemosyne chat "What's the time?" # One-shot query
+  mnemosyne chat -m "Check memory"  # Same, with flag`)
+			return
+		}
 	}
 
 	// Verify the daemon is running first
@@ -112,23 +141,45 @@ Description:
 	}
 	c.Close()
 
-	// Delegate to the agent binary for interactive chat
-	agentBin := findStandaloneBinary("mnemosyne-agent")
-	if agentBin != "" {
-		agentArgs := []string{"--config", configPath}
-		if message != "" {
-			agentArgs = append(agentArgs, "--message", message)
-		}
-		// Run interactively (pass through stdin/stdout/stderr)
-		cmd := exec.Command(agentBin, agentArgs...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: mnemosyne-agent binary not found.\n")
-		fmt.Fprintf(os.Stderr, "Build it with: go build -o ~/bin/mnemosyne-agent ./agent/cmd/mnemosyne-agent\n")
+	// Initialize the agent natively (no subprocess)
+	agentCtx := context.Background()
+	result, err := setup.InitAgent(agentCtx, configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Failed to initialize agent: %v\n", err)
 		os.Exit(1)
+	}
+	defer result.Close()
+
+	cli := iface.NewCLI(result.Agent)
+
+	if message != "" {
+		if err := cli.RunOneShot(agentCtx, message); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// Check if stdin has data (piped input)
+		stat, _ := os.Stdin.Stat()
+		if stat.Mode()&os.ModeCharDevice == 0 {
+			var input strings.Builder
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				input.WriteString(scanner.Text())
+				input.WriteString("\n")
+			}
+			msg := strings.TrimSpace(input.String())
+			if msg != "" {
+				if err := cli.RunOneShot(agentCtx, msg); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+			}
+		} else {
+			if err := cli.RunInteractive(agentCtx); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	}
 }
 
@@ -140,8 +191,7 @@ func findStandaloneBinary(name string) string {
 		filepath.Join(home, "go", "bin", name),
 	}
 
-	// Also check PATH
-	if p, err := exec.LookPath(name); err == nil {
+	if p, err := findBinaryInPATHHelper(name); err == nil {
 		return p
 	}
 
@@ -153,9 +203,23 @@ func findStandaloneBinary(name string) string {
 	return ""
 }
 
+// findBinaryInPATHHelper wraps exec.LookPath.
+func findBinaryInPATHHelper(name string) (string, error) {
+	p, err := exec.LookPath(name)
+	if err != nil {
+		return "", err
+	}
+	return p, nil
+}
+
+// execCommand creates an exec.Cmd.
+func execCommand(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}
+
 // runBinaryForeground runs a binary with stdout/stderr attached.
 func runBinaryForeground(name string, args ...string) {
-	cmd := exec.Command(name, args...)
+	cmd := execCommand(name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -282,3 +282,18 @@ func TestCmdVersion(t *testing.T) {
 	// Just ensure it doesn't panic — it prints to stdout
 	cmdVersion([]string{})
 }
+
+func TestStringsRepeat(t *testing.T) {
+	if stringsRepeat("a", 3) != "aaa" {
+		t.Error("stringsRepeat should repeat the string")
+	}
+	if stringsRepeat("─", 5) != "─────" {
+		t.Error("stringsRepeat should work with unicode")
+	}
+	if stringsRepeat("", 10) != "" {
+		t.Error("stringsRepeat of empty string should be empty")
+	}
+	if stringsRepeat("x", 0) != "" {
+		t.Error("stringsRepeat with n=0 should be empty")
+	}
+}

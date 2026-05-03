@@ -35,6 +35,8 @@ func main() {
 		cmdMemory(args)
 	case "hot-block":
 		cmdHotBlock(args)
+	case "sessions":
+		cmdSessions(args)
 	case "health":
 		cmdHealth(args)
 	case "version":
@@ -64,6 +66,7 @@ Commands:
   chat            Start an interactive chat session
   memory          Memory management (add, get, search, list, remove, stats)
   hot-block       Show the computed hot block
+  sessions        Session management (list, resume, get)
   health          Health check for the daemon
   config          Configuration management (validate, show, edit, dirs)
   version         Show version information
