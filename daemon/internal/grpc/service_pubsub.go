@@ -63,6 +63,9 @@ func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_Subscr
 			if event.Entry != nil {
 				updateEvent.Entry = event.Entry
 			}
+			if event.CronFire != nil {
+				updateEvent.CronFire = event.CronFire
+			}
 			if err := stream.Send(updateEvent); err != nil {
 				slog.Error("failed to send update", "agent_id", agentID, "error", err)
 				return err

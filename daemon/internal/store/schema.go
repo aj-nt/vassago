@@ -3,7 +3,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -106,6 +106,25 @@ var SchemaStmts = []string{
 	`CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)`,
 	`CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)`,
 	`CREATE INDEX IF NOT EXISTS idx_todos_source_agent ON todos(source_agent)`,
+
+	// --- Cron Jobs ---
+	`CREATE TABLE IF NOT EXISTS cron_jobs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    message TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0, 1)),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_fire_at INTEGER NOT NULL DEFAULT 0,
+    next_fire_at INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
+)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_agent_id ON cron_jobs(agent_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled)`,
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_fire ON cron_jobs(next_fire_at)`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -126,4 +145,22 @@ var Migrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)`,
 	`CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)`,
 	`CREATE INDEX IF NOT EXISTS idx_todos_source_agent ON todos(source_agent)`,
+
+	// Migration 2: Add cron_jobs table (Phase 16A)
+	`CREATE TABLE IF NOT EXISTS cron_jobs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    message TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0, 1)),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_fire_at INTEGER NOT NULL DEFAULT 0,
+    next_fire_at INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_agent_id ON cron_jobs(agent_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled)`,
+	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_fire ON cron_jobs(next_fire_at)`,
 }

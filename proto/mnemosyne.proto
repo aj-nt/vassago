@@ -271,6 +271,7 @@ message UpdateEvent {
     UPDATED = 2;
     REMOVED = 3;
     HOT_BLOCK_CHANGED = 4;
+    CRON_FIRE = 5;           // A cron job fired
   }
   EventType event_type = 1;
   string target = 2;
@@ -279,6 +280,20 @@ message UpdateEvent {
   string agent_id = 5;       // Which agent made the change
   MemoryEntry entry = 6;     // The entry that changed (if ADDED/UPDATED)
   HotBlockResponse hot_block = 7; // Fresh hot block (if HOT_BLOCK_CHANGED)
+  CronFireEvent cron_fire = 8;    // Cron job fire details (if CRON_FIRE)
+}
+
+// CronFireEvent is published when a cron job fires.
+// Agents subscribed to the appropriate target can receive this event
+// and act on the job's message.
+message CronFireEvent {
+  string job_id = 1;         // The cron job ID
+  string job_name = 2;       // Human-readable job name
+  string schedule = 3;        // The cron schedule that triggered
+  string agent_id = 4;       // The agent that owns this job
+  string message = 5;         // The message/prompt for the agent
+  int64 fired_at = 6;         // Unix timestamp when the job fired
+  int64 next_fire_at = 7;     // When the job will fire next
 }
 
 message RegisterAgentRequest {
@@ -364,4 +379,61 @@ message CompleteTodoRequest {
 
 message RemoveTodoRequest {
   string id = 1;
+}
+
+// --- Cron Service ---
+
+// CronService manages scheduled recurring jobs that trigger agent actions.
+// Jobs are stored durably in the daemon and fire at their scheduled intervals.
+service CronService {
+  // Create a new cron job
+  rpc CreateCronJob(CreateCronJobRequest) returns (CronJob);
+  // List cron jobs, optionally filtered by agent
+  rpc ListCronJobs(ListCronJobsRequest) returns (CronJobList);
+  // Update an existing cron job (partial update — only set fields are changed)
+  rpc UpdateCronJob(UpdateCronJobRequest) returns (CronJob);
+  // Delete a cron job
+  rpc DeleteCronJob(DeleteCronJobRequest) returns (Empty);
+}
+
+message CronJob {
+  string id = 1;                 // Unique job ID (auto-generated)
+  string name = 2;               // Human-readable name
+  string schedule = 3;            // Cron expression (e.g., "0 9 * * *")
+  string agent_id = 4;           // Agent that owns this job
+  string message = 5;            // Message to send the agent when job fires
+  bool enabled = 6;              // Whether the job is active
+  int64 created_at = 7;          // Unix timestamp
+  int64 updated_at = 8;          // Unix timestamp
+  int64 last_fire_at = 9;        // When the job last fired (0 = never)
+  int64 next_fire_at = 10;       // When the job will fire next (0 = not scheduled)
+}
+
+message CreateCronJobRequest {
+  string name = 1;               // Required: human-readable name
+  string schedule = 2;           // Required: cron expression
+  string agent_id = 3;           // Required: agent that owns this job
+  string message = 4;           // Required: message to send when job fires
+  optional bool enabled = 5;     // Default: true if not set
+}
+
+message ListCronJobsRequest {
+  string agent_id = 1;           // Filter by agent (empty = all)
+  bool include_disabled = 2;     // Include disabled jobs (default: false)
+}
+
+message CronJobList {
+  repeated CronJob jobs = 1;
+}
+
+message UpdateCronJobRequest {
+  string id = 1;                 // Required: job ID to update
+  optional string name = 2;      // New name
+  optional string schedule = 3;  // New schedule
+  optional string message = 4;   // New message
+  optional bool enabled = 5;     // Toggle enabled/disabled
+}
+
+message DeleteCronJobRequest {
+  string id = 1;                 // Job ID to delete
 }

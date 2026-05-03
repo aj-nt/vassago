@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/messaging"
@@ -29,6 +30,13 @@ type Config struct {
 	Store      StoreConfig       `yaml:"database"`
 	HotBlock   HotBlockConfig    `yaml:"hot_block"`
 	Messaging  MessagingConfig   `yaml:"messaging"`
+	Cron       CronConfig        `yaml:"cron"`
+}
+
+type CronConfig struct {
+	Enabled  bool `yaml:"enabled"`  // Whether the cron runner is enabled
+	Interval int  `yaml:"interval"` // Check interval in seconds (default: 60)
+	MaxJobs  int  `yaml:"max_jobs"` // Max jobs per agent (default: 100)
 }
 
 type MessagingConfig struct {
@@ -115,6 +123,10 @@ func DefaultConfig() *Config {
 			MinPriority:        2,
 			ObservationTTLDays: 30,
 		},
+		Cron: CronConfig{
+			Interval: 60,
+			MaxJobs:  100,
+		},
 	}
 }
 
@@ -152,16 +164,27 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("hot_block.observation_ttl_days must be between 7 and 365, got %d", c.HotBlock.ObservationTTLDays)
 	}
 
+	// Cron section validation
+	if c.Cron.Enabled {
+		if c.Cron.Interval < 10 || c.Cron.Interval > 3600 {
+			return fmt.Errorf("cron.interval must be between 10 and 3600 seconds, got %d", c.Cron.Interval)
+		}
+		if c.Cron.MaxJobs < 1 || c.Cron.MaxJobs > 1000 {
+			return fmt.Errorf("cron.max_jobs must be between 1 and 1000, got %d", c.Cron.MaxJobs)
+		}
+	}
+
 	return nil
 }
 
 // Daemon represents the Mnemosyne memory daemon.
 type Daemon struct {
-	config *Config
-	store  *store.Store
-	hub    *pubsub.Hub
-	server *grpc.Server
+	config     *Config
+	store      *store.Store
+	hub        *pubsub.Hub
+	server     *grpc.Server
 	httpServer *http.Server
+	cronRunner *cron.CronRunner
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
@@ -258,12 +281,26 @@ func New(cfg *Config) (*Daemon, error) {
 	// Register services
 	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub, messagingService))
 	pb.RegisterMessagingServer(server, messagingService)
+	pb.RegisterCronServiceServer(server, daemongrpc.NewCronService(st))
+
+	// Create cron runner if enabled
+	var cronRunner *cron.CronRunner
+	if cfg.Cron.Enabled {
+		cronAdapter := newCronStoreAdapter(st)
+		fireCallback := newCronFireCallback(st, hub)
+		cronRunner = cron.NewCronRunner(cronAdapter, fireCallback, cron.Config{
+			Enabled:  cfg.Cron.Enabled,
+			Interval: cfg.Cron.Interval,
+			MaxJobs:  cfg.Cron.MaxJobs,
+		})
+	}
 
 	return &Daemon{
-		config: cfg,
-		store:  st,
-		hub:    hub,
-		server: server,
+		config:     cfg,
+		store:      st,
+		hub:        hub,
+		server:     server,
+		cronRunner: cronRunner,
 	}, nil
 }
 
@@ -335,6 +372,16 @@ func (d *Daemon) Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go d.runAutoConsolidation(ctx)
+
+	// Start cron runner if configured
+	if d.cronRunner != nil {
+		d.cronRunner.Start(ctx)
+		defer d.cronRunner.Stop()
+		// Recompute next_fire_at for any jobs that haven't been initialized
+		if err := d.cronRunner.RecomputeNextFireTimes(ctx); err != nil {
+			slog.Error("cron runner recompute failed", "error", err)
+		}
+	}
 
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
