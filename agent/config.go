@@ -18,6 +18,7 @@ type AgentConfig struct {
 	HotBlock         HotBlockSection   `yaml:"hot_block"`
 	Tools            ToolsSection      `yaml:"tools"`
 	Delegation       DelegationSection `yaml:"delegation"`
+	Browser          BrowserSection    `yaml:"browser"`
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
 	Messaging        MessagingSection  `yaml:"messaging"`
 }
@@ -94,6 +95,13 @@ type ToolsSection struct {
 	AllowedDirs     []string `yaml:"allowed_dirs"`
 }
 
+// BrowserSection configures browser automation.
+type BrowserSection struct {
+	Enabled  bool   `yaml:"enabled"`
+	Headless bool   `yaml:"headless"`
+	CacheDir string `yaml:"cache_dir"` // Directory for screenshots (default: ~/.mnemosyne/screenshots)
+}
+
 // DelegationSection configures sub-agent spawning.
 type DelegationSection struct {
 	Enabled  bool `yaml:"enabled"`
@@ -139,6 +147,10 @@ func LoadConfig(path string) (*AgentConfig, error) {
 	if cfg.Scheduler.Interval == 0 {
 		cfg.Scheduler.Interval = 3600 // 1 hour
 	}
+	// Browser defaults to headless when enabled
+	if cfg.Browser.Enabled && !cfg.Browser.Headless {
+		cfg.Browser.Headless = true // default to headless
+	}
 
 	// Validate tool names in tools.enabled (#16)
 	if len(cfg.Tools.Enabled) > 0 {
@@ -153,6 +165,7 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"SendMessage": true,
 			"Delegate": true,
 			"ScheduleCron": true,
+			"Browse": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {

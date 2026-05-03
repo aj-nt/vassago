@@ -68,7 +68,7 @@ func main() {
 		Registry: registry,
 		Router:   nil, // will be set below if routing is configured
 	}
-	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, mnemo, cfg.Agent.ID, subRunner)
+	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, mnemo, cfg.Agent.ID, subRunner)
 
 	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
@@ -82,6 +82,7 @@ func main() {
 		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
 	}
 	defer a.Close()
+	defer tools.CleanupBrowser() // Clean up browser driver on exit
 	subRunner.Router = a.Router // set router for sub-agent delegation
 
 	// Set up hot block cache and Telepathy subscription
@@ -260,7 +261,7 @@ func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 }
 
 // setupTools creates the tool registry and registers tools per the config's enabled list.
-func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner) *tools.ToolRegistry {
+func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.Enabled
 
@@ -277,6 +278,13 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, m
 				Enabled:  delegateCfg.Enabled,
 				MaxDepth: delegateCfg.MaxDepth,
 				MaxTurns: delegateCfg.MaxTurns,
+			})
+		}
+		if browserCfg.Enabled {
+			tools.RegisterBrowserTools(toolReg, tools.BrowserConfig{
+				Enabled:  browserCfg.Enabled,
+				Headless: browserCfg.Headless,
+				CacheDir: browserCfg.CacheDir,
 			})
 		}
 		return toolReg
@@ -306,6 +314,13 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, m
 	}
 	if anyEnabled(enabled, "SendMessage") {
 		tools.RegisterMessagingTools(toolReg, mnemo, agentID)
+	}
+	if anyEnabled(enabled, "Browse") && browserCfg.Enabled {
+		tools.RegisterBrowserTools(toolReg, tools.BrowserConfig{
+			Enabled:  browserCfg.Enabled,
+			Headless: browserCfg.Headless,
+			CacheDir: browserCfg.CacheDir,
+		})
 	}
 	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
 		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
