@@ -745,7 +745,7 @@ Goal: Fix bugs found in conversation test, improve quality and coverage.
   - Store: empty content, priority bounds, concurrent access, SQL injection, double complete, delete/get nonexistent, list filtering
   - gRPC: empty content, default priority, complete/remove, nonexistent IDs, SQL injection, idempotent double complete, list with filters
 
-### 17D: Architecture Cleanup
+### 17D: Architecture Cleanup — COMPLETE ✅
 
 - [x] Extract MnemoClient interface from client.Client (testability)
 - [x] Split gRPC service.go into per-RPC-group files (memory_grpc.go, session_grpc.go, etc.)
