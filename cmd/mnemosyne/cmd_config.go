@@ -24,7 +24,7 @@ Use "mnemosyne config <subcommand> --help" for more information.`)
 
 	switch args[0] {
 	case "validate":
-		cmdConfigValidate(args[1:])
+		cmdConfigValidateDeep(args[1:])
 	case "show":
 		cmdConfigShow(args[1:])
 	case "edit":
