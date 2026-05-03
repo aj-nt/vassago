@@ -9,6 +9,7 @@ build:
 	go build -o $(BINARY_DIR)/mnemosyne-cli ./daemon/cmd/mnemosyne-cli
 	go build -o $(BINARY_DIR)/mnemosyne-agent ./agent/cmd/mnemosyne-agent
 	go build -o $(BINARY_DIR)/mnemosyne-import ./daemon/cmd/mnemosyne-import
+	go build -o $(BINARY_DIR)/mnemosyne ./cmd/mnemosyne
 
 # Run all tests
 test:
@@ -50,12 +51,13 @@ deploy: build
 	cp $(BINARY_DIR)/mnemosyne-daemon $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne-cli $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
+	cp $(BINARY_DIR)/mnemosyne $(HOME)/bin/
 	@echo "✓ Binaries deployed to $(HOME)/bin/"
 
 # Deploy to Studio over SSH
 deploy-studio: build
-	scp $(BINARY_DIR)/mnemosyne-daemon $(BINARY_DIR)/mnemosyne-cli $(BINARY_DIR)/mnemosyne-agent studio:~/bin/
-	ssh studio 'codesign --force --sign - ~/bin/mnemosyne-daemon ~/bin/mnemosyne-cli ~/bin/mnemosyne-agent'
+	scp $(BINARY_DIR)/mnemosyne-daemon $(BINARY_DIR)/mnemosyne-cli $(BINARY_DIR)/mnemosyne-agent $(BINARY_DIR)/mnemosyne studio:~/bin/
+	ssh studio 'codesign --force --sign - ~/bin/mnemosyne-daemon ~/bin/mnemosyne-cli ~/bin/mnemosyne-agent ~/bin/mnemosyne'
 	@echo "✓ Binaries deployed to Studio"
 
 # First-run setup (creates configs, directories, launchd plists)
