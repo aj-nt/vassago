@@ -271,6 +271,7 @@ message UpdateEvent {
     UPDATED = 2;
     REMOVED = 3;
     HOT_BLOCK_CHANGED = 4;
+    CRON_FIRE = 5;           // A cron job fired
   }
   EventType event_type = 1;
   string target = 2;
@@ -279,6 +280,20 @@ message UpdateEvent {
   string agent_id = 5;       // Which agent made the change
   MemoryEntry entry = 6;     // The entry that changed (if ADDED/UPDATED)
   HotBlockResponse hot_block = 7; // Fresh hot block (if HOT_BLOCK_CHANGED)
+  CronFireEvent cron_fire = 8;    // Cron job fire details (if CRON_FIRE)
+}
+
+// CronFireEvent is published when a cron job fires.
+// Agents subscribed to the appropriate target can receive this event
+// and act on the job's message.
+message CronFireEvent {
+  string job_id = 1;         // The cron job ID
+  string job_name = 2;       // Human-readable job name
+  string schedule = 3;        // The cron schedule that triggered
+  string agent_id = 4;       // The agent that owns this job
+  string message = 5;         // The message/prompt for the agent
+  int64 fired_at = 6;         // Unix timestamp when the job fired
+  int64 next_fire_at = 7;     // When the job will fire next
 }
 
 message RegisterAgentRequest {
