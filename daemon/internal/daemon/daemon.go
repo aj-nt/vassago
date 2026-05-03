@@ -21,6 +21,7 @@ import (
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
 // Config holds the daemon configuration.
@@ -282,6 +283,9 @@ func New(cfg *Config) (*Daemon, error) {
 	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub, messagingService))
 	pb.RegisterMessagingServer(server, messagingService)
 	pb.RegisterCronServiceServer(server, daemongrpc.NewCronService(st))
+	
+	// Enable gRPC reflection
+	reflection.Register(server)
 
 	// Create cron runner if enabled
 	var cronRunner *cron.CronRunner
