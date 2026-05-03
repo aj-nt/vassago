@@ -38,78 +38,75 @@ A shared memory daemon for AI agents. Mnemosyne gives agents persistent, searcha
 # Clone and build
 git clone https://github.com/aj-nt/mnemosyne.git
 cd mnemosyne
-make all           # build + test + lint
+make all              # build + test + lint
 
-# Set up (creates configs, directories, launchd plists)
-make setup          # or: ./scripts/setup.sh
+# First-run setup (creates dirs, configs, personality, launchd plists)
+mnemosyne init
 
-# Deploy locally
-make deploy         # copies binaries to ~/bin/
+# Start services
+mnemosyne start
 
-# Or deploy to Studio
-make deploy-studio  # scp + codesign
+# Verify health
+mnemosyne health
 
-# Verify
-mnemosyne-cli health
+# Start chatting
+mnemosyne chat
 ```
 
-The setup script creates `~/.mnemosyne/` with:
-- `config.yaml` — Daemon config (SQLite, hot block, consolidation)
-- `agent.yaml` — Agent config (provider, tools, personality)
-- `personalities/bartimaeus.md` — Default personality
-- LaunchAgent plists for macOS auto-start
-
-For Studio (always-on server), use `./scripts/setup.sh --studio` which configures
-the daemon to listen on all interfaces (`0.0.0.0:50051`) and enables the chat server.
-
-## CLI Reference
+Or with the unified CLI:
 
 ```bash
-# Add a memory
-mnemosyne-cli add memory environment "os-version" "macOS 15 arm64"
+# View status
+mnemosyne status
 
-# Get memory by ID
-mnemosyne-cli get <id>
+# Config management
+mnemosyne config validate
+mnemosyne config show
+mnemosyne config edit
+mnemosyne config dirs
 
-# Search (FTS5)
-mnemosyne-cli search "project directory"
+# Memory management
+mnemosyne memory add memory environment "os-version" "macOS 15 arm64"
+mnemosyne memory search "project directory"
+mnemosyne memory list
+mnemosyne memory stats
 
-# List memories
-mnemosyne-cli list              # default: target=memory
-mnemosyne-cli list user         # user profile entries
-
-# Remove memory
-mnemosyne-cli remove <id>
-
-# Hot block (computed context)
-mnemosyne-cli hot-block          # memory hot block
-mnemosyne-cli hot-block user     # user profile
-
-# Consolidation
-mnemosyne-cli consolidate expired      # remove expired entries
-mnemosyne-cli consolidate idle          # remove idle low-priority entries
-mnemosyne-cli consolidate observations  # remove old observations
-mnemosyne-cli consolidate all           # full sweep
-
-# Statistics
-mnemosyne-cli stats
-
-# Health check
-mnemosyne-cli health
+# Hot block
+mnemosyne hot-block
 ```
+
+## Unified CLI
+
+The `mnemosyne` command provides all functionality in a single binary:
+
+| Command | Description |
+|---------|-------------|
+| `mnemosyne init` | First-run setup (dirs, configs, personality) |
+| `mnemosyne start` | Start daemon and agent services |
+| `mnemosyne stop` | Stop services |
+| `mnemosyne status` | Show daemon/agent status |
+| `mnemosyne daemon` | Run daemon (foreground) |
+| `mnemosyne agent` | Run agent (foreground or server) |
+| `mnemosyne chat` | Interactive chat session |
+| `mnemosyne memory` | Memory management (add/get/search/list/remove/stats) |
+| `mnemosyne hot-block` | Show computed hot block |
+| `mnemosyne health` | Daemon health check |
+| `mnemosyne config` | Config management (validate/show/edit/dirs) |
+| `mnemosyne version` | Version info |
+
+Legacy binaries (`mnemosyne-daemon`, `mnemosyne-agent`, `mnemosyne-cli`) still work — the unified CLI delegates to them where needed.
 
 ## Configuration
 
-`~/.mnemosyne/config.yaml`:
+`~/.mnemosyne/config.yaml` (daemon):
 
 ```yaml
 daemon:
-  socket: ~/.mnemosyne/mnemosyne.sock   # Unix socket (optional)
-  tcp: localhost:50051                    # TCP listener
-  api_key: ""                             # Set to require auth, empty = no auth
+  socket: ~/.mnemosyne/mnemosyne.sock
+  tcp: localhost:50051
   tls:
-    cert: ""                              # TLS cert path
-    key: ""                               # TLS key path
+    cert: ""
+    key: ""
 
 database:
   path: ~/.mnemosyne/mnemosyne.db
@@ -117,17 +114,83 @@ database:
   busy_timeout: 5000
 
 hot_block:
-  memory_char_limit: 4000
-  user_char_limit: 2000
+  memory_char_limit: 8000
+  user_char_limit: 3000
   min_priority: 2
-  observation_ttl_days: 30
+  boost_categories: [project, environment, quirk]
+  suppress_categories: [observation]
+
+consolidation:
+  max_idle_days: 60
+
+logging:
+  level: info
+  format: json
+```
+
+`~/.mnemosyne/agent.yaml` (agent):
+
+```yaml
+agent:
+  id: mnemosyne
+  name: mnemosyne
+  role: assistant
+  personality: "direct, dry-witted collaborator"
+  personality_file: ~/.mnemosyne/personalities/bartimaeus.md
+  max_turns: 30
+
+provider:
+  name: anthropic
+  model: claude-sonnet-4-6
+  temperature: 0.7
+  fallback1: openai
+  openai_model: glm-5.1:cloud
+  openai_base_url: http://localhost:11434/v1
+
+mnemosyne:
+  address: localhost:50051
+  chat_listen: ":50052"
+
+tools:
+  enabled:
+    - AddMemory
+    - SearchMemories
+    - ReplaceMemory
+    - RemoveMemory
+    - Consolidate
+    - GetHotBlock
+    - FileRead
+    - FileSearch
+    - FileWrite
+    - Execute
+    - SearchWeb
+    - FetchURL
+    - SearchSessions
+    - ListSessions
+    - GetSession
+    - AddTodo
+    - ListTodos
+    - CompleteTodo
+    - RemoveTodo
+    - ScheduleCron
+    - SendMessage
+    - Browse
+    - ListAgents
+    - RegisterAgent
+    - FindAgent
+  approval_required: [FileWrite, Execute]
+  allowed_dirs: [/tmp, ~]
+
+delegation:
+  enabled: true
+  max_depth: 1
+  max_turns: 10
 ```
 
 ## Import from Hermes
 
 ```bash
-# Import your existing Hermes state.db
-./mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
+mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ```
 
 ## Deployment
@@ -135,11 +198,15 @@ hot_block:
 ### macOS (launchd)
 
 ```bash
-# Copy the plist
-mkdir -p ~/Library/LaunchAgents
-cp configs/com.mnemosyne.daemon.plist ~/Library/LaunchAgents/
-# Edit the plist to set your username, then:
-launchctl load ~/Library/LaunchAgents/com.mnemosyne.daemon.plist
+mnemosyne init            # Creates LaunchAgent plists
+mnemosyne start           # Uses launchctl to start services
+mnemosyne status          # Verify services are running
+```
+
+Or manual:
+```bash
+make deploy               # Build + copy to ~/bin/
+make deploy-studio        # Build + scp to Studio
 ```
 
 ### Linux (systemd)
@@ -151,33 +218,19 @@ After=network.target
 
 [Service]
 User=youruser
-ExecStart=/usr/local/bin/mnemosyne-daemon --config /home/youruser/.mnemosyne/config.yaml
+ExecStart=/usr/local/bin/mnemosyne daemon --config /home/youruser/.mnemosyne/config.yaml
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-## API
-
-gRPC service defined in `proto/mnemosyne.proto`. Key RPCs:
-
-| RPC | Description |
-|-----|-------------|
-| AddMemory | Create or update a memory entry |
-| GetMemory | Retrieve by ID |
-| RemoveMemory | Delete by ID |
-| ListMemories | List by target/category |
-| Search | FTS5 full-text search |
-| GetHotBlock | Computed context for an agent |
-| Subscribe | Stream real-time memory updates |
-| Consolidate | Run expiry/idle cleanup |
-
 ## Testing
 
 ```bash
-go test ./... -race    # 127 tests with race detector
+make test-race         # 814 tests with race detector
 go vet ./...           # static analysis
+make all               # build + test + lint
 ```
 
 ## Project Status
@@ -191,8 +244,12 @@ go vet ./...           # static analysis
 | 5 | Agent Tools & Anthropic Provider | ✅ Merged |
 | 6 | Data Migration (Hermes import) | ✅ Merged |
 | 7 | Client Polish & Admin CLI | ✅ Merged |
-| 8 | Hardening & Polish | ✅ Current |
-
-## License
-
-MIT
+| 8 | Hardening & Polish | ✅ Merged |
+| 9 | Security & Daily-Driver | ✅ Merged |
+| 10-13 | E2E, Stress, Provider Improvements | ✅ Merged |
+| 14A-E | Multi-Agent (Reg, Telepathy, Delegate, Scheduler, Validate) | ✅ Merged |
+| 15A-E | Messaging (Discord, Telegram, iMessage, Email, Unification) | ✅ Merged |
+| 16A-B | CronJobs & Proactive Notifications | ✅ Merged |
+| 17A-E | Conversation Quality, Sessions, Todos, Architecture, ChatStream | ✅ Merged |
+| 18A-D | Browser, Vision, Multi-Agent, Production Hardening | ✅ Merged |
+| 19A | Unified CLI & First-Run Experience | ✅ Current |
