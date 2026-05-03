@@ -164,6 +164,11 @@ type EmailAdapter struct {
 	connected   bool
 }
 
+// PlatformName returns the platform identifier for Email.
+func (e *EmailAdapter) PlatformName() string {
+	return "email"
+}
+
 // NewEmailAdapter creates a new Email adapter.
 func NewEmailAdapter(config EmailConfig) *EmailAdapter {
 	if config.PollInterval == 0 {
