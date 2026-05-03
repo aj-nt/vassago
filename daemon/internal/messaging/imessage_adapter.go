@@ -59,25 +59,43 @@ type IMessageAdapter struct {
 	connected  bool
 }
 
-// appleScriptSender sends iMessages via osascript.
-type appleScriptSender struct{}
+// commandRunner is a function type for executing osascript commands (mockable).
+type commandRunner func(name string, args ...string) ([]byte, error)
 
-func (s *appleScriptSender) Send(target, message string) (string, error) {
+// realCommandRunner executes commands via os/exec.
+func realCommandRunner(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).CombinedOutput()
+}
+
+// appleScriptSender sends iMessages via osascript.
+type appleScriptSender struct {
+	runCmd commandRunner // defaults to realCommandRunner; overridable for testing
+}
+
+// newAppleScriptSender creates an appleScriptSender with the real command runner.
+func newAppleScriptSender() *appleScriptSender {
+	return &appleScriptSender{runCmd: realCommandRunner}
+}
+
+// buildScript constructs the AppleScript for sending a message.
+// Extracted for testability — verifies script generation without running osascript.
+func (s *appleScriptSender) buildScript(target, message string) string {
 	// Escape AppleScript special characters
 	escaped := strings.ReplaceAll(message, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
 
-	var script string
 	if strings.HasPrefix(target, "chat:") {
 		// Group chat syntax
-		script = fmt.Sprintf(`tell application "Messages" to send "%s" to chat "%s"`, escaped, target)
-	} else {
-		// Individual buddy syntax
-		script = fmt.Sprintf(`tell application "Messages" to send "%s" to buddy "%s"`, escaped, target)
+		return fmt.Sprintf(`tell application "Messages" to send "%s" to chat "%s"`, escaped, target)
 	}
+	// Individual buddy syntax
+	return fmt.Sprintf(`tell application "Messages" to send "%s" to buddy "%s"`, escaped, target)
+}
 
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
+func (s *appleScriptSender) Send(target, message string) (string, error) {
+	script := s.buildScript(target, message)
+
+	output, err := s.runCmd("osascript", "-e", script)
 	if err != nil {
 		return "", fmt.Errorf("osascript failed: %w, output: %s", err, string(output))
 	}
@@ -191,7 +209,7 @@ func NewIMessageAdapter(config IMessageConfig) *IMessageAdapter {
 	}
 	return &IMessageAdapter{
 		config:      config,
-		sender:      &appleScriptSender{},
+		sender:      newAppleScriptSender(),
 		stopPolling: make(chan struct{}),
 	}
 }

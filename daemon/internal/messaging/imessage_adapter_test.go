@@ -61,6 +61,25 @@ func (m *mockIMessageQuerier) LastROWID() (int64, error) {
 	return m.lastID, nil
 }
 
+// mockCommandRunner records calls and returns a configurable result.
+type mockCommandRunner struct {
+	mu       sync.Mutex
+	calls    []string // recorded: "name arg1 arg2..."
+	response []byte
+	err      error
+}
+
+func (m *mockCommandRunner) run(name string, args ...string) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	call := name
+	for _, a := range args {
+		call += " " + a
+	}
+	m.calls = append(m.calls, call)
+	return m.response, m.err
+}
+
 // --- NewIMessageAdapter Tests ---
 
 func TestNewIMessageAdapter_DefaultConfig(t *testing.T) {
@@ -76,15 +95,15 @@ func TestNewIMessageAdapter_DefaultConfig(t *testing.T) {
 func TestNewIMessageAdapter_CustomConfig(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{
 		Enabled:          true,
-		AllowedRecipients: []string{"+1234567890"},
+		AllowedRecipients: []string{"+123****7890"},
 		DBPath:           "/tmp/test_chat.db",
 		PollInterval:     10 * time.Second,
 	})
 	if !adapter.config.Enabled {
 		t.Error("expected Enabled to be true")
 	}
-	if len(adapter.config.AllowedRecipients) != 1 || adapter.config.AllowedRecipients[0] != "+1234567890" {
-		t.Errorf("expected AllowedRecipients [+1234567890], got %v", adapter.config.AllowedRecipients)
+	if len(adapter.config.AllowedRecipients) != 1 || adapter.config.AllowedRecipients[0] != "+123****7890" {
+		t.Errorf("expected AllowedRecipients [+123****7890], got %v", adapter.config.AllowedRecipients)
 	}
 	if adapter.config.DBPath != "/tmp/test_chat.db" {
 		t.Errorf("expected DBPath /tmp/test_chat.db, got %s", adapter.config.DBPath)
@@ -101,7 +120,7 @@ func TestIMessageAdapter_Send_Success(t *testing.T) {
 	mock := &mockIMessageSender{}
 	adapter.setSender(mock)
 
-	result, err := adapter.Send(context.Background(), "+1234567890", "hello world")
+	result, err := adapter.Send(context.Background(), "+123****7890", "hello world")
 	if err != nil {
 		t.Fatalf("Send failed: %v", err)
 	}
@@ -129,22 +148,22 @@ func TestIMessageAdapter_Send_EmptyTarget(t *testing.T) {
 
 func TestIMessageAdapter_Send_GroupChat(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test"})
-	var capturedScript string
+	var capturedTarget string
 	mock := &mockIMessageSender{
 		sendFunc: func(target, message string) (string, error) {
-			capturedScript = target
+			capturedTarget = target
 			return "ok", nil
 		},
 	}
 	adapter.setSender(mock)
 
-	_, err := adapter.Send(context.Background(), "chat:iMessage;-;+1234567890", "hello group")
+	_, err := adapter.Send(context.Background(), "chat:iMessage;-;+123****7890", "hello group")
 	if err != nil {
 		t.Fatalf("Send to group chat failed: %v", err)
 	}
 
-	if !isValidTargetForGroupChat(capturedScript) {
-		t.Errorf("expected group chat target, got %s", capturedScript)
+	if !isValidTargetForGroupChat(capturedTarget) {
+		t.Errorf("expected group chat target, got %s", capturedTarget)
 	}
 }
 
@@ -157,7 +176,7 @@ func TestIMessageAdapter_Send_SenderError(t *testing.T) {
 	}
 	adapter.setSender(mock)
 
-	_, err := adapter.Send(context.Background(), "+1234567890", "hello")
+	_, err := adapter.Send(context.Background(), "+123****7890", "hello")
 	if err == nil {
 		t.Error("expected error when sender fails")
 	}
@@ -183,7 +202,7 @@ func TestIMessageAdapter_Send_LongMessage(t *testing.T) {
 	}
 	adapter.setSender(mock)
 
-	_, err := adapter.Send(context.Background(), "+1234567890", string(longMsg))
+	_, err := adapter.Send(context.Background(), "+123****7890", string(longMsg))
 	if err != nil {
 		t.Fatalf("Send long message failed: %v", err)
 	}
@@ -209,9 +228,7 @@ func TestIMessageAdapter_Send_SpecialCharacters(t *testing.T) {
 	}
 	adapter.setSender(mock)
 
-	// The mock sender doesn't escape — that's the real sender's job
-	// We test that the adapter passes through correctly
-	_, err := adapter.Send(context.Background(), "+1234567890", "hello")
+	_, err := adapter.Send(context.Background(), "+123****7890", "hello")
 	if err != nil {
 		t.Fatalf("Send failed: %v", err)
 	}
@@ -220,10 +237,114 @@ func TestIMessageAdapter_Send_SpecialCharacters(t *testing.T) {
 	}
 }
 
+// --- AppleScript buildScript Tests (no real osascript calls) ---
+
+func TestAppleScriptBuildScript_BuddyTarget(t *testing.T) {
+	sender := &appleScriptSender{}
+	script := sender.buildScript("+1234567890", "hello world")
+	expected := `tell application "Messages" to send "hello world" to buddy "+1234567890"`
+	if script != expected {
+		t.Errorf("expected %q, got %q", expected, script)
+	}
+}
+
+func TestAppleScriptBuildScript_GroupChatTarget(t *testing.T) {
+	sender := &appleScriptSender{}
+	script := sender.buildScript("chat:iMessage;-;+1234567890", "hello group")
+	expected := `tell application "Messages" to send "hello group" to chat "chat:iMessage;-;+1234567890"`
+	if script != expected {
+		t.Errorf("expected %q, got %q", expected, script)
+	}
+}
+
+func TestAppleScriptBuildScript_EscapeBackslash(t *testing.T) {
+	sender := &appleScriptSender{}
+	script := sender.buildScript("+1234567890", `path\to\file`)
+	expected := `tell application "Messages" to send "path\\to\\file" to buddy "+1234567890"`
+	if script != expected {
+		t.Errorf("expected %q, got %q", expected, script)
+	}
+}
+
+func TestAppleScriptBuildScript_EscapeDoubleQuote(t *testing.T) {
+	sender := &appleScriptSender{}
+	script := sender.buildScript("+1234567890", `say "hello"`)
+	expected := `tell application "Messages" to send "say \"hello\"" to buddy "+1234567890"`
+	if script != expected {
+		t.Errorf("expected %q, got %q", expected, script)
+	}
+}
+
+func TestAppleScriptBuildScript_EscapeBoth(t *testing.T) {
+	sender := &appleScriptSender{}
+	script := sender.buildScript("+1234567890", `path\"evil\`)
+	// Backslash first: \ -> \\, then " -> \"
+	// Input:  path\"evil\
+	// After backslash escape: path\\"evil\\  
+	// After quote escape:     path\\\"evil\\
+	expected := `tell application "Messages" to send "path\\\"evil\\" to buddy "+1234567890"`
+	if script != expected {
+		t.Errorf("expected %q, got %q", expected, script)
+	}
+}
+
+func TestAppleScriptSender_UsesCommandRunner(t *testing.T) {
+	runner := &mockCommandRunner{
+		response: []byte("msg-id-123"),
+	}
+	sender := &appleScriptSender{runCmd: runner.run}
+
+	result, err := sender.Send("+1234567890", "test message")
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+	if result != "msg-id-123" {
+		t.Errorf("expected 'msg-id-123', got %q", result)
+	}
+
+	runner.mu.Lock()
+	calls := len(runner.calls)
+	runner.mu.Unlock()
+	if calls != 1 {
+		t.Errorf("expected 1 command runner call, got %d", calls)
+	}
+}
+
+func TestAppleScriptSender_CommandRunnerError(t *testing.T) {
+	runner := &mockCommandRunner{
+		err: fmt.Errorf("exit status 1"),
+		response: []byte("execution error: Messages got an error"),
+	}
+	sender := &appleScriptSender{runCmd: runner.run}
+
+	_, err := sender.Send("+1234567890", "test")
+	if err == nil {
+		t.Error("expected error when command runner fails")
+	}
+	if !contains(err.Error(), "osascript failed") {
+		t.Errorf("expected 'osascript failed' in error, got %v", err)
+	}
+}
+
+func TestAppleScriptSender_TrimsOutput(t *testing.T) {
+	runner := &mockCommandRunner{
+		response: []byte("  msg-id-123  \n"),
+	}
+	sender := &appleScriptSender{runCmd: runner.run}
+
+	result, err := sender.Send("+1234567890", "test")
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+	if result != "msg-id-123" {
+		t.Errorf("expected trimmed 'msg-id-123', got %q", result)
+	}
+}
+
 // --- Poll/Listen Tests ---
 
 func TestIMessageAdapter_Poll_NewMessages(t *testing.T) {
-	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test"})
+	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test", PollInterval: 1 * time.Second})
 	adapter.connected = true
 	adapter.lastROWID = 0
 
@@ -232,7 +353,7 @@ func TestIMessageAdapter_Poll_NewMessages(t *testing.T) {
 			{
 				ROWID:     1,
 				Text:       "hello",
-				HandleID:  "+1234567890",
+				HandleID:  "+123****7890",
 				IsFromMe:  false,
 				Date:       700000000000000000, // some Mac absolute time
 				RoomName:  "",
@@ -260,8 +381,8 @@ func TestIMessageAdapter_Poll_NewMessages(t *testing.T) {
 		if event.Message != "hello" {
 			t.Errorf("expected message 'hello', got %s", event.Message)
 		}
-		if event.SenderId != "+1234567890" {
-			t.Errorf("expected sender '+1234567890', got %s", event.SenderId)
+		if event.SenderId != "+123****7890" {
+			t.Errorf("expected sender '+123****7890', got %s", event.SenderId)
 		}
 	case <-time.After(10 * time.Second):
 		t.Error("timed out waiting for message")
@@ -269,7 +390,7 @@ func TestIMessageAdapter_Poll_NewMessages(t *testing.T) {
 }
 
 func TestIMessageAdapter_Poll_FilterFromMe(t *testing.T) {
-	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test"})
+	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test", PollInterval: 1 * time.Second})
 	adapter.connected = true
 	adapter.lastROWID = 0
 
@@ -287,7 +408,7 @@ func TestIMessageAdapter_Poll_FilterFromMe(t *testing.T) {
 			{
 				ROWID:     2,
 				Text:       "from you",
-				HandleID:  "+1234567890",
+				HandleID:  "+123****7890",
 				IsFromMe:  false,
 				Date:       700000000000000001,
 			},
@@ -320,7 +441,7 @@ func TestIMessageAdapter_Poll_FilterFromMe(t *testing.T) {
 func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{
 		DBPath:           "/tmp/test",
-		AllowedRecipients: []string{"+1234567890"},
+		AllowedRecipients: []string{"+123****7890"},
 		PollInterval:     1 * time.Second,
 	})
 	adapter.connected = true
@@ -331,14 +452,14 @@ func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 			{
 				ROWID:    1,
 				Text:      "from allowed",
-				HandleID: "+1234567890",
+				HandleID: "+123****7890",
 				IsFromMe: false,
 				Date:      700000000000000000,
 			},
 			{
 				ROWID:    2,
 				Text:      "from disallowed",
-				HandleID: "+9999999999",
+				HandleID: "+999****9999",
 				IsFromMe: false,
 				Date:      700000000000000001,
 			},
@@ -357,7 +478,7 @@ func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 
 	select {
 	case event := <-ch:
-		if event.SenderId != "+1234567890" {
+		if event.SenderId != "+123****7890" {
 			t.Errorf("expected message from allowed sender, got %s", event.SenderId)
 		}
 	case <-time.After(10 * time.Second):
@@ -367,7 +488,7 @@ func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 	// The disallowed message should not arrive
 	select {
 	case event := <-ch:
-		if event.SenderId == "+9999999999" {
+		if event.SenderId == "+999****9999" {
 			t.Error("received message from disallowed sender")
 		}
 		// If we got a message, it might be the allowed one from a second poll
@@ -412,7 +533,7 @@ func TestIMessageAdapter_ListChannels_Success(t *testing.T) {
 
 	mock := &mockIMessageQuerier{
 		channels: []*pb.Channel{
-			{Id: "1", Name: "+1234567890", Platform: "imessage"},
+			{Id: "1", Name: "+123****7890", Platform: "imessage"},
 			{Id: "2", Name: "Family Group", Platform: "imessage"},
 		},
 	}
@@ -429,15 +550,6 @@ func TestIMessageAdapter_ListChannels_Success(t *testing.T) {
 	if channels[0].Platform != "imessage" {
 		t.Errorf("expected platform 'imessage', got %s", channels[0].Platform)
 	}
-}
-
-// --- AppleScript Sender Tests ---
-
-func TestAppleScriptSender_EscapeBackslash(t *testing.T) {
-	sender := &appleScriptSender{}
-	// Test that the sender exists and can be called
-	// (We can't test actual AppleScript without macOS Messages.app)
-	_ = sender
 }
 
 // --- Red Team Tests ---
@@ -478,7 +590,7 @@ func TestRedTeam_IMessageAdapter_ConcurrentSend(t *testing.T) {
 	errCh := make(chan error, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
-			_, err := adapter.Send(context.Background(), "+1234567890", "concurrent")
+			_, err := adapter.Send(context.Background(), "+123****7890", "concurrent")
 			errCh <- err
 		}()
 	}
@@ -501,6 +613,7 @@ func TestRedTeam_IMessageAdapter_ConcurrentSend(t *testing.T) {
 func TestRedTeam_IMessageAdapter_SendAfterClose(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test"})
 	adapter.connected = true
+	// Use mock sender — never call real AppleScript
 	adapter.setSender(&mockIMessageSender{})
 
 	err := adapter.Close(context.Background())
@@ -508,8 +621,9 @@ func TestRedTeam_IMessageAdapter_SendAfterClose(t *testing.T) {
 		t.Fatalf("Close failed: %v", err)
 	}
 
-	// Send after close should still work (sender is stateless)
-	// The adapter doesn't require an active connection for sending via AppleScript
+	// Send after close should still work (sender is stateless mock)
+	// The real appleScriptSender doesn't require an active connection either
+	// This verifies no panic on closed stopPolling channel
 }
 
 func TestRedTeam_IMessageAdapter_EmptyMessageFiltering(t *testing.T) {
@@ -525,14 +639,14 @@ func TestRedTeam_IMessageAdapter_EmptyMessageFiltering(t *testing.T) {
 			{
 				ROWID:    1,
 				Text:      "", // empty text — should be filtered by adapter
-				HandleID: "+1234567890",
+				HandleID: "+123****7890",
 				IsFromMe: false,
 				Date:      700000000000000000,
 			},
 			{
 				ROWID:    2,
 				Text:      "valid message",
-				HandleID: "+1234567890",
+				HandleID: "+123****7890",
 				IsFromMe: false,
 				Date:      700000000000000001,
 			},
@@ -594,6 +708,18 @@ func TestRedTeam_IMessageAdapter_ListenNotConnected(t *testing.T) {
 func TestRedTeam_IMessageAdapter_SpecialCharactersInTarget(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{DBPath: "/tmp/test"})
 
+	var capturedTargets []string
+	var mu sync.Mutex
+	mock := &mockIMessageSender{
+		sendFunc: func(target, message string) (string, error) {
+			mu.Lock()
+			capturedTargets = append(capturedTargets, target)
+			mu.Unlock()
+			return "ok", nil
+		},
+	}
+	adapter.setSender(mock)
+
 	// Phone number with country code
 	_, err := adapter.Send(context.Background(), "+1 (555) 123-4567", "test")
 	if err != nil {
@@ -605,9 +731,37 @@ func TestRedTeam_IMessageAdapter_SpecialCharactersInTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Send with email target failed: %v", err)
 	}
+
+	mu.Lock()
+	targets := capturedTargets
+	mu.Unlock()
+
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(targets))
+	}
+	if targets[0] != "+1 (555) 123-4567" {
+		t.Errorf("expected '+1 (555) 123-4567', got %s", targets[0])
+	}
+	if targets[1] != "user@example.com" {
+		t.Errorf("expected 'user@example.com', got %s", targets[1])
+	}
 }
 
-// Helper function
+// Helper functions
+
 func isValidTargetForGroupChat(target string) bool {
 	return len(target) > 5 && target[:5] == "chat:"
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsFallback(s, substr))
+}
+
+func containsFallback(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
