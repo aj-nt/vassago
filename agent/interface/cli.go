@@ -87,6 +87,15 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 
 	scanner := bufio.NewScanner(os.Stdin)
 
+	// Enable bracketed paste mode for better paste handling.
+	// When enabled, terminals wrap pastes in \x1b[2004~ ... \x1b[2005~ sequences.
+	pasteCollapse := NewPasteCollapse()
+
+	// Enable bracketed paste on startup
+	EnableBracketedPaste()
+	// Restore terminal state on exit
+	defer DisableBracketedPaste()
+
 	// Wire approval flow for dangerous tools
 	c.Agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
 		if !tools.IsApprovalRequired(toolName) {
@@ -104,10 +113,12 @@ func (c *CLI) RunInteractive(ctx context.Context) error {
 
 	for {
 		fmt.Print(formatPrompt(c.Agent.Config.AgentName))
-		if !scanner.Scan() {
+		input, isPaste := ReadInput(scanner, pasteCollapse)
+		if input == "" && !isPaste {
+			// Empty string from EOF (scanner stopped), not from paste
 			break
 		}
-		input := strings.TrimSpace(scanner.Text())
+		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
 		}
