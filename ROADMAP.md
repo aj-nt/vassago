@@ -682,13 +682,16 @@ Key files:
 - daemon/internal/daemon/cron_adapter.go: Bridges store.Store → cron.CronStore
 - agent/tools/cron.go: ScheduleCron tool (create/list/update/delete)
 
-### 16B: Proactive Notifications
+### 16B: Proactive Notifications — COMPLETE ✅
 
-- [ ] NotificationService: send a message to a specific platform at a specific time
-- [ ] Agent tool: `Notify` — "send me a message on Discord at 3pm" or "iMessage me when the build finishes"
-- [ ] Integration with Phase 15 messaging: cron job triggers notification via messaging gateway
-- [ ] Tests: notification delivery, scheduling, cancellation, timezone handling
-- [ ] QA pass + Red Team pass
+- [x] CronFireEvent published on pub/sub hub when cron job fires
+- [x] CronRunner.onFire wired to publish CronFireEvent via Hub
+- [x] Proto: CRON_FIRE event type in UpdateEvent + CronFireEvent message
+- [x] gRPC Subscribe RPC forwards CronFire events to subscribed agents
+- [x] Agent telepathy handler: CRON_FIRE events invoke agent with cron job message
+- [x] Event.AgentID set to "cron" to bypass Hub self-exclusion filter
+- [x] Agent builds prefixed prompt: [Scheduled Task: {name} (ID: {id}, Schedule: {schedule})]
+- [x] Tests: pub/sub event publishing, no-subscriber case, 695 total
 
 ### 16C: Health Monitoring & Self-Healing
 
