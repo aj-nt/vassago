@@ -68,7 +68,7 @@ func main() {
 		Registry: registry,
 		Router:   nil, // will be set below if routing is configured
 	}
-	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, &cfg.Vision, &cfg.ImageGen, mnemo, cfg.Agent.ID, subRunner, registry)
+	toolReg := setupTools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, &cfg.Vision, &cfg.ImageGen, &cfg.MultiAgent, mnemo, cfg.Agent.ID, cfg.Agent.Name, cfg.Agent.Role, subRunner, registry)
 
 	// Create agent — with model router if routing config present
 	agentCfg := cfg.ToAgentConfig()
@@ -261,7 +261,7 @@ func setupProviders(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 }
 
 // setupTools creates the tool registry and registers tools per the config's enabled list.
-func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, visionCfg *agent.VisionSection, imageGenCfg *agent.ImageGenSection, mnemo *memoclient.Client, agentID string, subRunner tools.SubAgentRunner, providerRegistry *provider.ProviderRegistry) *tools.ToolRegistry {
+func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, visionCfg *agent.VisionSection, imageGenCfg *agent.ImageGenSection, multiAgentCfg *agent.MultiAgentSection, mnemo *memoclient.Client, agentID string, agentName string, agentRole string, subRunner tools.SubAgentRunner, providerRegistry *provider.ProviderRegistry) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.Enabled
 
@@ -302,6 +302,12 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, b
 				MaxPromptLength: imageGenCfg.MaxPromptLength,
 				CacheDir:       imageGenCfg.CacheDir,
 			})
+		}
+		if multiAgentCfg.Enabled {
+			tools.RegisterMultiAgentTools(toolReg, tools.MultiAgentConfig{
+				Enabled:      multiAgentCfg.Enabled,
+				RegistryPath: multiAgentCfg.RegistryPath,
+			}, agentID, agentName, agentRole)
 		}
 		return toolReg
 	}
@@ -353,6 +359,12 @@ func setupTools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, b
 			MaxPromptLength: imageGenCfg.MaxPromptLength,
 			CacheDir:       imageGenCfg.CacheDir,
 		})
+	}
+	if anyEnabled(enabled, "ListAgents", "RegisterAgent", "FindAgent") && multiAgentCfg.Enabled {
+		tools.RegisterMultiAgentTools(toolReg, tools.MultiAgentConfig{
+			Enabled:      multiAgentCfg.Enabled,
+			RegistryPath: multiAgentCfg.RegistryPath,
+		}, agentID, agentName, agentRole)
 	}
 	if anyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
 		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{

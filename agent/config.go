@@ -22,7 +22,8 @@ type AgentConfig struct {
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
 	Messaging        MessagingSection  `yaml:"messaging"`
 	Vision           VisionSection     `yaml:"vision"`
-	ImageGen         ImageGenSection    `yaml:"image_gen"`
+	ImageGen         ImageGenSection   `yaml:"image_gen"`
+	MultiAgent       MultiAgentSection `yaml:"multi_agent"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -120,6 +121,12 @@ type ImageGenSection struct {
 	CacheDir        string `yaml:"cache_dir"`           // directory for generated images
 }
 
+// MultiAgentSection configures multi-agent orchestration.
+type MultiAgentSection struct {
+	Enabled      bool   `yaml:"enabled"`
+	RegistryPath string `yaml:"registry_path"` // Path to agent registry JSON
+}
+
 // DelegationSection configures sub-agent spawning.
 type DelegationSection struct {
 	Enabled  bool `yaml:"enabled"`
@@ -189,6 +196,12 @@ func LoadConfig(path string) (*AgentConfig, error) {
 		cfg.ImageGen.APIKeyEnv = "OPENAI_API_KEY"
 	}
 
+	// MultiAgent defaults
+	if cfg.MultiAgent.Enabled && cfg.MultiAgent.RegistryPath == "" {
+		homeDir, _ := os.UserHomeDir()
+		cfg.MultiAgent.RegistryPath = filepath.Join(homeDir, ".mnemosyne", "agents.json")
+	}
+
 	// Validate tool names in tools.enabled (#16)
 	if len(cfg.Tools.Enabled) > 0 {
 		knownTools := map[string]bool{
@@ -205,6 +218,9 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"Browse": true,
 			"AnalyzeImage": true,
 			"GenerateImage": true,
+			"ListAgents": true,
+			"RegisterAgent": true,
+			"FindAgent": true,
 		}
 		for _, name := range cfg.Tools.Enabled {
 			if !knownTools[name] {
