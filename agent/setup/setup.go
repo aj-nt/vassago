@@ -137,14 +137,15 @@ func createSubAgentRunner(mnemo *memoclient.Client, registry *provider.ProviderR
 // createToolRegistry creates the tool registry
 func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRunner *agent.SubAgentRunnerImpl, registry *provider.ProviderRegistry) *tools.ToolRegistry {
 	return Tools(ToolsConfig{
-		ToolsSection:        &cfg.Tools,
-		DelegationSection:   &cfg.Delegation,
-		BrowserSection:      &cfg.Browser,
-		VisionSection:       &cfg.Vision,
-		ImageGenSection:     &cfg.ImageGen,
-		MultiAgentSection:   &cfg.MultiAgent,
-		MemorySafetySection: &cfg.MemorySafety,
-		MnemoClient:         mnemo,
+		ToolsSection:             &cfg.Tools,
+		DelegationSection:        &cfg.Delegation,
+		BrowserSection:           &cfg.Browser,
+		VisionSection:            &cfg.Vision,
+		ImageGenSection:          &cfg.ImageGen,
+		MultiAgentSection:        &cfg.MultiAgent,
+		MemorySafetySection:      &cfg.MemorySafety,
+		BackgroundProcessSection: &cfg.BackgroundProcess,
+		MnemoClient:              mnemo,
 		AgentID:             cfg.Agent.ID,
 		AgentName:           cfg.Agent.Name,
 		AgentRole:           cfg.Agent.Role,
@@ -274,6 +275,7 @@ func (r *AgentResult) Close() {
 		r.Scheduler.Stop()
 	}
 	tools.CleanupBrowser()
+	tools.CleanupBackgroundProcesses()
 	r.Agent.Close()
 	if r.AgentSession.IsRegistered() {
 		r.AgentSession.Close()
@@ -330,14 +332,15 @@ func Providers(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 
 // ToolsConfig encapsulates the configuration and dependencies for the Tools function.
 type ToolsConfig struct {
-	ToolsSection        *agent.ToolsSection
-	DelegationSection   *agent.DelegationSection
-	BrowserSection      *agent.BrowserSection
-	VisionSection       *agent.VisionSection
-	ImageGenSection     *agent.ImageGenSection
-	MultiAgentSection   *agent.MultiAgentSection
-	MemorySafetySection *agent.MemorySafetySection
-	MnemoClient         *memoclient.Client
+	ToolsSection           *agent.ToolsSection
+	DelegationSection      *agent.DelegationSection
+	BrowserSection         *agent.BrowserSection
+	VisionSection          *agent.VisionSection
+	ImageGenSection        *agent.ImageGenSection
+	MultiAgentSection      *agent.MultiAgentSection
+	MemorySafetySection    *agent.MemorySafetySection
+	BackgroundProcessSection *agent.BackgroundProcessSection
+	MnemoClient            *memoclient.Client
 	AgentID             string
 	AgentName           string
 	AgentRole           string
@@ -401,6 +404,16 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 				RegistryPath: cfg.MultiAgentSection.RegistryPath,
 			}, cfg.AgentID, cfg.AgentName, cfg.AgentRole)
 		}
+		if cfg.BackgroundProcessSection.Enabled {
+			bgConfig := tools.BackgroundProcessConfig{
+				Enabled:      cfg.BackgroundProcessSection.Enabled,
+				MaxProcesses: cfg.BackgroundProcessSection.MaxProcesses,
+				MaxOutputKB:  cfg.BackgroundProcessSection.MaxOutputKB,
+				MaxAgeMin:    cfg.BackgroundProcessSection.MaxAgeMin,
+				ApprovalRequired: cfg.BackgroundProcessSection.ApprovalRequired,
+			}
+			tools.RegisterBackgroundProcessTools(toolReg, bgConfig)
+		}
 		return toolReg
 	}
 
@@ -412,6 +425,16 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	}
 	if AnyEnabled(enabled, "Execute") {
 		tools.RegisterTerminalTools(toolReg)
+	}
+	if AnyEnabled(enabled, "BackgroundProcess") {
+		bgConfig := tools.BackgroundProcessConfig{
+			Enabled:      cfg.BackgroundProcessSection.Enabled,
+			MaxProcesses: cfg.BackgroundProcessSection.MaxProcesses,
+			MaxOutputKB:  cfg.BackgroundProcessSection.MaxOutputKB,
+			MaxAgeMin:    cfg.BackgroundProcessSection.MaxAgeMin,
+			ApprovalRequired: cfg.BackgroundProcessSection.ApprovalRequired,
+		}
+		tools.RegisterBackgroundProcessTools(toolReg, bgConfig)
 	}
 	if AnyEnabled(enabled, "SearchSessions", "ListSessions", "GetSession") {
 		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)
