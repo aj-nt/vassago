@@ -103,6 +103,10 @@ delegation:
   max_depth: 1        # Sub-agents cannot delegate further
   max_turns: 10       # Max turns per sub-agent
 
+# Memory safety: prevent loop-driven memory pollution
+memory_safety:
+  max_mutations_per_session: 10  # Max AddMemory calls per session (-1 = unlimited)
+
 # Scheduler: periodic maintenance tasks
 scheduler:
   enabled: true

@@ -12,8 +12,9 @@ import (
 )
 
 // RegisterMemoryTools adds all memory tool handlers to the registry.
-func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID string) {
-	registry.Register("AddMemory", makeAddMemory(mnemo, agentID), AddMemorySchema)
+// If mutationLimit is not nil, AddMemory calls are rate-limited per session.
+func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID string, mutationLimit *MutationRateLimit) {
+	registry.Register("AddMemory", makeAddMemory(mnemo, agentID, mutationLimit), AddMemorySchema)
 	registry.Register("SearchMemories", makeSearchMemories(mnemo), SearchMemoriesSchema)
 	registry.Register("ReplaceMemory", makeReplaceMemory(mnemo, agentID), ReplaceMemorySchema)
 	registry.Register("RemoveMemory", makeRemoveMemory(mnemo), RemoveMemorySchema)
@@ -21,8 +22,13 @@ func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID s
 	registry.Register("GetHotBlock", makeGetHotBlock(mnemo, agentID), GetHotBlockSchema)
 }
 
-func makeAddMemory(mnemo *client.Client, agentID string) ToolHandler {
+func makeAddMemory(mnemo *client.Client, agentID string, mutationLimit *MutationRateLimit) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
+		// Check mutation rate limit first
+		if mutationLimit != nil && !mutationLimit.Allow() {
+			return fmt.Sprintf("AddMemory rate limit reached (%d mutations this session). Consolidate or wait for next session.", mutationLimit.Count()), true
+		}
+
 		target := strArg(args, "target", "memory")
 		category := strArg(args, "category", "environment")
 		key := strArg(args, "key", "")

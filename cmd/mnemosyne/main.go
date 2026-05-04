@@ -36,6 +36,10 @@ func main() {
 		cmdConfig(args)
 	case "memory":
 		cmdMemory(args)
+	case "export":
+		cmdMemoryExport(args)
+	case "import":
+		cmdMemoryImport(args)
 	case "hot-block":
 		cmdHotBlock(args)
 	case "sessions":
@@ -68,6 +72,8 @@ Commands:
   agent           Run the Mnemosyne agent (interactive or server)
   chat            Start an interactive chat session
   memory          Memory management (add, get, search, list, remove, stats)
+  export           Export all memories to JSON file
+  import           Import memories from JSON file (with backup)
   hot-block       Show the computed hot block
   sessions        Session management (list, resume, get)
   health          Health check for the daemon

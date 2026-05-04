@@ -26,7 +26,7 @@ type SubAgentRunnerImpl struct {
 func (r *SubAgentRunnerImpl) RunSubAgent(prompt string, agentID string, maxTurns int) (*tools.SubAgentResult, error) {
 	// Create a restricted tool registry for the sub-agent — memory tools only
 	subToolReg := tools.NewToolRegistry()
-	tools.RegisterMemoryTools(subToolReg, r.Mnemo, agentID)
+	tools.RegisterMemoryTools(subToolReg, r.Mnemo, agentID, tools.NewMutationRateLimit(5))
 	// Deliberately NOT registering: Delegate, file, terminal, web tools
 
 	// Create sub-agent config

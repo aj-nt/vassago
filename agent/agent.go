@@ -50,6 +50,7 @@ type Config struct {
 	MaxTurns         int
 	MaxContextTokens int
 	HotBlockConfig   HotBlockConfig
+	MaxMutations     int // Max AddMemory calls per session; 0 = default (10), -1 = unlimited
 }
 
 // HotBlockConfig controls hot block retrieval.

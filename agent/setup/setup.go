@@ -143,6 +143,7 @@ func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRun
 		VisionSection:       &cfg.Vision,
 		ImageGenSection:     &cfg.ImageGen,
 		MultiAgentSection:   &cfg.MultiAgent,
+		MemorySafetySection: &cfg.MemorySafety,
 		MnemoClient:         mnemo,
 		AgentID:             cfg.Agent.ID,
 		AgentName:           cfg.Agent.Name,
@@ -335,6 +336,7 @@ type ToolsConfig struct {
 	VisionSection       *agent.VisionSection
 	ImageGenSection     *agent.ImageGenSection
 	MultiAgentSection   *agent.MultiAgentSection
+	MemorySafetySection *agent.MemorySafetySection
 	MnemoClient         *memoclient.Client
 	AgentID             string
 	AgentName           string
@@ -348,8 +350,16 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
 	enabled := cfg.ToolsSection.Enabled
 
+	// Create mutation rate limiter from memory safety config
+	var mutationLimit *tools.MutationRateLimit
+	if cfg.MemorySafetySection != nil {
+		mutationLimit = tools.NewMutationRateLimit(cfg.MemorySafetySection.MaxMutationsPerSession)
+	} else {
+		mutationLimit = tools.NewMutationRateLimit(0) // use default (10)
+	}
+
 	if len(enabled) == 0 {
-		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID, mutationLimit)
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.ToolsSection.AllowedDirs, cfg.ToolsSection.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
 		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)
@@ -395,7 +405,7 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	}
 
 	if AnyEnabled(enabled, "AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory", "Consolidate", "GetHotBlock") {
-		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID, mutationLimit)
 	}
 	if AnyEnabled(enabled, "FileRead", "FileSearch", "FileWrite") {
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.ToolsSection.AllowedDirs, cfg.ToolsSection.ApprovalRequired)

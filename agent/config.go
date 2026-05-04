@@ -21,6 +21,7 @@ type AgentConfig struct {
 	HotBlock         HotBlockSection   `yaml:"hot_block"`
 	Tools            ToolsSection      `yaml:"tools"`
 	Delegation       DelegationSection `yaml:"delegation"`
+	MemorySafety     MemorySafetySection `yaml:"memory_safety"`
 	Browser          BrowserSection    `yaml:"browser"`
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
 	Messaging        MessagingSection  `yaml:"messaging"`
@@ -99,6 +100,11 @@ type ToolsSection struct {
 	Enabled         []string `yaml:"enabled"`
 	ApprovalRequired []string `yaml:"approval_required"`
 	AllowedDirs     []string `yaml:"allowed_dirs"`
+}
+
+// MemorySafetySection configures memory mutation safety limits.
+type MemorySafetySection struct {
+	MaxMutationsPerSession int `yaml:"max_mutations_per_session"` // 0 = use default (10), -1 = unlimited
 }
 
 // BrowserSection configures browser automation.
@@ -383,5 +389,6 @@ func (c *AgentConfig) ToAgentConfig() Config {
 			SuppressCategories: c.HotBlock.SuppressCategories,
 			BoostPriority:      2,
 		},
+		MaxMutations: c.MemorySafety.MaxMutationsPerSession,
 	}
 }
