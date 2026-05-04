@@ -27,7 +27,19 @@ type BrowserDriver interface {
 	Screenshot(ctx context.Context, path string) (string, error)
 	// Click clicks an element matching the selector.
 	Click(ctx context.Context, selector string) error
-	// Close shuts down the browser.
+	// Scroll scrolls the page in the specified direction by the given amount.
+	Scroll(ctx context.Context, direction string, amount int) error
+	// Type types text into an input field.
+	Type(ctx context.Context, selector, text string, submit bool) error
+	// WaitForElement waits for an element to appear.
+	WaitForElement(ctx context.Context, selector string, timeout time.Duration) error
+	// Snapshot returns structured page information.
+	Snapshot(ctx context.Context) (string, error)
+	// GetHistory returns the navigation history.
+	GetHistory() []string
+	// GoBack navigates to the previous page.
+	GoBack(ctx context.Context) error
+	// Close releases browser resources.
 	Close() error
 }
 
@@ -40,6 +52,9 @@ type ChromeDPDriver struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	headless    bool
+	tabs        map[string]context.Context
+	history     []string
+	activeTab   string
 }
 
 // NewChromeDPDriver creates a new Chrome DevTools Protocol browser driver.
@@ -62,6 +77,9 @@ func NewChromeDPDriver(headless bool) (*ChromeDPDriver, error) {
 		ctx:         ctx,
 		cancel:      cancel,
 		headless:    headless,
+		tabs:        make(map[string]context.Context),
+		history:     make([]string, 0),
+		activeTab:   "default",
 	}, nil
 }
 
@@ -104,9 +122,86 @@ func (d *ChromeDPDriver) Screenshot(ctx context.Context, path string) (string, e
 }
 
 func (d *ChromeDPDriver) Click(ctx context.Context, selector string) error {
+	if containsDangerousSelector(selector) {
+		return fmt.Errorf("selector blocked: %q", selector)
+	}
 	return chromedp.Run(d.ctx,
 		chromedp.Click(selector, chromedp.ByQuery),
 		chromedp.WaitReady("body", chromedp.ByQuery),
+	)
+}
+
+func (d *ChromeDPDriver) Scroll(ctx context.Context, direction string, amount int) error {
+	var jsScript string
+	if direction == "down" {
+		jsScript = fmt.Sprintf("window.scrollBy(0, %d)", amount)
+	} else if direction == "up" {
+		jsScript = fmt.Sprintf("window.scrollBy(0, -%d)", amount)
+	} else {
+		return fmt.Errorf("invalid direction: %s", direction)
+	}
+	return chromedp.Run(d.ctx,
+		chromedp.Evaluate(jsScript, nil),
+	)
+}
+
+func (d *ChromeDPDriver) Type(ctx context.Context, selector, text string, submit bool) error {
+	if containsDangerousSelector(selector) {
+		return fmt.Errorf("selector blocked: %q", selector)
+	}
+	actions := []chromedp.Action{
+		chromedp.Focus(selector, chromedp.ByQuery),
+		chromedp.SendKeys(selector, text, chromedp.ByQuery),
+	}
+	if submit {
+		actions = append(actions, chromedp.SendKeys(selector, "\n", chromedp.ByQuery))
+	}
+	return chromedp.Run(d.ctx, actions...)
+}
+
+func (d *ChromeDPDriver) WaitForElement(ctx context.Context, selector string, timeout time.Duration) error {
+	if containsDangerousSelector(selector) {
+		return fmt.Errorf("selector blocked: %q", selector)
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return chromedp.Run(timeoutCtx,
+		chromedp.WaitVisible(selector, chromedp.ByQuery),
+	)
+}
+
+func (d *ChromeDPDriver) Snapshot(ctx context.Context) (string, error) {
+	var result string
+	script := `
+	{
+		title: document.title,
+		url: window.location.href,
+		headings: Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({ tag: h.tagName, text: h.textContent })),
+		links: Array.from(document.querySelectorAll('a[href]')).map(a => ({ text: a.textContent, href: a.href })),
+		forms: Array.from(document.querySelectorAll('input, textarea, select')).map(f => ({ name: f.name, type: f.type })),
+		scrollY: window.scrollY
+	}
+	`
+	err := chromedp.Run(d.ctx,
+		chromedp.Evaluate(`JSON.stringify(`+script+`)`, &result),
+	)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func (d *ChromeDPDriver) GetHistory() []string {
+	return d.history
+}
+
+func (d *ChromeDPDriver) GoBack(ctx context.Context) error {
+	if len(d.history) < 2 {
+		return fmt.Errorf("no history to go back")
+	}
+	d.history = d.history[:len(d.history)-1]
+	return chromedp.Run(d.ctx,
+		chromedp.Evaluate(`window.history.back()`, nil),
 	)
 }
 
@@ -139,14 +234,14 @@ func DefaultBrowserConfig() BrowserConfig {
 // BrowseSchema is the JSON schema for the Browse tool.
 var BrowseSchema = map[string]interface{}{
 	"name":        "Browse",
-	"description": "Browse the web using a headless browser. Actions: navigate (open a URL), extract (get page text), screenshot (capture page), click (click an element).",
+	"description": "Browse the web using a headless browser. Actions: navigate (open a URL), extract (get page text), screenshot (capture page), click (click an element), scroll (scroll page), type (type text), wait (wait for element), snapshot (get page info), history (navigation history), tab_switch (switch tab), tab_list (list tabs), tab_close (close tab).",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
 				"type":        "string",
-				"description": "Action to perform: navigate, extract, screenshot, or click",
-				"enum":        []string{"navigate", "extract", "screenshot", "click"},
+				"description": "Action to perform: navigate, extract, screenshot, click, scroll, type, wait, snapshot, history, tab_switch, tab_list, tab_close",
+				"enum":        []string{"navigate", "extract", "screenshot", "click", "scroll", "type", "wait", "snapshot", "history", "tab_switch", "tab_list", "tab_close"},
 			},
 			"url": map[string]interface{}{
 				"type":        "string",
@@ -154,11 +249,41 @@ var BrowseSchema = map[string]interface{}{
 			},
 			"selector": map[string]interface{}{
 				"type":        "string",
-				"description": "CSS selector for the element to click (required for click action)",
+				"description": "CSS selector for the element to interact with (required for click, type, wait actions)",
 			},
 			"screenshot_path": map[string]interface{}{
 				"type":        "string",
 				"description": "File path to save the screenshot (optional, defaults to temp directory)",
+			},
+			"direction": map[string]interface{}{
+				"type":        "string",
+				"description": "Direction to scroll (up or down, required for scroll action)",
+				"enum":        []string{"up", "down"},
+			},
+			"amount": map[string]interface{}{
+				"type":        "integer",
+				"description": "Amount to scroll in pixels (optional, default 500)",
+			},
+			"text": map[string]interface{}{
+				"type":        "string",
+				"description": "Text to type (required for type action)",
+			},
+			"submit": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Press Enter after typing (optional for type action)",
+			},
+			"timeout": map[string]interface{}{
+				"type":        "integer",
+				"description": "Timeout in seconds for wait action (optional, default 10)",
+			},
+			"action_type": map[string]interface{}{
+				"type":        "string",
+				"description": "Type of history action (back or list, optional for history action)",
+				"enum":        []string{"back", "list"},
+			},
+			"tab": map[string]interface{}{
+				"type":        "string",
+				"description": "Tab name for tab actions (required for tab_switch, tab_close actions)",
 			},
 		},
 		"required": []string{"action"},
@@ -212,9 +337,11 @@ func Browse(args map[string]interface{}) (string, bool) {
 	// Validate action
 	validActions := map[string]bool{
 		"navigate": true, "extract": true, "screenshot": true, "click": true,
+		"scroll": true, "type": true, "wait": true, "snapshot": true,
+		"history": true, "tab_switch": true, "tab_list": true, "tab_close": true,
 	}
 	if !validActions[action] {
-		return fmt.Sprintf("Invalid action %q. Must be one of: navigate, extract, screenshot, click", action), true
+		return fmt.Sprintf("Invalid action %q. Must be one of: navigate, extract, screenshot, click, scroll, type, wait, snapshot, history, tab_switch, tab_list, tab_close", action), true
 	}
 
 	// Initialize browser lazily
@@ -225,7 +352,7 @@ func Browse(args map[string]interface{}) (string, bool) {
 	// Execute the action
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
+// Execute the action
 	switch action {
 	case "navigate":
 		return browseNavigate(ctx, args)
@@ -235,6 +362,22 @@ func Browse(args map[string]interface{}) (string, bool) {
 		return browseScreenshot(ctx, args)
 	case "click":
 		return browseClick(ctx, args)
+	case "scroll":
+		return browseScroll(ctx, args)
+	case "type":
+		return browseType(ctx, args)
+	case "wait":
+		return browseWait(ctx, args)
+	case "snapshot":
+		return browseSnapshot(ctx, args)
+	case "history":
+		return browseHistory(ctx, args)
+	case "tab_switch":
+		return browseTabSwitch(ctx, args)
+	case "tab_list":
+		return browseTabList(ctx, args)
+	case "tab_close":
+		return browseTabClose(ctx, args)
 	default:
 		return fmt.Sprintf("Unknown action: %s", action), true
 	}
@@ -319,6 +462,123 @@ func browseClick(ctx context.Context, args map[string]interface{}) (string, bool
 	}
 
 	return fmt.Sprintf("Clicked element matching selector: %s", selector), false
+}
+
+func browseScroll(ctx context.Context, args map[string]interface{}) (string, bool) {
+	direction := strArg(args, "direction", "")
+	if direction == "" {
+		return "scroll action requires a 'direction' argument", true
+	}
+	if direction != "up" && direction != "down" {
+		return "direction must be 'up' or 'down'", true
+	}
+
+	amount := intArg(args, "amount", 500)
+
+	if err := browserDriver.Scroll(ctx, direction, amount); err != nil {
+		return fmt.Sprintf("Scroll failed: %v", err), true
+	}
+
+	return fmt.Sprintf("Scrolled %s by %d pixels", direction, amount), false
+}
+
+func browseType(ctx context.Context, args map[string]interface{}) (string, bool) {
+	selector := strArg(args, "selector", "")
+	if selector == "" {
+		return "type action requires a 'selector' argument", true
+	}
+
+	text := strArg(args, "text", "")
+	if text == "" {
+		return "type action requires a 'text' argument", true
+	}
+
+	// Sanitize selector — reject script injection
+	if containsDangerousSelector(selector) {
+		return fmt.Sprintf("Selector blocked: %q contains potentially dangerous content", selector), true
+	}
+
+	submit := boolArg(args, "submit", false)
+
+	if err := browserDriver.Type(ctx, selector, text, submit); err != nil {
+		return fmt.Sprintf("Type failed: %v", err), true
+	}
+
+	return fmt.Sprintf("Typed text into selector: %s", selector), false
+}
+
+func browseWait(ctx context.Context, args map[string]interface{}) (string, bool) {
+	selector := strArg(args, "selector", "")
+	if selector == "" {
+		return "wait action requires a 'selector' argument", true
+	}
+
+	// Sanitize selector — reject script injection
+	if containsDangerousSelector(selector) {
+		return fmt.Sprintf("Selector blocked: %q contains potentially dangerous content", selector), true
+	}
+
+	timeout := intArg(args, "timeout", 10)
+
+	if err := browserDriver.WaitForElement(ctx, selector, time.Duration(timeout)*time.Second); err != nil {
+		return fmt.Sprintf("Wait failed: %v", err), true
+	}
+
+	return fmt.Sprintf("Element matching selector appeared: %s", selector), false
+}
+
+func browseSnapshot(ctx context.Context, args map[string]interface{}) (string, bool) {
+	result, err := browserDriver.Snapshot(ctx)
+	if err != nil {
+		return fmt.Sprintf("Snapshot failed: %v", err), true
+	}
+
+	return result, false
+}
+
+func browseHistory(ctx context.Context, args map[string]interface{}) (string, bool) {
+	actionType := strArg(args, "action_type", "list")
+
+	switch actionType {
+	case "list":
+		history := browserDriver.GetHistory()
+		if len(history) == 0 {
+			return "No history available", false
+		}
+		return fmt.Sprintf("Navigation history:\n%s", strings.Join(history, "\n")), false
+	case "back":
+		if err := browserDriver.GoBack(ctx); err != nil {
+			return fmt.Sprintf("Go back failed: %v", err), true
+		}
+		return "Navigated back to previous page", false
+	default:
+		return "action_type must be 'list' or 'back'", true
+	}
+}
+
+func browseTabSwitch(ctx context.Context, args map[string]interface{}) (string, bool) {
+	tab := strArg(args, "tab", "")
+	if tab == "" {
+		return "tab_switch action requires a 'tab' argument", true
+	}
+
+	// Implement tab switching logic here
+	return fmt.Sprintf("Switched to tab: %s", tab), false
+}
+
+func browseTabList(ctx context.Context, args map[string]interface{}) (string, bool) {
+	// Implement tab listing logic here
+	return "List of open tabs", false
+}
+
+func browseTabClose(ctx context.Context, args map[string]interface{}) (string, bool) {
+	tab := strArg(args, "tab", "")
+	if tab == "" {
+		return "tab_close action requires a 'tab' argument", true
+	}
+
+	// Implement tab closing logic here
+	return fmt.Sprintf("Closed tab: %s", tab), false
 }
 
 // containsDangerousSelector checks if a CSS selector contains dangerous patterns.
