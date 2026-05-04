@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aj-nt/mnemosyne/agent"
 	"github.com/aj-nt/mnemosyne/agent/setup"
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 	memoclient "github.com/aj-nt/mnemosyne/client"
@@ -133,12 +134,20 @@ Examples:
 	}
 
 	// Verify the daemon is running first
+	// Read daemon address from agent config if possible, fall back to default
+	daemonAddr := "localhost:50051"
+	if agentCfg, err := agent.LoadConfig(configPath); err == nil {
+		if agentCfg.Mnemosyne.Address != "" {
+			daemonAddr = agentCfg.Mnemosyne.Address
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c, err := memoclient.Connect(ctx, memoclient.Config{Address: "localhost:50051"})
+	c, err := memoclient.Connect(ctx, memoclient.Config{Address: daemonAddr})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Cannot connect to Mnemosyne daemon at localhost:50051.\n")
+		fmt.Fprintf(os.Stderr, "Error: Cannot connect to Mnemosyne daemon at %s.\n", daemonAddr)
 		fmt.Fprintf(os.Stderr, "Make sure the daemon is running: mnemosyne start\n")
 		os.Exit(1)
 	}
