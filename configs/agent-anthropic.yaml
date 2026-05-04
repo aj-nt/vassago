@@ -91,6 +91,7 @@ tools:
     - SearchWeb
     - FetchURL
     - Delegate
+    - Browse
   approval_required:
     - FileWrite
     - FileEdit
@@ -99,6 +100,11 @@ tools:
     - /tmp
     - ~/Documents/repos
     - .
+
+browser:
+  enabled: true
+  headless: true
+  cache_dir: ""
 
 # Delegation: spawn focused sub-agents for scoped tasks
 delegation:

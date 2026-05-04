@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // --- Mock Browser Driver ---
@@ -20,11 +21,28 @@ type MockBrowserDriver struct {
 	navigateCalled bool
 	extractCalled  bool
 	clickSelector  string
+	scrollCalled   bool
+	scrollDirection string
+	scrollAmount   int
+	typeCalled     bool
+	typeSelector   string
+	typeText       string
+	typeSubmit     bool
+	waitSelector   string
+	snapshotCalled bool
+	history        []string
+	goBackCalled   bool
 	navigateErr    error
 	extractErr     error
 	screenshotErr  error
 	clickErr       error
+	scrollErr      error
+	typeErr        error
+	waitErr        error
+	snapshotErr    error
+	goBackErr      error
 	extractResult  string // custom extract text (defaults to "Concurrent content")
+	snapshotResult string // custom snapshot result
 	mu             sync.Mutex
 }
 
@@ -63,6 +81,58 @@ func (m *MockBrowserDriver) Click(ctx context.Context, selector string) error {
 	defer m.mu.Unlock()
 	m.clickSelector = selector
 	return m.clickErr
+}
+
+func (m *MockBrowserDriver) Scroll(ctx context.Context, direction string, amount int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scrollCalled = true
+	m.scrollDirection = direction
+	m.scrollAmount = amount
+	return m.scrollErr
+}
+
+func (m *MockBrowserDriver) Type(ctx context.Context, selector, text string, submit bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.typeCalled = true
+	m.typeSelector = selector
+	m.typeText = text
+	m.typeSubmit = submit
+	return m.typeErr
+}
+
+func (m *MockBrowserDriver) WaitForElement(ctx context.Context, selector string, timeout time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.waitSelector = selector
+	return m.waitErr
+}
+
+func (m *MockBrowserDriver) Snapshot(ctx context.Context) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.snapshotCalled = true
+	if m.snapshotResult != "" {
+		return m.snapshotResult, m.snapshotErr
+	}
+	return `{"title":"Test Page","url":"https://example.com","headings":[],"links":[],"forms":[],"scrollY":0}`, m.snapshotErr
+}
+
+func (m *MockBrowserDriver) GetHistory() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.history
+}
+
+func (m *MockBrowserDriver) GoBack(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.goBackCalled = true
+	if len(m.history) > 0 {
+		m.history = m.history[:len(m.history)-1]
+	}
+	return m.goBackErr
 }
 
 func (m *MockBrowserDriver) Close() error {
