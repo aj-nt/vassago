@@ -25,9 +25,10 @@ type AgentConfig struct {
 	Browser          BrowserSection    `yaml:"browser"`
 	Scheduler        SchedulerSection  `yaml:"scheduler"`
 	Messaging        MessagingSection  `yaml:"messaging"`
-	Vision           VisionSection     `yaml:"vision"`
-	ImageGen         ImageGenSection   `yaml:"image_gen"`
-	MultiAgent       MultiAgentSection `yaml:"multi_agent"`
+	Vision           VisionSection         `yaml:"vision"`
+	ImageGen         ImageGenSection       `yaml:"image_gen"`
+	MultiAgent       MultiAgentSection     `yaml:"multi_agent"`
+	BackgroundProcess BackgroundProcessSection `yaml:"background_process"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -130,6 +131,15 @@ type ImageGenSection struct {
 	CacheDir        string `yaml:"cache_dir"`           // directory for generated images
 }
 
+// BackgroundProcessSection configures background process management.
+type BackgroundProcessSection struct {
+	Enabled      bool `yaml:"enabled"`
+	MaxProcesses int  `yaml:"max_processes"`
+	MaxOutputKB  int  `yaml:"max_output_kb"`
+	MaxAgeMin    int  `yaml:"max_age_min"`
+	ApprovalRequired bool `yaml:"approval_required"`
+}
+
 // MultiAgentSection configures multi-agent orchestration.
 type MultiAgentSection struct {
 	Enabled      bool   `yaml:"enabled"`
@@ -201,6 +211,17 @@ func (c *AgentConfig) applyDefaults() {
 	if c.MultiAgent.Enabled && c.MultiAgent.RegistryPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		c.MultiAgent.RegistryPath = filepath.Join(homeDir, ".mnemosyne", "agents.json")
+	}
+
+	// BackgroundProcess defaults
+	if c.BackgroundProcess.MaxProcesses == 0 {
+		c.BackgroundProcess.MaxProcesses = 5
+	}
+	if c.BackgroundProcess.MaxOutputKB == 0 {
+		c.BackgroundProcess.MaxOutputKB = 64
+	}
+	if c.BackgroundProcess.MaxAgeMin == 0 {
+		c.BackgroundProcess.MaxAgeMin = 30
 	}
 }
 
