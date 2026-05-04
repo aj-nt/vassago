@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-Apache-2.0 for license information.
+
 // Package format provides platform-aware message formatting constants and
 // utilities shared between the agent and daemon. It has no dependencies on
 // either package, keeping the import graph clean.

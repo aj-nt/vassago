@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-Apache-2.0 for license information.
+
 package client
 
 import (

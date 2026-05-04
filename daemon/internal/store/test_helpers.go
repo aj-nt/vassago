@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 package store
 
 // addMemory is a test helper that wraps the positional args into AddMemoryParams.

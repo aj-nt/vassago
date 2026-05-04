@@ -1,4 +1,4 @@
-.PHONY: build test test-race lint proto clean generate all deploy setup
+.PHONY: build test test-race lint proto clean generate all deploy setup check-licenses
 
 # Binary output directory
 BINARY_DIR=bin
@@ -43,7 +43,11 @@ tidy:
 	go mod tidy
 
 # Build + test + lint
-all: build test-race lint
+all: check-licenses build test-race lint
+
+# Check license headers on all source files
+check-licenses:
+	@./scripts/check-license-headers.sh
 
 # Deploy to local machine (build + copy to ~/bin)
 deploy: build
