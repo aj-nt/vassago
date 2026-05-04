@@ -41,26 +41,20 @@ type AgentResult struct {
 // and message bridge. Returns an AgentResult that must be cleaned up.
 func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 	// Load config
-	cfg, err := agent.LoadConfig(configPath)
+	cfg, err := loadAgentConfig(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Connect to Mnemosyne daemon
-	mnemo, err := memoclient.Connect(ctx, memoclient.Config{
-		Address: cfg.Mnemosyne.Address,
-	})
+	mnemo, err := connectToDaemon(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Mnemosyne daemon: %w", err)
 	}
 
 	// Register agent with daemon
-	agentSession := memoclient.NewAgentSession(mnemo, memoclient.AgentConfig{
-		ID:   cfg.Agent.ID,
-		Name: cfg.Agent.Name,
-		Role: cfg.Agent.Role,
-	})
-	if err := agentSession.Register(ctx); err != nil {
+	agentSession, err := registerAgentWithDaemon(ctx, mnemo, cfg)
+	if err != nil {
 		log.Printf("Warning: agent registration failed (daemon may not support it): %v", err)
 	} else {
 		cfg.Agent.ID = agentSession.AgentID()
@@ -69,12 +63,77 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 
 	// Wire providers and tools
 	registry := Providers(&cfg.Provider)
-	subRunner := &agent.SubAgentRunnerImpl{
+	subRunner := createSubAgentRunner(mnemo, registry)
+	toolReg := createToolRegistry(cfg, mnemo, subRunner, registry)
+
+	// Create agent (with router if configured)
+	agentCfg := cfg.ToAgentConfig()
+	a, _ := createAgentWithRouter(&agentCfg, cfg, registry, toolReg, mnemo)
+	subRunner.Router = a.Router
+
+	// Set up hot block cache and Telepathy subscription
+	setupTelepathySubscription(ctx, a, agentSession, cfg)
+
+	// Start scheduler
+	sched := startScheduler(ctx, cfg, mnemo)
+
+	// Start gRPC chat server if configured
+	grpcServer, err := startGRPCChatServer(cfg, a, mnemo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start gRPC chat server: %w", err)
+	}
+
+	// Start MessageBridge
+	bridge := startMessageBridge(ctx, cfg, a, mnemo)
+
+	log.Printf("Starting agent %q with primary provider %q (model: %s)",
+		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
+
+	return &AgentResult{
+		Agent:        a,
+		Config:       cfg,
+		Mnemo:        mnemo,
+		AgentSession: agentSession,
+		GRPCServer:   grpcServer,
+		Bridge:       bridge,
+		Scheduler:    sched,
+	}, nil
+}
+
+// loadAgentConfig loads the agent configuration
+func loadAgentConfig(configPath string) (*agent.AgentConfig, error) {
+	return agent.LoadConfig(configPath)
+}
+
+// connectToDaemon connects to the Mnemosyne daemon
+func connectToDaemon(ctx context.Context, cfg *agent.AgentConfig) (*memoclient.Client, error) {
+	return memoclient.Connect(ctx, memoclient.Config{
+		Address: cfg.Mnemosyne.Address,
+	})
+}
+
+// registerAgentWithDaemon registers the agent with the daemon
+func registerAgentWithDaemon(ctx context.Context, mnemo *memoclient.Client, cfg *agent.AgentConfig) (*memoclient.AgentSession, error) {
+	agentSession := memoclient.NewAgentSession(mnemo, memoclient.AgentConfig{
+		ID:   cfg.Agent.ID,
+		Name: cfg.Agent.Name,
+		Role: cfg.Agent.Role,
+	})
+	return agentSession, agentSession.Register(ctx)
+}
+
+// createSubAgentRunner creates a sub-agent runner
+func createSubAgentRunner(mnemo *memoclient.Client, registry *provider.ProviderRegistry) *agent.SubAgentRunnerImpl {
+	return &agent.SubAgentRunnerImpl{
 		Mnemo:    mnemo,
 		Registry: registry,
 		Router:   nil,
 	}
-	toolReg := Tools(ToolsConfig{
+}
+
+// createToolRegistry creates the tool registry
+func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRunner *agent.SubAgentRunnerImpl, registry *provider.ProviderRegistry) *tools.ToolRegistry {
+	return Tools(ToolsConfig{
 		ToolsSection:        &cfg.Tools,
 		DelegationSection:   &cfg.Delegation,
 		BrowserSection:      &cfg.Browser,
@@ -88,21 +147,25 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 		SubAgentRunner:      subRunner,
 		ProviderRegistry:    registry,
 	})
+}
 
-	// Create agent (with router if configured)
-	agentCfg := cfg.ToAgentConfig()
+// createAgentWithRouter creates an agent with router if configured
+func createAgentWithRouter(agentCfg *agent.Config, cfg *agent.AgentConfig, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) (*agent.Agent, *provider.ModelRouter) {
 	var a *agent.Agent
+	var router *provider.ModelRouter
 	if len(cfg.Routing.Models) > 0 {
-		router := Router(&cfg.Routing, &cfg.Provider, registry)
-		a = agent.NewAgentWithRouter(agentCfg, registry, router, toolReg, mnemo)
+		router = Router(&cfg.Routing, &cfg.Provider, registry)
+		a = agent.NewAgentWithRouter(*agentCfg, registry, router, toolReg, mnemo)
 		log.Printf("Model routing enabled: strategy=%s, primary=%s, models=%v",
 			cfg.Routing.Strategy, router.Primary(), router.List())
 	} else {
-		a = agent.NewAgent(agentCfg, registry, toolReg, mnemo)
+		a = agent.NewAgent(*agentCfg, registry, toolReg, mnemo)
 	}
-	subRunner.Router = a.Router
+	return a, router
+}
 
-	// Set up hot block cache and Telepathy subscription
+// setupTelepathySubscription sets up Telepathy subscription
+func setupTelepathySubscription(ctx context.Context, a *agent.Agent, agentSession *memoclient.AgentSession, cfg *agent.AgentConfig) {
 	if agentSession.IsRegistered() {
 		if hotBlock, err := a.GetHotBlock(ctx); err == nil && hotBlock != "" {
 			cache := memoclient.NewHotBlockCache("memory", cfg.Agent.ID, hotBlock, len([]rune(hotBlock)), 0)
@@ -132,63 +195,67 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 			}()
 		}
 	}
+}
 
-	// Start scheduler
-	var sched *scheduler.Scheduler
-	if cfg.Scheduler.Enabled && mnemo != nil {
-		sched = scheduler.NewScheduler(mnemo)
-		for _, task := range sched.MnemoTasks() {
-			sched.AddTask(task)
+// startScheduler starts the scheduler
+func startScheduler(ctx context.Context, cfg *agent.AgentConfig, mnemo *memoclient.Client) *scheduler.Scheduler {
+	if !cfg.Scheduler.Enabled || mnemo == nil {
+		return nil
+	}
+	
+	sched := scheduler.NewScheduler(mnemo)
+	for _, task := range sched.MnemoTasks() {
+		sched.AddTask(task)
+	}
+	sched.Start(ctx)
+	log.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
+	return sched
+}
+
+// startGRPCChatServer starts the gRPC chat server
+func startGRPCChatServer(cfg *agent.AgentConfig, a *agent.Agent, mnemo *memoclient.Client) (*grpc.Server, error) {
+	if cfg.Mnemosyne.ChatListen == "" {
+		return nil, nil
+	}
+	
+	lis, err := net.Listen("tcp", cfg.Mnemosyne.ChatListen)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen for gRPC chat server on %s: %w", cfg.Mnemosyne.ChatListen, err)
+	}
+	
+	grpcServer := grpc.NewServer()
+	chatServer := iface.NewChatServer(a, mnemo)
+	pb.RegisterAgentChatServer(grpcServer, chatServer)
+	reflection.Register(grpcServer)
+	
+	go func() {
+		log.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("gRPC chat server failed: %v", err)
 		}
-		sched.Start(ctx)
-		log.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
-	}
+	}()
+	
+	return grpcServer, nil
+}
 
-	// Start gRPC chat server if configured
-	var grpcServer *grpc.Server
-	if cfg.Mnemosyne.ChatListen != "" {
-		lis, err := net.Listen("tcp", cfg.Mnemosyne.ChatListen)
-		if err != nil {
-			return nil, fmt.Errorf("failed to listen for gRPC chat server on %s: %w", cfg.Mnemosyne.ChatListen, err)
+// startMessageBridge starts the MessageBridge
+func startMessageBridge(ctx context.Context, cfg *agent.AgentConfig, a *agent.Agent, mnemo *memoclient.Client) *iface.MessageBridge {
+	if !cfg.Messaging.Discord.Enabled {
+		return nil
+	}
+	
+	bridgeConfig := iface.DefaultBridgeConfig()
+	bridgeConfig.AgentID = cfg.Agent.ID
+	bridge := iface.NewMessageBridge(a, mnemo, bridgeConfig)
+	
+	go func() {
+		log.Printf("MessageBridge: starting incoming message handler...")
+		if err := bridge.Start(ctx); err != nil {
+			log.Printf("MessageBridge: stopped with error: %v", err)
 		}
-		grpcServer = grpc.NewServer()
-		chatServer := iface.NewChatServer(a, mnemo)
-		pb.RegisterAgentChatServer(grpcServer, chatServer)
-		reflection.Register(grpcServer)
-		go func() {
-			log.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
-			if err := grpcServer.Serve(lis); err != nil {
-				log.Fatalf("gRPC chat server failed: %v", err)
-			}
-		}()
-	}
-
-	// Start MessageBridge
-	var bridge *iface.MessageBridge
-	if cfg.Messaging.Discord.Enabled {
-		bridgeConfig := iface.DefaultBridgeConfig()
-		bridgeConfig.AgentID = cfg.Agent.ID
-		bridge = iface.NewMessageBridge(a, mnemo, bridgeConfig)
-		go func() {
-			log.Printf("MessageBridge: starting incoming message handler...")
-			if err := bridge.Start(ctx); err != nil {
-				log.Printf("MessageBridge: stopped with error: %v", err)
-			}
-		}()
-	}
-
-	log.Printf("Starting agent %q with primary provider %q (model: %s)",
-		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
-
-	return &AgentResult{
-		Agent:        a,
-		Config:       cfg,
-		Mnemo:        mnemo,
-		AgentSession: agentSession,
-		GRPCServer:   grpcServer,
-		Bridge:       bridge,
-		Scheduler:    sched,
-	}, nil
+	}()
+	
+	return bridge
 }
 
 // Close cleans up all agent resources.

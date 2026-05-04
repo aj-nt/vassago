@@ -140,70 +140,65 @@ type SchedulerSection struct {
 	Interval int  `yaml:"interval"` // Base interval in seconds for consolidation (default: 3600 = 1h)
 }
 
-// LoadConfig reads agent config from a YAML file.
-func LoadConfig(path string) (*AgentConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	cfg := &AgentConfig{}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, err
-	}
+// applyDefaults sets default values for configuration fields
+func (c *AgentConfig) applyDefaults() {
 	// Apply defaults
-	if cfg.Agent.MaxTurns == 0 {
-		cfg.Agent.MaxTurns = 50
+	if c.Agent.MaxTurns == 0 {
+		c.Agent.MaxTurns = 50
 	}
-	if cfg.Provider.Temperature == 0 {
-		cfg.Provider.Temperature = 0.7
+	if c.Provider.Temperature == 0 {
+		c.Provider.Temperature = 0.7
 	}
-	if cfg.HotBlock.MemoryCharLimit == 0 {
-		cfg.HotBlock.MemoryCharLimit = 4000
+	if c.HotBlock.MemoryCharLimit == 0 {
+		c.HotBlock.MemoryCharLimit = 4000
 	}
-	if cfg.HotBlock.MinPriority == 0 {
-		cfg.HotBlock.MinPriority = 2
+	if c.HotBlock.MinPriority == 0 {
+		c.HotBlock.MinPriority = 2
 	}
-	if cfg.Delegation.MaxDepth == 0 {
-		cfg.Delegation.MaxDepth = 1
+	if c.Delegation.MaxDepth == 0 {
+		c.Delegation.MaxDepth = 1
 	}
-	if cfg.Delegation.MaxTurns == 0 {
-		cfg.Delegation.MaxTurns = 10
+	if c.Delegation.MaxTurns == 0 {
+		c.Delegation.MaxTurns = 10
 	}
-	if cfg.Scheduler.Interval == 0 {
-		cfg.Scheduler.Interval = 3600 // 1 hour
+	if c.Scheduler.Interval == 0 {
+		c.Scheduler.Interval = 3600 // 1 hour
 	}
 	// Browser defaults to headless when enabled
-	if cfg.Browser.Enabled && !cfg.Browser.Headless {
-		cfg.Browser.Headless = true // default to headless
+	if c.Browser.Enabled && !c.Browser.Headless {
+		c.Browser.Headless = true // default to headless
 	}
 
 	// Vision defaults
-	if cfg.Vision.MaxImageSize == 0 {
-		cfg.Vision.MaxImageSize = 20 * 1024 * 1024 // 20MB
+	if c.Vision.MaxImageSize == 0 {
+		c.Vision.MaxImageSize = 20 * 1024 * 1024 // 20MB
 	}
 
 	// Image generation defaults
-	if cfg.ImageGen.MaxPromptLength == 0 {
-		cfg.ImageGen.MaxPromptLength = 1000
+	if c.ImageGen.MaxPromptLength == 0 {
+		c.ImageGen.MaxPromptLength = 1000
 	}
-	if cfg.ImageGen.Provider == "" {
-		cfg.ImageGen.Provider = "openai"
+	if c.ImageGen.Provider == "" {
+		c.ImageGen.Provider = "openai"
 	}
-	if cfg.ImageGen.Model == "" {
-		cfg.ImageGen.Model = "dall-e-3"
+	if c.ImageGen.Model == "" {
+		c.ImageGen.Model = "dall-e-3"
 	}
-	if cfg.ImageGen.APIKeyEnv == "" {
-		cfg.ImageGen.APIKeyEnv = "OPENAI_API_KEY"
+	if c.ImageGen.APIKeyEnv == "" {
+		c.ImageGen.APIKeyEnv = "OPENAI_API_KEY"
 	}
 
 	// MultiAgent defaults
-	if cfg.MultiAgent.Enabled && cfg.MultiAgent.RegistryPath == "" {
+	if c.MultiAgent.Enabled && c.MultiAgent.RegistryPath == "" {
 		homeDir, _ := os.UserHomeDir()
-		cfg.MultiAgent.RegistryPath = filepath.Join(homeDir, ".mnemosyne", "agents.json")
+		c.MultiAgent.RegistryPath = filepath.Join(homeDir, ".mnemosyne", "agents.json")
 	}
+}
 
+// validateTools checks that all enabled tools are known tool names
+func (c *AgentConfig) validateTools() {
 	// Validate tool names in tools.enabled (#16)
-	if len(cfg.Tools.Enabled) > 0 {
+	if len(c.Tools.Enabled) > 0 {
 		knownTools := map[string]bool{
 			"AddMemory": true, "SearchMemories": true, "ReplaceMemory": true,
 			"RemoveMemory": true, "Consolidate": true, "GetHotBlock": true,
@@ -222,16 +217,19 @@ func LoadConfig(path string) (*AgentConfig, error) {
 			"RegisterAgent": true,
 			"FindAgent": true,
 		}
-		for _, name := range cfg.Tools.Enabled {
+		for _, name := range c.Tools.Enabled {
 			if !knownTools[name] {
 				fmt.Fprintf(os.Stderr, "Warning: unknown tool name %q in tools.enabled — will be ignored\n", name)
 			}
 		}
 	}
+}
 
+// loadPersonality loads personality from file if specified
+func (c *AgentConfig) loadPersonality(path string) error {
 	// Load personality from file if specified
-	if cfg.Agent.PersonalityFile != "" {
-		personalityPath := cfg.Agent.PersonalityFile
+	if c.Agent.PersonalityFile != "" {
+		personalityPath := c.Agent.PersonalityFile
 		// If the path is relative, resolve it relative to the config file's directory
 		if !filepath.IsAbs(personalityPath) {
 			configDir := filepath.Dir(path)
@@ -240,9 +238,33 @@ func LoadConfig(path string) (*AgentConfig, error) {
 
 		personalityData, err := os.ReadFile(personalityPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read personality file: %w", err)
+			return fmt.Errorf("failed to read personality file: %w", err)
 		}
-		cfg.Agent.Personality = string(personalityData)
+		c.Agent.Personality = string(personalityData)
+	}
+	return nil
+}
+
+// LoadConfig reads agent config from a YAML file.
+func LoadConfig(path string) (*AgentConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &AgentConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+
+	// Apply defaults
+	cfg.applyDefaults()
+
+	// Validate tools
+	cfg.validateTools()
+
+	// Load personality
+	if err := cfg.loadPersonality(path); err != nil {
+		return nil, err
 	}
 
 	// Validate the configuration

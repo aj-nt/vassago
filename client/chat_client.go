@@ -94,6 +94,39 @@ func (c *ChatClient) Chat(ctx context.Context, sessionID, agentID, message strin
 	return responseText, newSessionID, nil
 }
 
+// processChatEvent converts a protobuf ChatEvent to the client ChatEvent type
+func processChatEvent(event *pb.ChatEvent) ChatEvent {
+	var eventType string
+	switch event.EventType {
+	case pb.ChatEvent_TEXT:
+		eventType = "text"
+	case pb.ChatEvent_TOOL_START:
+		eventType = "tool_start"
+	case pb.ChatEvent_TOOL_RESULT:
+		eventType = "tool_result"
+	case pb.ChatEvent_DONE:
+		eventType = "done"
+	case pb.ChatEvent_ERROR:
+		eventType = "error"
+	case pb.ChatEvent_THINKING:
+		eventType = "thinking"
+	case pb.ChatEvent_USAGE:
+		eventType = "usage"
+	default:
+		eventType = "unknown"
+	}
+
+	return ChatEvent{
+		EventType:  eventType,
+		Text:       event.Text,
+		ToolName:   event.ToolName,
+		ToolResult: event.ToolResult,
+		SessionID:  event.SessionId,
+		TokensUsed: event.TokensUsed,
+		TurnNumber: event.TurnNumber,
+	}
+}
+
 // ChatStream sends a message to the agent and returns a channel of events
 // for real-time streaming consumption.
 func (c *ChatClient) ChatStream(ctx context.Context, sessionID, agentID, message string) (<-chan ChatEvent, error) {
@@ -120,35 +153,7 @@ func (c *ChatClient) ChatStream(ctx context.Context, sessionID, agentID, message
 				return
 			}
 
-			var eventType string
-			switch event.EventType {
-			case pb.ChatEvent_TEXT:
-				eventType = "text"
-			case pb.ChatEvent_TOOL_START:
-				eventType = "tool_start"
-			case pb.ChatEvent_TOOL_RESULT:
-				eventType = "tool_result"
-			case pb.ChatEvent_DONE:
-				eventType = "done"
-			case pb.ChatEvent_ERROR:
-				eventType = "error"
-			case pb.ChatEvent_THINKING:
-				eventType = "thinking"
-			case pb.ChatEvent_USAGE:
-				eventType = "usage"
-			default:
-				eventType = "unknown"
-			}
-
-			ch <- ChatEvent{
-				EventType:  eventType,
-				Text:       event.Text,
-				ToolName:   event.ToolName,
-				ToolResult: event.ToolResult,
-				SessionID:  event.SessionId,
-				TokensUsed: event.TokensUsed,
-				TurnNumber: event.TurnNumber,
-			}
+			ch <- processChatEvent(event)
 		}
 	}()
 
