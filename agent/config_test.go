@@ -135,3 +135,48 @@ func contains(s, sub string) bool {
 	}
 	return len(sub) == 0
 }
+
+func TestAgentConfigValidate_CodeExec(t *testing.T) {
+	validBase := AgentConfig{
+		Agent:      AgentSection{ID: "test", MaxTurns: 10},
+		Provider:   ProviderSection{Name: "anthropic", Model: "claude-sonnet-4-6"},
+		Mnemosyne:  MnemosyneSection{Address: "localhost:50051"},
+		HotBlock:   HotBlockSection{MemoryCharLimit: 4000, UserCharLimit: 2000, MinPriority: 2},
+		Delegation: DelegationSection{Enabled: false, MaxDepth: 1, MaxTurns: 10},
+		Scheduler: SchedulerSection{Interval: 3600},
+	}
+
+	tests := []struct {
+		name    string
+		codeExec CodeExecSection
+		wantErr string
+	}{
+		{"disabled is valid", CodeExecSection{Enabled: false}, ""},
+		{"enabled with defaults", CodeExecSection{Enabled: true, Timeout: 300, MaxOutputKB: 50, MaxCodeChars: 50000}, ""},
+		{"timeout too low", CodeExecSection{Enabled: true, Timeout: 5, MaxOutputKB: 50, MaxCodeChars: 50000}, "code_exec.timeout must be between 10 and 600"},
+		{"timeout too high", CodeExecSection{Enabled: true, Timeout: 700, MaxOutputKB: 50, MaxCodeChars: 50000}, "code_exec.timeout must be between 10 and 600"},
+		{"max_output_kb too low", CodeExecSection{Enabled: true, Timeout: 300, MaxOutputKB: 0, MaxCodeChars: 50000}, "code_exec.max_output_kb must be between 1 and 1024"},
+		{"max_output_kb too high", CodeExecSection{Enabled: true, Timeout: 300, MaxOutputKB: 2000, MaxCodeChars: 50000}, "code_exec.max_output_kb must be between 1 and 1024"},
+		{"max_code_chars too low", CodeExecSection{Enabled: true, Timeout: 300, MaxOutputKB: 50, MaxCodeChars: 500}, "code_exec.max_code_chars must be between 1000 and 500000"},
+		{"max_code_chars too high", CodeExecSection{Enabled: true, Timeout: 300, MaxOutputKB: 50, MaxCodeChars: 600000}, "code_exec.max_code_chars must be between 1000 and 500000"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validBase
+			cfg.CodeExec = tt.codeExec
+			err := cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate() unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Validate() expected error containing %q, got nil", tt.wantErr)
+				} else if !contains(err.Error(), tt.wantErr) {
+					t.Errorf("Validate() error = %q, want to contain %q", err.Error(), tt.wantErr)
+				}
+			}
+		})
+	}
+}

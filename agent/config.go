@@ -29,6 +29,7 @@ type AgentConfig struct {
 	ImageGen         ImageGenSection       `yaml:"image_gen"`
 	MultiAgent       MultiAgentSection     `yaml:"multi_agent"`
 	BackgroundProcess BackgroundProcessSection `yaml:"background_process"`
+	CodeExec         CodeExecSection       `yaml:"code_exec"`
 }
 
 // RoutingSection configures the model routing strategy and model definitions.
@@ -140,6 +141,14 @@ type BackgroundProcessSection struct {
 	ApprovalRequired bool `yaml:"approval_required"`
 }
 
+// CodeExecSection configures Python code execution sandbox.
+type CodeExecSection struct {
+	Enabled      bool `yaml:"enabled"`
+	Timeout      int  `yaml:"timeout"`        // max seconds (default 300)
+	MaxOutputKB  int  `yaml:"max_output_kb"`  // max output in KB (default 50)
+	MaxCodeChars int  `yaml:"max_code_chars"` // max code length in chars (default 50000)
+}
+
 // MultiAgentSection configures multi-agent orchestration.
 type MultiAgentSection struct {
 	Enabled      bool   `yaml:"enabled"`
@@ -223,6 +232,17 @@ func (c *AgentConfig) applyDefaults() {
 	if c.BackgroundProcess.MaxAgeMin == 0 {
 		c.BackgroundProcess.MaxAgeMin = 30
 	}
+
+	// CodeExec defaults
+	if c.CodeExec.Timeout == 0 {
+		c.CodeExec.Timeout = 300
+	}
+	if c.CodeExec.MaxOutputKB == 0 {
+		c.CodeExec.MaxOutputKB = 50
+	}
+	if c.CodeExec.MaxCodeChars == 0 {
+		c.CodeExec.MaxCodeChars = 50000
+	}
 }
 
 // validateTools checks that all enabled tools are known tool names
@@ -233,7 +253,10 @@ func (c *AgentConfig) validateTools() {
 			"AddMemory": true, "SearchMemories": true, "ReplaceMemory": true,
 			"RemoveMemory": true, "Consolidate": true, "GetHotBlock": true,
 			"FileRead": true, "FileWrite": true, "FileSearch": true,
+			"FileEdit": true,
 			"Execute": true,
+			"ExecuteCode": true,
+			"BackgroundProcess": true,
 			"SearchWeb": true, "FetchURL": true,
 			"SearchSessions": true, "ListSessions": true, "GetSession": true,
 			"AddTodo": true, "ListTodos": true, "CompleteTodo": true, "RemoveTodo": true,
@@ -387,6 +410,19 @@ func (c *AgentConfig) Validate() error {
 		}
 		if c.ImageGen.MaxPromptLength < 100 || c.ImageGen.MaxPromptLength > 4000 {
 			return fmt.Errorf("image_gen.max_prompt_length must be between 100 and 4000, got %d", c.ImageGen.MaxPromptLength)
+		}
+	}
+
+	// CodeExec section validation
+	if c.CodeExec.Enabled {
+		if c.CodeExec.Timeout < 10 || c.CodeExec.Timeout > 600 {
+			return fmt.Errorf("code_exec.timeout must be between 10 and 600 seconds, got %d", c.CodeExec.Timeout)
+		}
+		if c.CodeExec.MaxOutputKB < 1 || c.CodeExec.MaxOutputKB > 1024 {
+			return fmt.Errorf("code_exec.max_output_kb must be between 1 and 1024, got %d", c.CodeExec.MaxOutputKB)
+		}
+		if c.CodeExec.MaxCodeChars < 1000 || c.CodeExec.MaxCodeChars > 500000 {
+			return fmt.Errorf("code_exec.max_code_chars must be between 1000 and 500000, got %d", c.CodeExec.MaxCodeChars)
 		}
 	}
 
