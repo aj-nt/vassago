@@ -87,6 +87,7 @@ tools:
     - FileWrite
     - FileEdit
     - Execute
+    - BackgroundProcess
     - SearchWeb
     - FetchURL
     - Delegate
@@ -108,6 +109,13 @@ delegation:
 # Memory safety: prevent loop-driven memory pollution
 memory_safety:
   max_mutations_per_session: 10  # Max AddMemory calls per session (-1 = unlimited)
+
+# Background process: manage long-running commands
+background_process:
+  enabled: true
+  max_processes: 5     # Max concurrent background processes
+  max_output_kb: 64    # Max ring buffer per stream (stdout/stderr)
+  max_age_min: 30      # Auto-cleanup completed processes after 30 min
 
 # Scheduler: periodic maintenance tasks
 scheduler:
