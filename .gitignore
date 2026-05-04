@@ -7,3 +7,4 @@ mnemosyne-cli
 coverage.out
 *.out
 mnemosyne-daemon
+binary
