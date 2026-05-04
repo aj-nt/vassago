@@ -1,5 +1,7 @@
 # Mnemosyne
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 A shared memory daemon for AI agents. Mnemosyne gives agents persistent, searchable, shared memory — every agent sees the same hot blocks, the same facts, the same context. Built with Go, SQLite, and gRPC.
 
 ## Architecture
@@ -253,3 +255,7 @@ make all               # build + test + lint
 | 17A-E | Conversation Quality, Sessions, Todos, Architecture, ChatStream | ✅ Merged |
 | 18A-D | Browser, Vision, Multi-Agent, Production Hardening | ✅ Merged |
 | 19A | Unified CLI & First-Run Experience | ✅ Current |
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE) for details.
