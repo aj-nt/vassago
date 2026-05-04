@@ -407,7 +407,7 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	if AnyEnabled(enabled, "AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory", "Consolidate", "GetHotBlock") {
 		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID, mutationLimit)
 	}
-	if AnyEnabled(enabled, "FileRead", "FileSearch", "FileWrite") {
+	if AnyEnabled(enabled, "FileRead", "FileSearch", "FileWrite", "FileEdit") {
 		tools.RegisterFileToolsWithConfig(toolReg, cfg.ToolsSection.AllowedDirs, cfg.ToolsSection.ApprovalRequired)
 	}
 	if AnyEnabled(enabled, "Execute") {
