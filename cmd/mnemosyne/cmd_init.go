@@ -14,25 +14,103 @@ import (
 
 // cmdInit handles "mnemosyne init" — first-run interactive setup.
 func cmdInit(args []string) {
+	flags := parseInitFlags(args)
+	if flags.help {
+		printInitHelp()
+		return
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	printSetupHeader()
+
+	// Step 1: Data Directory
+	dir := handleDataDirectorySelection(flags.dir, flags.force, flags.nonInteractive, reader)
+
+	// Create directories
+	createDirectories(dir)
+
+	// Check for existing configs
+	daemonConfigPath, agentConfigPath, personalityPath := getConfigPaths(dir)
+	daemonConfigExists, agentConfigExists, personalityExists := checkExistingConfigs(daemonConfigPath, agentConfigPath, personalityPath)
+
+	// Step 2: Provider Detection
+	primaryProvider, primaryModel, anthropicKey, openaiKey := handleProviderDetection(flags.nonInteractive, reader)
+
+	// Step 3: API Key Entry (if missing)
+	anthropicKey, openaiKey = handleAPIKeyEntry(flags.nonInteractive, primaryProvider, anthropicKey, openaiKey, reader)
+
+	// Model selection
+	primaryModel = handleModelSelection(flags.nonInteractive, primaryModel, reader)
+
+	// Step 4: Tool Selection
+	enabledTools, toolNames := handleToolSelection(flags.nonInteractive, reader)
+
+	// Step 5: Personality
+	_, personalityContent, personalityPath := handlePersonalitySelection(flags.nonInteractive, dir, reader)
+
+	// Step 6: Write Daemon Config
+	writeDaemonConfig(daemonConfigPath, dir, daemonConfigExists, flags.force)
+
+	// Step 7: Write Agent Config
+	writeAgentConfig(agentConfigPath, dir, primaryProvider, primaryModel, toolNames, agentConfigExists, flags.force)
+
+	// Step 8: Write Personality
+	writePersonalityFile(personalityPath, personalityContent, personalityExists, flags.force)
+
+	// Step 9: launchd plists
+	handleLaunchdPlists(dir)
+
+	// Summary
+	printSetupSummary(dir, daemonConfigPath, agentConfigPath, personalityPath, primaryProvider, primaryModel, enabledTools, anthropicKey, openaiKey)
+
+	// API key persistence reminder
+	handleAPIKeyPersistenceReminder(flags.nonInteractive, anthropicKey, openaiKey)
+}
+
+// parseInitFlags parses command line flags for init command
+func parseInitFlags(args []string) struct {
+	dir           string
+	force         bool
+	nonInteractive bool
+	help          bool
+} {
 	home, _ := os.UserHomeDir()
 	defaultDir := filepath.Join(home, ".mnemosyne")
 
-	// Parse flags
-	dir := defaultDir
-	force := false
-	nonInteractive := false
+	result := struct {
+		dir           string
+		force         bool
+		nonInteractive bool
+		help          bool
+	}{
+		dir:           defaultDir,
+		force:         false,
+		nonInteractive: false,
+		help:          false,
+	}
+
 	for i, arg := range args {
 		switch arg {
 		case "--dir":
 			if i+1 < len(args) {
-				dir = args[i+1]
+				result.dir = args[i+1]
 			}
 		case "--force", "-f":
-			force = true
+			result.force = true
 		case "--non-interactive", "-y":
-			nonInteractive = true
+			result.nonInteractive = true
 		case "--help", "-h":
-			fmt.Println(`Usage: mnemosyne init [options]
+			result.help = true
+		}
+	}
+
+	return result
+}
+
+// printInitHelp prints help information for init command
+func printInitHelp() {
+	fmt.Println(`Usage: mnemosyne init [options]
 
 Options:
   --dir PATH           Data directory (default: ~/.mnemosyne)
@@ -50,20 +128,19 @@ Description:
 
   Use --non-interactive to accept all defaults without prompts.
   Use --force to regenerate configs that already exist.`)
-			return
-		}
-	}
+}
 
-	reader := bufio.NewReader(os.Stdin)
-
+// printSetupHeader prints the setup header
+func printSetupHeader() {
 	fmt.Println("╭─────────────────────────────────────────────╮")
 	fmt.Println("│  Mnemosyne First-Run Setup                  │")
 	fmt.Println("╰─────────────────────────────────────────────╯")
 	fmt.Println()
+}
 
-	// ========================================
-	// Step 1: Data Directory
-	// ========================================
+// handleDataDirectorySelection handles data directory selection
+func handleDataDirectorySelection(defaultDir string, force bool, nonInteractive bool, reader *bufio.Reader) string {
+	dir := defaultDir
 	if !nonInteractive && !force {
 		fmt.Printf("Data directory [%s]: ", dir)
 		input, _ := reader.ReadString('\n')
@@ -75,8 +152,11 @@ Description:
 		dir = expandHome(dir)
 		fmt.Println()
 	}
+	return dir
+}
 
-	// Create directories
+// createDirectories creates necessary directories
+func createDirectories(dir string) {
 	subdirs := []string{
 		"screenshots",
 		"agents",
@@ -100,19 +180,26 @@ Description:
 		fmt.Printf("  ✓ %s/\n", sub)
 	}
 	fmt.Println()
+}
 
-	// Check for existing configs
+// getConfigPaths returns paths for configuration files
+func getConfigPaths(dir string) (string, string, string) {
 	daemonConfigPath := filepath.Join(dir, "config.yaml")
 	agentConfigPath := filepath.Join(dir, "agent.yaml")
 	personalityPath := filepath.Join(dir, "personalities", "bartimaeus.md")
+	return daemonConfigPath, agentConfigPath, personalityPath
+}
 
+// checkExistingConfigs checks if configuration files already exist
+func checkExistingConfigs(daemonConfigPath, agentConfigPath, personalityPath string) (bool, bool, bool) {
 	daemonConfigExists := fileExists(daemonConfigPath)
 	agentConfigExists := fileExists(agentConfigPath)
 	personalityExists := fileExists(personalityPath)
+	return daemonConfigExists, agentConfigExists, personalityExists
+}
 
-	// ========================================
-	// Step 2: Provider Detection
-	// ========================================
+// handleProviderDetection handles provider detection and selection
+func handleProviderDetection(nonInteractive bool, reader *bufio.Reader) (string, string, string, string) {
 	fmt.Println("══ Step 1: Provider Setup ══")
 	fmt.Println()
 
@@ -146,61 +233,83 @@ Description:
 	}
 
 	if !nonInteractive {
-		fmt.Println("Select primary provider:")
-		fmt.Println("  1. anthropic  (Claude — recommended)")
-		fmt.Println("  2. openai     (GPT-4o, Ollama)")
-		fmt.Printf("  Choice [1]: ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		switch input {
-		case "2", "openai":
-			primaryProvider = "openai"
-			primaryModel = "gpt-4o-mini"
-			if ollamaRunning {
-				primaryModel = "glm-5.1:cloud"
-			}
-		default:
-			primaryProvider = "anthropic"
-			primaryModel = "claude-sonnet-4-6"
-		}
-		fmt.Println()
+		primaryProvider, primaryModel = promptForPrimaryProvider(primaryProvider, primaryModel, ollamaRunning, reader)
 	}
 
-	// ========================================
-	// Step 3: API Key Entry (if missing)
-	// ========================================
+	return primaryProvider, primaryModel, anthropicKey, openaiKey
+}
+
+// promptForPrimaryProvider prompts user to select primary provider
+func promptForPrimaryProvider(defaultProvider, defaultModel string, ollamaRunning bool, reader *bufio.Reader) (string, string) {
+	fmt.Println("Select primary provider:")
+	fmt.Println("  1. anthropic  (Claude — recommended)")
+	fmt.Println("  2. openai     (GPT-4o, Ollama)")
+	fmt.Printf("  Choice [1]: ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	switch input {
+	case "2", "openai":
+		defaultProvider = "openai"
+		defaultModel = "gpt-4o-mini"
+		if ollamaRunning {
+			defaultModel = "glm-5.1:cloud"
+		}
+	default:
+		defaultProvider = "anthropic"
+		defaultModel = "claude-sonnet-4-6"
+	}
+	fmt.Println()
+	return defaultProvider, defaultModel
+}
+
+// handleAPIKeyEntry handles API key entry for missing keys
+func handleAPIKeyEntry(nonInteractive bool, primaryProvider, anthropicKey, openaiKey string, reader *bufio.Reader) (string, string) {
 	if !nonInteractive && anthropicKey == "" && primaryProvider == "anthropic" {
-		fmt.Println("No Anthropic API key detected.")
-		fmt.Println("Get one at: https://console.anthropic.com/settings/keys")
-		fmt.Print("Enter Anthropic API key (or press Enter to skip): ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input != "" {
-			anthropicKey = input
-			fmt.Println("  ✓ API key saved for this session")
-			fmt.Println("  ⚠ To persist, add to your shell profile:")
-			fmt.Println("    export ANTHROPIC_API_KEY=" + maskKey(input))
-		} else {
-			fmt.Println("  ⊘ Skipped — agent will not be able to use Anthropic")
-		}
-		fmt.Println()
+		anthropicKey = promptForAnthropicAPIKey(reader)
 	}
 
-	if !nonInteractive && openaiKey == "" && primaryProvider == "openai" && !ollamaRunning {
-		fmt.Println("No OpenAI API key detected.")
-		fmt.Print("Enter OpenAI API key (or press Enter to skip): ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input != "" {
-			openaiKey = input
-			fmt.Println("  ✓ API key saved for this session")
-		} else {
-			fmt.Println("  ⊘ Skipped — set OPENAI_API_KEY to use OpenAI")
-		}
-		fmt.Println()
+	if !nonInteractive && openaiKey == "" && primaryProvider == "openai" && !checkOllama() {
+		openaiKey = promptForOpenAIAPIKey(reader)
 	}
 
-	// Model selection
+	return anthropicKey, openaiKey
+}
+
+// promptForAnthropicAPIKey prompts user to enter Anthropic API key
+func promptForAnthropicAPIKey(reader *bufio.Reader) string {
+	fmt.Println("No Anthropic API key detected.")
+	fmt.Println("Get one at: https://console.anthropic.com/settings/keys")
+	fmt.Print("Enter Anthropic API key (or press Enter to skip): ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" {
+		fmt.Println("  ✓ API key saved for this session")
+		fmt.Println("  ⚠ To persist, add to your shell profile:")
+			fmt.Printf("    export ANTHROPIC_API_KEY=\"%s\"\n", maskKey(input))
+	} else {
+		fmt.Println("  ⊘ Skipped — agent will not be able to use Anthropic")
+	}
+	fmt.Println()
+	return input
+}
+
+// promptForOpenAIAPIKey prompts user to enter OpenAI API key
+func promptForOpenAIAPIKey(reader *bufio.Reader) string {
+	fmt.Println("No OpenAI API key detected.")
+	fmt.Print("Enter OpenAI API key (or press Enter to skip): ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" {
+		fmt.Println("  ✓ API key saved for this session")
+	} else {
+		fmt.Println("  ⊘ Skipped — set OPENAI_API_KEY to use OpenAI")
+	}
+	fmt.Println()
+	return input
+}
+
+// handleModelSelection handles model selection
+func handleModelSelection(nonInteractive bool, primaryModel string, reader *bufio.Reader) string {
 	if !nonInteractive {
 		fmt.Printf("Primary model [%s]: ", primaryModel)
 		input, _ := reader.ReadString('\n')
@@ -210,14 +319,14 @@ Description:
 		}
 		fmt.Println()
 	}
+	return primaryModel
+}
 
-	// ========================================
-	// Step 4: Tool Selection
-	// ========================================
+// handleToolSelection handles tool selection process
+func handleToolSelection(nonInteractive bool, reader *bufio.Reader) ([]string, []string) {
 	fmt.Println("══ Step 2: Tool Selection ══")
 	fmt.Println()
 
-	// Default tool groups
 	type toolGroup struct {
 		name        string
 		description string
@@ -286,10 +395,11 @@ Description:
 
 	// Map tool groups to individual tool names
 	toolNames := groupsToToolNames(enabledTools)
+	return enabledTools, toolNames
+}
 
-	// ========================================
-	// Step 5: Personality
-	// ========================================
+// handlePersonalitySelection handles personality selection
+func handlePersonalitySelection(nonInteractive bool, dir string, reader *bufio.Reader) (string, string, string) {
 	fmt.Println("══ Step 3: Personality ══")
 	fmt.Println()
 
@@ -297,41 +407,56 @@ Description:
 	personalityContent := defaultPersonality
 
 	if !nonInteractive {
-		fmt.Println("Select personality:")
-		fmt.Println("  1. bartimaeus  (direct, dry-witted — recommended)")
-		fmt.Println("  2. custom     (write your own)")
-		fmt.Printf("  Choice [1]: ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "2" || input == "custom" {
-			personalityChoice = "custom"
-			fmt.Println()
-			fmt.Println("Enter personality description (multi-line, end with empty line):")
-			var lines []string
-			for {
-				line, _ := reader.ReadString('\n')
-				line = strings.TrimSpace(line)
-				if line == "" && len(lines) > 0 {
-					break
-				}
-				lines = append(lines, line)
-			}
-			if len(lines) > 0 {
-				personalityContent = strings.Join(lines, "\n")
-			}
-		}
+		personalityChoice, personalityContent = promptForPersonalityChoice(reader)
+	}
+
+	personalityPath := getPersonalityPath(personalityChoice, dir)
+	return personalityChoice, personalityContent, personalityPath
+}
+
+// promptForPersonalityChoice prompts user to select personality
+func promptForPersonalityChoice(reader *bufio.Reader) (string, string) {
+	personalityChoice := "bartimaeus"
+	personalityContent := defaultPersonality
+
+	fmt.Println("Select personality:")
+	fmt.Println("  1. bartimaeus  (direct, dry-witted — recommended)")
+	fmt.Println("  2. custom     (write your own)")
+	fmt.Printf("  Choice [1]: ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input == "2" || input == "custom" {
+		personalityChoice = "custom"
 		fmt.Println()
+		fmt.Println("Enter personality description (multi-line, end with empty line):")
+		var lines []string
+		for {
+			line, _ := reader.ReadString('\n')
+			line = strings.TrimSpace(line)
+			if line == "" && len(lines) > 0 {
+				break
+			}
+			lines = append(lines, line)
+		}
+		if len(lines) > 0 {
+			personalityContent = strings.Join(lines, "\n")
+		}
 	}
+	fmt.Println()
+	return personalityChoice, personalityContent
+}
 
+// getPersonalityPath returns the path for personality file
+func getPersonalityPath(personalityChoice, dir string) string {
 	if personalityChoice == "bartimaeus" {
-		personalityPath = filepath.Join(dir, "personalities", "bartimaeus.md")
+		return filepath.Join(dir, "personalities", "bartimaeus.md")
 	} else {
-		personalityPath = filepath.Join(dir, "personalities", "custom.md")
+		return filepath.Join(dir, "personalities", "custom.md")
 	}
+}
 
-	// ========================================
-	// Step 6: Write Daemon Config
-	// ========================================
+// writeDaemonConfig writes daemon configuration file
+func writeDaemonConfig(daemonConfigPath, dir string, daemonConfigExists, force bool) {
 	if daemonConfigExists && !force {
 		fmt.Printf("⊙ Daemon config already exists at %s (use --force to overwrite)\n", daemonConfigPath)
 	} else {
@@ -349,10 +474,10 @@ Description:
 		}
 		fmt.Println("  ✓ Daemon config written")
 	}
+}
 
-	// ========================================
-	// Step 7: Write Agent Config
-	// ========================================
+// writeAgentConfig writes agent configuration file
+func writeAgentConfig(agentConfigPath, dir, primaryProvider, primaryModel string, toolNames []string, agentConfigExists, force bool) {
 	if agentConfigExists && !force {
 		fmt.Printf("⊙ Agent config already exists at %s (use --force to overwrite)\n", agentConfigPath)
 	} else {
@@ -381,10 +506,10 @@ Description:
 		}
 		fmt.Println("  ✓ Agent config written")
 	}
+}
 
-	// ========================================
-	// Step 8: Write Personality
-	// ========================================
+// writePersonalityFile writes personality file
+func writePersonalityFile(personalityPath, personalityContent string, personalityExists, force bool) {
 	if personalityExists && !force {
 		fmt.Printf("⊙ Personality file already exists at %s (use --force to overwrite)\n", personalityPath)
 	} else {
@@ -395,17 +520,17 @@ Description:
 		}
 		fmt.Println("  ✓ Personality written")
 	}
+}
 
-	// ========================================
-	// Step 9: launchd plists
-	// ========================================
+// handleLaunchdPlists handles launchd plists creation on macOS
+func handleLaunchdPlists(dir string) {
 	if isMacOS() {
 		plists("mnemosyne", dir)
 	}
+}
 
-	// ========================================
-	// Summary
-	// ========================================
+// printSetupSummary prints setup completion summary
+func printSetupSummary(dir, daemonConfigPath, agentConfigPath, personalityPath, primaryProvider, primaryModel string, enabledTools []string, anthropicKey, openaiKey string) {
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
 	fmt.Println("  Mnemosyne Setup Complete")
@@ -430,8 +555,10 @@ Description:
 	fmt.Println("    4. Start chatting:        mnemosyne chat")
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
+}
 
-	// If API keys were entered interactively, remind about persistence
+// handleAPIKeyPersistenceReminder handles reminder about API key persistence
+func handleAPIKeyPersistenceReminder(nonInteractive bool, anthropicKey, openaiKey string) {
 	if !nonInteractive && (anthropicKey != "" && os.Getenv("ANTHROPIC_API_KEY") == "") {
 		fmt.Println()
 		fmt.Println("  ⚠  API keys were entered for this session only.")

@@ -12,6 +12,42 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// ClientInterface defines the interface for client operations
+type ClientInterface interface {
+	RegisterAgent(ctx context.Context, agentID, name, role string) (string, bool, error)
+	Heartbeat(ctx context.Context, agentID string) error
+	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error)
+	Close() error
+	AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error)
+	GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error)
+	RemoveMemory(ctx context.Context, id string) error
+	SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error)
+	ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error)
+	GetHotBlock(ctx context.Context, target, agentID string, charLimit int32, boostCategories, suppressCategories []string, boostPriority int32) (string, error)
+	CreateSession(ctx context.Context, agentID, source, title string) (string, error)
+	AddMessages(ctx context.Context, sessionID string, messages []Message) error
+	EndSession(ctx context.Context, sessionID string) error
+	Consolidate(ctx context.Context, scope pb.ConsolidateScope, batchSize int32) (*pb.ConsolidateResponse, error)
+	HealthCheck(ctx context.Context) error
+	SearchSessions(ctx context.Context, query string, limit int32) ([]SessionInfo, error)
+	ListRecentSessions(ctx context.Context, limit int32) ([]SessionInfo, error)
+	GetSession(ctx context.Context, sessionID string) (*SessionDetail, error)
+	SendMessage(ctx context.Context, platform, target, message string) (string, error)
+	ListChannels(ctx context.Context, platform string) ([]*pb.Channel, error)
+	SubscribeToMessages(ctx context.Context, agentID string) (pb.Messaging_SubscribeToMessagesClient, error)
+	AddTodo(ctx context.Context, content string, priority int32, sourceAgent string) (*TodoItem, error)
+	ListTodos(ctx context.Context, includeCompleted bool, sourceAgent string) ([]TodoItem, error)
+	CompleteTodo(ctx context.Context, id string) (*TodoItem, error)
+	RemoveTodo(ctx context.Context, id string) error
+	CreateCronJob(ctx context.Context, name, schedule, agentID, message string, enabled *bool) (*CronJobInfo, error)
+	ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error)
+	UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error)
+	DeleteCronJob(ctx context.Context, id string) error
+}
+
+// Ensure Client implements ClientInterface
+var _ ClientInterface = &Client{}
+
 // Client is a gRPC client for the Mnemosyne daemon.
 type Client struct {
     conn      *grpc.ClientConn

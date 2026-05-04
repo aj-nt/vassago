@@ -149,8 +149,22 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 	}
 
 	// --- Extra checks beyond Validate() ---
+	issues = append(issues, validatePersonalityFile(cfg)...)
+	issues = append(issues, validateProviderAPIKeys(cfg)...)
+	issues = append(issues, validateToolNames(cfg)...)
+	issues = append(issues, validateAllowedDirs(cfg)...)
+	issues = append(issues, validateMultiAgentRegistry(cfg)...)
+	issues = append(issues, validateBrowserCacheDir(cfg)...)
+	issues = append(issues, validateImageGenCacheDir(cfg)...)
+	issues = append(issues, validateImageGenAPIKey(cfg)...)
+	issues = append(issues, validateRoutingModels(cfg)...)
 
-	// Check personality file exists
+	return issues
+}
+
+// validatePersonalityFile checks if personality file exists
+func validatePersonalityFile(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.Agent.PersonalityFile != "" {
 		if !fileExists(cfg.Agent.PersonalityFile) {
 			issues = append(issues, ValidationIssue{
@@ -159,8 +173,13 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check provider API keys are available
+// validateProviderAPIKeys checks if provider API keys are available
+func validateProviderAPIKeys(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
+	
 	if cfg.Provider.Name == "anthropic" || cfg.Provider.AnthropicAPIKeyEnv != "" {
 		keyEnv := cfg.Provider.AnthropicAPIKeyEnv
 		if keyEnv == "" {
@@ -187,8 +206,13 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	
+	return issues
+}
 
-	// Check tool names are recognized
+// validateToolNames checks if tool names are recognized
+func validateToolNames(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	knownTools := map[string]bool{
 		"AddMemory": true, "SearchMemories": true, "ReplaceMemory": true,
 		"RemoveMemory": true, "Consolidate": true, "GetHotBlock": true,
@@ -214,7 +238,6 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 		}
 	}
 
-	// Check approval_required tool names are recognized
 	for _, name := range cfg.Tools.ApprovalRequired {
 		if !knownTools[name] {
 			issues = append(issues, ValidationIssue{
@@ -223,8 +246,13 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	
+	return issues
+}
 
-	// Check allowed_dirs exist
+// validateAllowedDirs checks if allowed_dirs exist
+func validateAllowedDirs(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	for _, dir := range cfg.Tools.AllowedDirs {
 		expanded := expandHome(dir)
 		if !fileExists(expanded) {
@@ -234,8 +262,12 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check multi-agent registry path
+// validateMultiAgentRegistry checks multi-agent registry path
+func validateMultiAgentRegistry(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.MultiAgent.Enabled && cfg.MultiAgent.RegistryPath != "" {
 		// Registry file doesn't need to exist yet (created on first register)
 		dir := filepath.Dir(cfg.MultiAgent.RegistryPath)
@@ -246,8 +278,12 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check browser cache dir
+// validateBrowserCacheDir checks browser cache directory
+func validateBrowserCacheDir(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.Browser.Enabled && cfg.Browser.CacheDir != "" {
 		if !fileExists(cfg.Browser.CacheDir) {
 			issues = append(issues, ValidationIssue{
@@ -256,8 +292,12 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check image_gen cache dir
+// validateImageGenCacheDir checks image generation cache directory
+func validateImageGenCacheDir(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.ImageGen.Enabled && cfg.ImageGen.CacheDir != "" {
 		if !fileExists(cfg.ImageGen.CacheDir) {
 			issues = append(issues, ValidationIssue{
@@ -266,8 +306,12 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check image_gen API key if enabled
+// validateImageGenAPIKey checks image generation API key
+func validateImageGenAPIKey(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.ImageGen.Enabled {
 		keyEnv := cfg.ImageGen.APIKeyEnv
 		if keyEnv == "" {
@@ -280,14 +324,12 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			})
 		}
 	}
+	return issues
+}
 
-	// Check daemon connectivity
-	if cfg.Mnemosyne.Address != "" {
-		// Can't easily check without network — just note the address
-		_ = cfg.Mnemosyne.Address
-	}
-
-	// Check routing models are valid
+// validateRoutingModels checks routing models configuration
+func validateRoutingModels(cfg *agent.AgentConfig) []ValidationIssue {
+	var issues []ValidationIssue
 	if cfg.Routing.Strategy != "" {
 		validStrategies := map[string]bool{
 			"always-primary": true, "cost-optimized": true, "quality-optimized": true, "smart": true,
@@ -310,7 +352,6 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 			}
 		}
 	}
-
 	return issues
 }
 
