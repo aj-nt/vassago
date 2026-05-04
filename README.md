@@ -1,6 +1,7 @@
 # Mnemosyne
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: AGPLv3](https://img.shields.io/badge/Core-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A shared memory daemon for AI agents. Mnemosyne gives agents persistent, searchable, shared memory — every agent sees the same hot blocks, the same facts, the same context. Built with Go, SQLite, and gRPC.
 
@@ -258,4 +259,13 @@ make all               # build + test + lint
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) for details.
+Dual-licensed:
+
+| Component | License | Files |
+|-----------|---------|-------|
+| Core implementation | **GNU AGPLv3** | `daemon/`, `agent/`, `cmd/`, all other packages |
+| Protocol & client SDK | **Apache 2.0** | `proto/`, `client/`, `messaging/format/` |
+
+The Apache 2.0 packages can be used independently — anyone can build compatible clients without AGPLv3 obligations. All other source files are AGPLv3, which requires distributing source (including modifications) when running as a network service.
+
+See [LICENSE-AGPLv3](LICENSE-AGPLv3) and [LICENSE-Apache-2.0](LICENSE-Apache-2.0) for full text.

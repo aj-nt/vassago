@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 // Package store provides SQLite data access for Mnemosyne daemon.
 //
 // Mnemosyne is a shared memory daemon for AI agents.

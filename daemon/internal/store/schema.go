@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 package store
 
 // Schema version for the Mnemosyne database.

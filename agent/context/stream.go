@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 package context
 
 // StreamEvent represents a single event during streaming output.

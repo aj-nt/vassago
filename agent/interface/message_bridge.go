@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 // Package iface provides the agent's user interfaces (CLI, gRPC chat, messaging).
 package iface
 

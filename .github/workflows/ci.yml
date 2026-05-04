@@ -7,9 +7,18 @@ on:
     branches: [main]
 
 jobs:
+  license-headers:
+    name: License Headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check license headers
+        run: ./scripts/check-license-headers.sh
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: license-headers
     steps:
       - uses: actions/checkout@v4
 

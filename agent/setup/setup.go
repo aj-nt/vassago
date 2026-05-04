@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 // Package setup provides shared agent initialization logic used by both
 // the standalone mnemosyne-agent binary and the unified mnemosyne CLI.
 package setup

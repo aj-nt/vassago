@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 // Package messaging provides platform-agnostic messaging adapters.
 //
 // Message formatting and platform limits are defined in the shared

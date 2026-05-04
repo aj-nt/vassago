@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-Apache-2.0 for license information.
+
 // Package client provides a gRPC client for the Mnemosyne memory daemon.
 package client
 

@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 // Package context defines the core types that flow through the agent pipeline.
 package context
 
