@@ -145,6 +145,7 @@ func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRun
 		MultiAgentSection:        &cfg.MultiAgent,
 		MemorySafetySection:      &cfg.MemorySafety,
 		BackgroundProcessSection: &cfg.BackgroundProcess,
+		CodeExecSection:          &cfg.CodeExec,
 		MnemoClient:              mnemo,
 		AgentID:             cfg.Agent.ID,
 		AgentName:           cfg.Agent.Name,
@@ -340,6 +341,7 @@ type ToolsConfig struct {
 	MultiAgentSection      *agent.MultiAgentSection
 	MemorySafetySection    *agent.MemorySafetySection
 	BackgroundProcessSection *agent.BackgroundProcessSection
+	CodeExecSection        *agent.CodeExecSection
 	MnemoClient            *memoclient.Client
 	AgentID             string
 	AgentName           string
@@ -414,6 +416,14 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 			}
 			tools.RegisterBackgroundProcessTools(toolReg, bgConfig)
 		}
+		if cfg.CodeExecSection.Enabled {
+			tools.RegisterCodeExecTools(toolReg, tools.CodeExecConfig{
+				Enabled:      cfg.CodeExecSection.Enabled,
+				Timeout:      cfg.CodeExecSection.Timeout,
+				MaxOutputKB:  cfg.CodeExecSection.MaxOutputKB,
+				MaxCodeChars: cfg.CodeExecSection.MaxCodeChars,
+			})
+		}
 		return toolReg
 	}
 
@@ -435,6 +445,14 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 			ApprovalRequired: cfg.BackgroundProcessSection.ApprovalRequired,
 		}
 		tools.RegisterBackgroundProcessTools(toolReg, bgConfig)
+	}
+	if AnyEnabled(enabled, "ExecuteCode") && cfg.CodeExecSection.Enabled {
+		tools.RegisterCodeExecTools(toolReg, tools.CodeExecConfig{
+			Enabled:      cfg.CodeExecSection.Enabled,
+			Timeout:      cfg.CodeExecSection.Timeout,
+			MaxOutputKB:  cfg.CodeExecSection.MaxOutputKB,
+			MaxCodeChars: cfg.CodeExecSection.MaxCodeChars,
+		})
 	}
 	if AnyEnabled(enabled, "SearchSessions", "ListSessions", "GetSession") {
 		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)

@@ -285,3 +285,46 @@ func TestRedTeam_Validation_EnumViolation(t *testing.T) {
 		})
 	}
 }
+
+func TestRedTeam_CodeExec_Validation(t *testing.T) {
+	t.Parallel()
+
+	schema := ExecuteCodeSchema
+
+	// Code must be a string and required
+	t.Run("MissingCode", func(t *testing.T) {
+		err := ValidateArgs("ExecuteCode", map[string]interface{}{}, schema)
+		if err == nil {
+			t.Error("Should reject missing code argument")
+		}
+	})
+
+	t.Run("CodeAsNumber", func(t *testing.T) {
+		err := ValidateArgs("ExecuteCode", map[string]interface{}{"code": 42}, schema)
+		if err == nil {
+			t.Error("Should reject non-string code argument")
+		}
+	})
+
+	t.Run("ValidCode", func(t *testing.T) {
+		err := ValidateArgs("ExecuteCode", map[string]interface{}{"code": "print('hello')"}, schema)
+		if err != nil {
+			t.Errorf("Should accept valid code: %v", err)
+		}
+	})
+
+	t.Run("TimeoutAsString", func(t *testing.T) {
+		err := ValidateArgs("ExecuteCode", map[string]interface{}{"code": "print()", "timeout": "abc"}, schema)
+		if err == nil {
+			t.Error("Should reject string timeout")
+		}
+	})
+
+	t.Run("WorkdirAsNumber", func(t *testing.T) {
+		err := ValidateArgs("ExecuteCode", map[string]interface{}{"code": "print()", "workdir": 123}, schema)
+		if err == nil {
+			t.Error("Should reject non-string workdir")
+		}
+	})
+
+}

@@ -123,6 +123,13 @@ background_process:
   max_output_kb: 64    # Max ring buffer per stream (stdout/stderr)
   max_age_min: 30      # Auto-cleanup completed processes after 30 min
 
+# Code execution: Python sandbox
+code_exec:
+  enabled: true
+  timeout: 300            # Max seconds for script execution (10-600)
+  max_output_kb: 50       # Max output size in KB
+  max_code_chars: 50000   # Max code length in characters
+
 # Scheduler: periodic maintenance tasks
 scheduler:
   enabled: true
