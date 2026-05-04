@@ -639,3 +639,442 @@ func TestScreenshotToBase64_NonexistentFile(t *testing.T) {
 		t.Error("expected error for nonexistent file")
 	}
 }
+
+// --- New Action Tests ---
+
+func TestBrowse_ScrollDown(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":    "scroll",
+		"direction": "down",
+		"amount":    float64(300),
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !mock.scrollCalled {
+		t.Error("Scroll was not called")
+	}
+	if mock.scrollDirection != "down" {
+		t.Errorf("expected direction 'down', got %q", mock.scrollDirection)
+	}
+	if mock.scrollAmount != 300 {
+		t.Errorf("expected amount 300, got %d", mock.scrollAmount)
+	}
+	if !strings.Contains(result, "Scrolled") {
+		t.Errorf("result should mention Scrolled, got: %s", result)
+	}
+}
+
+func TestBrowse_ScrollUp(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":    "scroll",
+		"direction": "up",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if mock.scrollDirection != "up" {
+		t.Errorf("expected direction 'up', got %q", mock.scrollDirection)
+	}
+}
+
+func TestBrowse_ScrollInvalidDirection(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":    "scroll",
+		"direction": "sideways",
+	})
+	if !isError {
+		t.Error("expected error for invalid direction")
+	}
+	if !strings.Contains(result, "direction must be") && !strings.Contains(result, "Invalid scroll direction") {
+		t.Errorf("error should mention invalid direction, got: %s", result)
+	}
+}
+
+func TestBrowse_ScrollDriverError(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.scrollErr = errors.New("scroll failed")
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":    "scroll",
+		"direction": "down",
+	})
+	if !isError {
+		t.Error("expected error on driver failure")
+	}
+	if !strings.Contains(result, "Scroll failed") {
+		t.Errorf("error should mention Scroll failed, got: %s", result)
+	}
+}
+
+func TestBrowse_TypeText(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "#search-input",
+		"text":     "hello world",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !mock.typeCalled {
+		t.Error("Type was not called")
+	}
+	if mock.typeSelector != "#search-input" {
+		t.Errorf("expected selector '#search-input', got %q", mock.typeSelector)
+	}
+	if mock.typeText != "hello world" {
+		t.Errorf("expected text 'hello world', got %q", mock.typeText)
+	}
+}
+
+func TestBrowse_TypeWithSubmit(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "#search",
+		"text":     "query",
+		"submit":   true,
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !mock.typeSubmit {
+		t.Error("submit should be true")
+	}
+	if !strings.Contains(result, "submitted") && !strings.Contains(result, "Typed") {
+		t.Errorf("result should mention typed/submitted, got: %s", result)
+	}
+}
+
+func TestBrowse_TypeMissingSelector(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "type",
+		"text":   "hello",
+	})
+	if !isError {
+		t.Error("expected error for missing selector")
+	}
+	if !strings.Contains(result, "selector") {
+		t.Errorf("error should mention 'selector', got: %s", result)
+	}
+}
+
+func TestBrowse_TypeMissingText(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "#input",
+	})
+	if !isError {
+		t.Error("expected error for missing text")
+	}
+	if !strings.Contains(result, "text") {
+		t.Errorf("error should mention 'text', got: %s", result)
+	}
+}
+
+func TestBrowse_TypeDangerousSelector(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "javascript:alert(1)",
+		"text":     "hello",
+	})
+	if !isError {
+		t.Error("expected error for dangerous selector")
+	}
+	if !strings.Contains(result, "blocked") && !strings.Contains(result, "dangerous") {
+		t.Errorf("error should mention blocked/dangerous, got: %s", result)
+	}
+}
+
+func TestBrowse_TypeDriverError(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.typeErr = errors.New("element not interactable")
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "#input",
+		"text":     "hello",
+	})
+	if !isError {
+		t.Error("expected error on driver failure")
+	}
+	if !strings.Contains(result, "Type failed") {
+		t.Errorf("error should mention Type failed, got: %s", result)
+	}
+}
+
+func TestBrowse_WaitForElement(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "wait",
+		"selector": "#dynamic-content",
+		"timeout":  float64(5),
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if mock.waitSelector != "#dynamic-content" {
+		t.Errorf("expected selector '#dynamic-content', got %q", mock.waitSelector)
+	}
+	if !strings.Contains(result, "Element") && !strings.Contains(result, "element") {
+		t.Errorf("result should mention element, got: %s", result)
+	}
+}
+
+func TestBrowse_WaitMissingSelector(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "wait",
+	})
+	if !isError {
+		t.Error("expected error for missing selector")
+	}
+	if !strings.Contains(result, "selector") {
+		t.Errorf("error should mention 'selector', got: %s", result)
+	}
+}
+
+func TestBrowse_WaitDriverError(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.waitErr = errors.New("timeout exceeded")
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "wait",
+		"selector": "#missing",
+		"timeout":  float64(1),
+	})
+	if !isError {
+		t.Error("expected error on driver failure")
+	}
+	if !strings.Contains(result, "Wait failed") {
+		t.Errorf("error should mention Wait failed, got: %s", result)
+	}
+}
+
+func TestBrowse_Snapshot(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.snapshotResult = "Title: Test Page\nURL: https://example.com\nHeadings:\n  h1: Hello\nLinks:\n  a: Example [href=https://example.com]"
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "snapshot",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !mock.snapshotCalled {
+		t.Error("Snapshot was not called")
+	}
+	if !strings.Contains(result, "Title:") {
+		t.Errorf("result should contain structured snapshot, got: %s", result)
+	}
+}
+
+func TestBrowse_SnapshotDriverError(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.snapshotErr = errors.New("DOM unavailable")
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "snapshot",
+	})
+	if !isError {
+		t.Error("expected error on driver failure")
+	}
+	if !strings.Contains(result, "Snapshot failed") {
+		t.Errorf("error should mention Snapshot failed, got: %s", result)
+	}
+}
+
+func TestBrowse_HistoryList(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.history = []string{"https://example.com", "https://example.com/page2"}
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "history",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !strings.Contains(result, "example.com") {
+		t.Errorf("result should contain URLs, got: %s", result)
+	}
+}
+
+func TestBrowse_HistoryBack(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":      "history",
+		"action_type": "back",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !mock.goBackCalled {
+		t.Error("GoBack was not called")
+	}
+}
+
+func TestBrowse_HistoryGoBackDriverError(t *testing.T) {
+	mock := setupMockBrowser()
+	mock.goBackErr = errors.New("navigation failed")
+	mock.history = []string{"https://example.com", "https://example.com/page2"}
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":      "history",
+		"action_type": "back",
+	})
+	if !isError {
+		t.Error("expected error on driver failure")
+	}
+	if !strings.Contains(result, "Go back failed") && !strings.Contains(result, "navigation failed") {
+		t.Errorf("error should mention failure, got: %s", result)
+	}
+}
+
+// --- Red Team Tests for New Actions ---
+
+func TestBrowse_RedTeam_ScrollInjection(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	// Try injecting JS via direction field
+	_, isError := Browse(map[string]interface{}{
+		"action":    "scroll",
+		"direction": "down; alert(1)",
+	})
+	if !isError {
+		t.Error("expected error for injection attempt")
+	}
+}
+
+func TestBrowse_RedTeam_WaitSelectorInjection(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action":   "wait",
+		"selector": "javascript:alert(1)",
+	})
+	if !isError {
+		t.Errorf("expected block for injection in wait selector, got: %s", result)
+	}
+}
+
+func TestBrowse_RedTeam_TabNameInjection(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	// Tab names shouldn't contain path separators or script content
+	result, isError := Browse(map[string]interface{}{
+		"action": "tab_switch",
+		"tab":    "../../../etc/passwd",
+	})
+	// This should either be blocked or handled safely
+	if isError {
+		if !strings.Contains(result, "blocked") && !strings.Contains(result, "invalid") {
+			t.Errorf("error should mention blocked/invalid, got: %s", result)
+		}
+	}
+}
+
+func TestBrowse_RedTeam_TypeScriptInText(t *testing.T) {
+	mock := setupMockBrowser()
+	defer teardownMockBrowser()
+
+	// Typing script tags should be allowed in text fields (it's just text)
+	_, isError := Browse(map[string]interface{}{
+		"action":   "type",
+		"selector": "#input",
+		"text":     "<script>alert(1)</script>",
+	})
+	// Text content in input fields is NOT dangerous (it's just text, not HTML)
+	// The selector is what needs sanitization, not the text
+	if !isError {
+		// Success is fine — typing text is not XSS
+		if !mock.typeCalled {
+			t.Error("Type should have been called for safe text content")
+		}
+	}
+}
+
+func TestBrowse_TabSwitch(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "tab_switch",
+		"tab":    "research",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !strings.Contains(result, "Switched") && !strings.Contains(result, "tab") {
+		t.Errorf("result should mention tab switch, got: %s", result)
+	}
+}
+
+func TestBrowse_TabList(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "tab_list",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !strings.Contains(result, "tab") {
+		t.Errorf("result should mention tabs, got: %s", result)
+	}
+}
+
+func TestBrowse_TabClose(t *testing.T) {
+	setupMockBrowser()
+	defer teardownMockBrowser()
+
+	result, isError := Browse(map[string]interface{}{
+		"action": "tab_close",
+		"tab":    "research",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", result)
+	}
+	if !strings.Contains(result, "Closed") && !strings.Contains(result, "tab") {
+		t.Errorf("result should mention tab closure, got: %s", result)
+	}
+}

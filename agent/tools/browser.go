@@ -337,9 +337,11 @@ func Browse(args map[string]interface{}) (string, bool) {
 	// Validate action
 	validActions := map[string]bool{
 		"navigate": true, "extract": true, "screenshot": true, "click": true,
+		"scroll": true, "type": true, "wait": true, "snapshot": true,
+		"history": true, "tab_switch": true, "tab_list": true, "tab_close": true,
 	}
 	if !validActions[action] {
-		return fmt.Sprintf("Invalid action %q. Must be one of: navigate, extract, screenshot, click", action), true
+		return fmt.Sprintf("Invalid action %q. Must be one of: navigate, extract, screenshot, click, scroll, type, wait, snapshot, history, tab_switch, tab_list, tab_close", action), true
 	}
 
 	// Initialize browser lazily
@@ -491,6 +493,11 @@ func browseType(ctx context.Context, args map[string]interface{}) (string, bool)
 		return "type action requires a 'text' argument", true
 	}
 
+	// Sanitize selector — reject script injection
+	if containsDangerousSelector(selector) {
+		return fmt.Sprintf("Selector blocked: %q contains potentially dangerous content", selector), true
+	}
+
 	submit := boolArg(args, "submit", false)
 
 	if err := browserDriver.Type(ctx, selector, text, submit); err != nil {
@@ -504,6 +511,11 @@ func browseWait(ctx context.Context, args map[string]interface{}) (string, bool)
 	selector := strArg(args, "selector", "")
 	if selector == "" {
 		return "wait action requires a 'selector' argument", true
+	}
+
+	// Sanitize selector — reject script injection
+	if containsDangerousSelector(selector) {
+		return fmt.Sprintf("Selector blocked: %q contains potentially dangerous content", selector), true
 	}
 
 	timeout := intArg(args, "timeout", 10)
