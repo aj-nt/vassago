@@ -280,6 +280,7 @@ func RegisterFileToolsWithConfig(registry *ToolRegistry, dirs []string, approval
 	registry.Register("FileRead", FileRead, FileReadSchema)
 	registry.Register("FileWrite", FileWrite, FileWriteSchema)
 	registry.Register("FileSearch", FileSearch, FileSearchSchema)
+	registry.Register("FileEdit", FileEdit, FileEditSchema)
 }
 
 // Tool schemas
