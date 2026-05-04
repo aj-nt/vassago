@@ -41,37 +41,17 @@ Description:
 	if isMacOS() {
 		launchdDir := filepath.Join(home, "Library", "LaunchAgents")
 
-		if !agentOnly {
-			daemonPlist := filepath.Join(launchdDir, "com.mnemosyne.daemon.plist")
-			if fileExists(daemonPlist) {
-				fmt.Println("Starting daemon via launchd...")
-				runIgnoreErr("launchctl", "unload", daemonPlist)
-				runIgnoreErr("launchctl", "load", "-w", daemonPlist)
-				fmt.Println("  ✓ Daemon started")
-			} else {
-				fmt.Println("Starting daemon in background...")
-				startBackgroundProcess(home, "daemon")
-				fmt.Println("  ✓ Daemon started")
-			}
-		}
+	if !agentOnly {
+		startDaemon(home, launchdDir)
+	}
 
-		if !daemonOnly {
-			if !agentOnly {
-				fmt.Println("Waiting for daemon to be ready...")
-				waitForDaemon(5 * time.Second)
-			}
-			agentPlist := filepath.Join(launchdDir, "com.mnemosyne.agent.plist")
-			if fileExists(agentPlist) {
-				fmt.Println("Starting agent via launchd...")
-				runIgnoreErr("launchctl", "unload", agentPlist)
-				runIgnoreErr("launchctl", "load", "-w", agentPlist)
-				fmt.Println("  ✓ Agent started")
-			} else {
-				fmt.Println("Starting agent in background...")
-				startBackgroundProcess(home, "agent")
-				fmt.Println("  ✓ Agent started")
-			}
+	if !daemonOnly {
+		if !agentOnly {
+			fmt.Println("Waiting for daemon to be ready...")
+			waitForDaemon(5 * time.Second)
 		}
+		startAgent(home, launchdDir)
+	}
 	}
 
 	fmt.Println()
@@ -95,31 +75,12 @@ Description:
 	}
 
 	home, _ := os.UserHomeDir()
-	launchdDir := filepath.Join(home, "Library", "LaunchAgents")
 
 	// Stop agent
-	agentPlist := filepath.Join(launchdDir, "com.mnemosyne.agent.plist")
-	if fileExists(agentPlist) {
-		fmt.Println("Stopping agent via launchd...")
-		runIgnoreErr("launchctl", "unload", agentPlist)
-		fmt.Println("  ✓ Agent stopped")
-	} else {
-		fmt.Println("Stopping agent process...")
-		runIgnoreErr("pkill", "-f", "mnemosyne.*agent.*--serve")
-		fmt.Println("  ✓ Agent stopped")
-	}
+	stopAgent(home)
 
 	// Stop daemon
-	daemonPlist := filepath.Join(launchdDir, "com.mnemosyne.daemon.plist")
-	if fileExists(daemonPlist) {
-		fmt.Println("Stopping daemon via launchd...")
-		runIgnoreErr("launchctl", "unload", daemonPlist)
-		fmt.Println("  ✓ Daemon stopped")
-	} else {
-		fmt.Println("Stopping daemon process...")
-		runIgnoreErr("pkill", "-f", "mnemosyne.*daemon")
-		fmt.Println("  ✓ Daemon stopped")
-	}
+	stopDaemon(home)
 
 	fmt.Println("\nServices stopped.")
 }
@@ -146,7 +107,7 @@ Description:
 
 	// Check daemon
 	fmt.Print("Daemon:  ")
-	if isProcessRunning("mnemosyne-daemon") || isProcessRunning("mnemosyne", "daemon") {
+	if isDaemonRunning() {
 		fmt.Println("● running")
 	} else {
 		fmt.Println("○ stopped")
@@ -154,7 +115,7 @@ Description:
 
 	// Check agent
 	fmt.Print("Agent:   ")
-	if isProcessRunning("mnemosyne-agent") || isProcessRunning("mnemosyne", "agent") {
+	if isAgentRunning() {
 		fmt.Println("● running")
 	} else {
 		fmt.Println("○ stopped")
@@ -188,6 +149,70 @@ Description:
 			fmt.Printf("Config:   %s ✗ (missing — run 'mnemosyne init')\n", path)
 		}
 	}
+}
+
+func startDaemon(home string, launchdDir string) {
+	daemonPlist := filepath.Join(launchdDir, "com.mnemosyne.daemon.plist")
+	if fileExists(daemonPlist) {
+		fmt.Println("Starting daemon via launchd...")
+		runIgnoreErr("launchctl", "unload", daemonPlist)
+		runIgnoreErr("launchctl", "load", "-w", daemonPlist)
+		fmt.Println("  ✓ Daemon started")
+	} else {
+		fmt.Println("Starting daemon in background...")
+		startBackgroundProcess(home, "daemon")
+		fmt.Println("  ✓ Daemon started")
+	}
+}
+
+func stopDaemon(home string) {
+	launchdDir := filepath.Join(home, "Library", "LaunchAgents")
+	daemonPlist := filepath.Join(launchdDir, "com.mnemosyne.daemon.plist")
+	if fileExists(daemonPlist) {
+		fmt.Println("Stopping daemon via launchd...")
+		runIgnoreErr("launchctl", "unload", daemonPlist)
+		fmt.Println("  ✓ Daemon stopped")
+	} else {
+		fmt.Println("Stopping daemon process...")
+		runIgnoreErr("pkill", "-f", "mnemosyne.*daemon")
+		fmt.Println("  ✓ Daemon stopped")
+	}
+}
+
+func isDaemonRunning() bool {
+	return isProcessRunning("mnemosyne-daemon") || isProcessRunning("mnemosyne", "daemon")
+}
+
+func startAgent(home string, launchdDir string) {
+	agentPlist := filepath.Join(launchdDir, "com.mnemosyne.agent.plist")
+	if fileExists(agentPlist) {
+		fmt.Println("Starting agent via launchd...")
+		runIgnoreErr("launchctl", "unload", agentPlist)
+		runIgnoreErr("launchctl", "load", "-w", agentPlist)
+		fmt.Println("  ✓ Agent started")
+	} else {
+		fmt.Println("Starting agent in background...")
+		startBackgroundProcess(home, "agent")
+		fmt.Println("  ✓ Agent started")
+	}
+}
+
+func stopAgent(home string) {
+	launchdDir := filepath.Join(home, "Library", "LaunchAgents")
+	agentPlist := filepath.Join(launchdDir, "com.mnemosyne.agent.plist")
+	if fileExists(agentPlist) {
+		fmt.Println("Stopping agent via launchd...")
+		runIgnoreErr("launchctl", "unload", agentPlist)
+		fmt.Println("  ✓ Agent stopped")
+	} else {
+		fmt.Println("Stopping agent process...")
+		runIgnoreErr("pkill", "-f", "mnemosyne.*agent.*--serve")
+		fmt.Println("  ✓ Agent stopped")
+	}
+}
+
+func isAgentRunning() bool {
+	return isProcessRunning("mnemosyne-agent") || isProcessRunning("mnemosyne", "agent")
 }
 
 func startBackgroundProcess(home string, component string) {
