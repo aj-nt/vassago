@@ -85,12 +85,14 @@ tools:
     - FileRead
     - FileSearch
     - FileWrite
+    - FileEdit
     - Execute
     - SearchWeb
     - FetchURL
     - Delegate
   approval_required:
     - FileWrite
+    - FileEdit
     - Execute
   allowed_dirs:
     - /tmp
