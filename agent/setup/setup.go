@@ -74,7 +74,20 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 		Registry: registry,
 		Router:   nil,
 	}
-	toolReg := Tools(&cfg.Tools, &cfg.Delegation, &cfg.Browser, &cfg.Vision, &cfg.ImageGen, &cfg.MultiAgent, mnemo, cfg.Agent.ID, cfg.Agent.Name, cfg.Agent.Role, subRunner, registry)
+	toolReg := Tools(ToolsConfig{
+		ToolsSection:        &cfg.Tools,
+		DelegationSection:   &cfg.Delegation,
+		BrowserSection:      &cfg.Browser,
+		VisionSection:       &cfg.Vision,
+		ImageGenSection:     &cfg.ImageGen,
+		MultiAgentSection:   &cfg.MultiAgent,
+		MnemoClient:         mnemo,
+		AgentID:             cfg.Agent.ID,
+		AgentName:           cfg.Agent.Name,
+		AgentRole:           cfg.Agent.Role,
+		SubAgentRunner:      subRunner,
+		ProviderRegistry:    registry,
+	})
 
 	// Create agent (with router if configured)
 	agentCfg := cfg.ToAgentConfig()
@@ -244,115 +257,131 @@ func Providers(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 	return registry
 }
 
+// ToolsConfig encapsulates the configuration and dependencies for the Tools function.
+type ToolsConfig struct {
+	ToolsSection        *agent.ToolsSection
+	DelegationSection   *agent.DelegationSection
+	BrowserSection      *agent.BrowserSection
+	VisionSection       *agent.VisionSection
+	ImageGenSection     *agent.ImageGenSection
+	MultiAgentSection   *agent.MultiAgentSection
+	MnemoClient         *memoclient.Client
+	AgentID             string
+	AgentName           string
+	AgentRole           string
+	SubAgentRunner      tools.SubAgentRunner
+	ProviderRegistry    *provider.ProviderRegistry
+}
+
 // Tools creates the tool registry and registers tools per the config's enabled list.
-func Tools(cfg *agent.ToolsSection, delegateCfg *agent.DelegationSection, browserCfg *agent.BrowserSection, visionCfg *agent.VisionSection, imageGenCfg *agent.ImageGenSection, multiAgentCfg *agent.MultiAgentSection, mnemo *memoclient.Client, agentID string, agentName string, agentRole string, subRunner tools.SubAgentRunner, providerRegistry *provider.ProviderRegistry) *tools.ToolRegistry {
+func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	toolReg := tools.NewToolRegistry()
-	enabled := cfg.Enabled
+	enabled := cfg.ToolsSection.Enabled
 
 	if len(enabled) == 0 {
-		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
-		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
+		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		tools.RegisterFileToolsWithConfig(toolReg, cfg.ToolsSection.AllowedDirs, cfg.ToolsSection.ApprovalRequired)
 		tools.RegisterTerminalTools(toolReg)
-		tools.RegisterSessionTools(toolReg, mnemo)
-		tools.RegisterTodoTools(toolReg, mnemo, agentID)
-		tools.RegisterCronTools(toolReg, mnemo, agentID)
-		if delegateCfg.Enabled {
-			tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
-				Enabled:  delegateCfg.Enabled,
-				MaxDepth: delegateCfg.MaxDepth,
-				MaxTurns: delegateCfg.MaxTurns,
+		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)
+		tools.RegisterTodoTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		tools.RegisterCronTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		if cfg.DelegationSection.Enabled {
+			tools.RegisterDelegationTool(toolReg, cfg.AgentID, cfg.SubAgentRunner, tools.DelegateConfig{
+				Enabled:  cfg.DelegationSection.Enabled,
+				MaxDepth: cfg.DelegationSection.MaxDepth,
+				MaxTurns: cfg.DelegationSection.MaxTurns,
 			})
 		}
-		if browserCfg.Enabled {
+		if cfg.BrowserSection.Enabled {
 			tools.RegisterBrowserTools(toolReg, tools.BrowserConfig{
-				Enabled:  browserCfg.Enabled,
-				Headless: browserCfg.Headless,
-				CacheDir: browserCfg.CacheDir,
+				Enabled:  cfg.BrowserSection.Enabled,
+				Headless: cfg.BrowserSection.Headless,
+				CacheDir: cfg.BrowserSection.CacheDir,
 			})
 		}
-		if visionCfg.Enabled {
+		if cfg.VisionSection.Enabled {
 			tools.RegisterVisionTools(toolReg, tools.VisionConfig{
-				Enabled:      visionCfg.Enabled,
-				MaxImageSize: visionCfg.MaxImageSize,
-			}, providerRegistry)
+				Enabled:      cfg.VisionSection.Enabled,
+				MaxImageSize: cfg.VisionSection.MaxImageSize,
+			}, cfg.ProviderRegistry)
 		}
-		if imageGenCfg.Enabled {
+		if cfg.ImageGenSection.Enabled {
 			tools.RegisterImageGenTools(toolReg, tools.ImageGenConfig{
-				Enabled:         imageGenCfg.Enabled,
-				Provider:        imageGenCfg.Provider,
-				Model:           imageGenCfg.Model,
-				APIKeyEnv:       imageGenCfg.APIKeyEnv,
-				MaxPromptLength: imageGenCfg.MaxPromptLength,
-				CacheDir:        imageGenCfg.CacheDir,
+				Enabled:         cfg.ImageGenSection.Enabled,
+				Provider:        cfg.ImageGenSection.Provider,
+				Model:           cfg.ImageGenSection.Model,
+				APIKeyEnv:       cfg.ImageGenSection.APIKeyEnv,
+				MaxPromptLength: cfg.ImageGenSection.MaxPromptLength,
+				CacheDir:        cfg.ImageGenSection.CacheDir,
 			})
 		}
-		if multiAgentCfg.Enabled {
+		if cfg.MultiAgentSection.Enabled {
 			tools.RegisterMultiAgentTools(toolReg, tools.MultiAgentConfig{
-				Enabled:      multiAgentCfg.Enabled,
-				RegistryPath: multiAgentCfg.RegistryPath,
-			}, agentID, agentName, agentRole)
+				Enabled:      cfg.MultiAgentSection.Enabled,
+				RegistryPath: cfg.MultiAgentSection.RegistryPath,
+			}, cfg.AgentID, cfg.AgentName, cfg.AgentRole)
 		}
 		return toolReg
 	}
 
 	if AnyEnabled(enabled, "AddMemory", "SearchMemories", "ReplaceMemory", "RemoveMemory", "Consolidate", "GetHotBlock") {
-		tools.RegisterMemoryTools(toolReg, mnemo, agentID)
+		tools.RegisterMemoryTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 	}
 	if AnyEnabled(enabled, "FileRead", "FileSearch", "FileWrite") {
-		tools.RegisterFileToolsWithConfig(toolReg, cfg.AllowedDirs, cfg.ApprovalRequired)
+		tools.RegisterFileToolsWithConfig(toolReg, cfg.ToolsSection.AllowedDirs, cfg.ToolsSection.ApprovalRequired)
 	}
 	if AnyEnabled(enabled, "Execute") {
 		tools.RegisterTerminalTools(toolReg)
 	}
 	if AnyEnabled(enabled, "SearchSessions", "ListSessions", "GetSession") {
-		tools.RegisterSessionTools(toolReg, mnemo)
+		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)
 	}
 	if AnyEnabled(enabled, "AddTodo", "ListTodos", "CompleteTodo", "RemoveTodo") {
-		tools.RegisterTodoTools(toolReg, mnemo, agentID)
+		tools.RegisterTodoTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 	}
 	if AnyEnabled(enabled, "ScheduleCron") {
-		tools.RegisterCronTools(toolReg, mnemo, agentID)
+		tools.RegisterCronTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 	}
 	if AnyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil)
 	}
 	if AnyEnabled(enabled, "SendMessage") {
-		tools.RegisterMessagingTools(toolReg, mnemo, agentID)
+		tools.RegisterMessagingTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 	}
-	if AnyEnabled(enabled, "Browse") && browserCfg.Enabled {
+	if AnyEnabled(enabled, "Browse") && cfg.BrowserSection.Enabled {
 		tools.RegisterBrowserTools(toolReg, tools.BrowserConfig{
-			Enabled:  browserCfg.Enabled,
-			Headless: browserCfg.Headless,
-			CacheDir: browserCfg.CacheDir,
+			Enabled:  cfg.BrowserSection.Enabled,
+			Headless: cfg.BrowserSection.Headless,
+			CacheDir: cfg.BrowserSection.CacheDir,
 		})
 	}
-	if AnyEnabled(enabled, "AnalyzeImage") && visionCfg.Enabled {
+	if AnyEnabled(enabled, "AnalyzeImage") && cfg.VisionSection.Enabled {
 		tools.RegisterVisionTools(toolReg, tools.VisionConfig{
-			Enabled:      visionCfg.Enabled,
-			MaxImageSize: visionCfg.MaxImageSize,
-		}, providerRegistry)
+			Enabled:      cfg.VisionSection.Enabled,
+			MaxImageSize: cfg.VisionSection.MaxImageSize,
+		}, cfg.ProviderRegistry)
 	}
-	if AnyEnabled(enabled, "GenerateImage") && imageGenCfg.Enabled {
+	if AnyEnabled(enabled, "GenerateImage") && cfg.ImageGenSection.Enabled {
 		tools.RegisterImageGenTools(toolReg, tools.ImageGenConfig{
-			Enabled:         imageGenCfg.Enabled,
-			Provider:        imageGenCfg.Provider,
-			Model:           imageGenCfg.Model,
-			APIKeyEnv:       imageGenCfg.APIKeyEnv,
-			MaxPromptLength: imageGenCfg.MaxPromptLength,
-			CacheDir:        imageGenCfg.CacheDir,
+			Enabled:         cfg.ImageGenSection.Enabled,
+			Provider:        cfg.ImageGenSection.Provider,
+			Model:           cfg.ImageGenSection.Model,
+			APIKeyEnv:       cfg.ImageGenSection.APIKeyEnv,
+			MaxPromptLength: cfg.ImageGenSection.MaxPromptLength,
+			CacheDir:        cfg.ImageGenSection.CacheDir,
 		})
 	}
-	if AnyEnabled(enabled, "ListAgents", "RegisterAgent", "FindAgent") && multiAgentCfg.Enabled {
+	if AnyEnabled(enabled, "ListAgents", "RegisterAgent", "FindAgent") && cfg.MultiAgentSection.Enabled {
 		tools.RegisterMultiAgentTools(toolReg, tools.MultiAgentConfig{
-			Enabled:      multiAgentCfg.Enabled,
-			RegistryPath: multiAgentCfg.RegistryPath,
-		}, agentID, agentName, agentRole)
+			Enabled:      cfg.MultiAgentSection.Enabled,
+			RegistryPath: cfg.MultiAgentSection.RegistryPath,
+		}, cfg.AgentID, cfg.AgentName, cfg.AgentRole)
 	}
-	if AnyEnabled(enabled, "Delegate") && delegateCfg.Enabled {
-		tools.RegisterDelegationTool(toolReg, agentID, subRunner, tools.DelegateConfig{
-			Enabled:  delegateCfg.Enabled,
-			MaxDepth: delegateCfg.MaxDepth,
-			MaxTurns: delegateCfg.MaxTurns,
+	if AnyEnabled(enabled, "Delegate") && cfg.DelegationSection.Enabled {
+		tools.RegisterDelegationTool(toolReg, cfg.AgentID, cfg.SubAgentRunner, tools.DelegateConfig{
+			Enabled:  cfg.DelegationSection.Enabled,
+			MaxDepth: cfg.DelegationSection.MaxDepth,
+			MaxTurns: cfg.DelegationSection.MaxTurns,
 		})
 	}
 

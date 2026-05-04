@@ -433,27 +433,27 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		// Stage 1: Request Preparation
 		prepared := a.Stage1.Process(convCtx)
 
-	// Stage 2: Try streaming with the router-selected provider
-	p, err := a.selectProvider(convCtx)
-	if err != nil {
-		out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
-		return
-	}
-
-	// Track the model name for failure demotion (provider name ≠ model name)
-	modelName := ""
-	if a.Router != nil {
-		modelCfg, selectErr := a.Router.Select(provider.RoutingContext{
-			Iteration:      convCtx.Iteration,
-			UserMessage:     firstUserMessage(convCtx.Messages),
-			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
-			ToolCallCount:   countToolResults(convCtx.Messages),
-			PromptCharCount: convCtx.TokenCount() * 4,
-		})
-		if selectErr == nil {
-			modelName = modelCfg.Name
+		// Stage 2: Try streaming with the router-selected provider
+		p, err := a.selectProvider(convCtx)
+		if err != nil {
+			out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
+			return
 		}
-	}
+
+		// Track the model name for failure demotion (provider name ≠ model name)
+		modelName := ""
+		if a.Router != nil {
+			modelCfg, selectErr := a.Router.Select(provider.RoutingContext{
+				Iteration:       convCtx.Iteration,
+				UserMessage:     firstUserMessage(convCtx.Messages),
+				HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
+				ToolCallCount:   countToolResults(convCtx.Messages),
+				PromptCharCount: convCtx.TokenCount() * 4,
+			})
+			if selectErr == nil {
+				modelName = modelCfg.Name
+			}
+		}
 
 		req, err := p.Prepare(ctx, convCtx, prepared)
 		if err != nil {
@@ -473,95 +473,11 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			continue
 		}
 
-		// Accumulate streaming response
-		var fullText string
-		var toolCalls []agentctx.ToolCall
-		var currentToolID string
-		var currentToolName string
-		var currentToolInput strings.Builder
-		var lastUsage *agentctx.UsageInfo
-
-		for event := range streamCh {
-			// Check interrupt during streaming — allows Ctrl+C to break
-			// out of a streaming response mid-turn, not just between iterations.
-			if convCtx.Interrupt.IsSet() {
-				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-				return
-			}
-
-			switch event.Type {
-			case agentctx.StreamText:
-				out <- StreamEvent{Type: agentctx.StreamText, Text: event.Text}
-				fullText += event.Text
-			case agentctx.StreamToolStart:
-				currentToolID = event.ToolCallID
-				currentToolName = event.ToolName
-				currentToolInput.Reset()
-				out <- StreamEvent{Type: agentctx.StreamToolStart, ToolName: event.ToolName, ToolCallID: event.ToolCallID}
-			case agentctx.StreamToolDelta:
-				currentToolInput.WriteString(event.ToolInputDelta)
-			case agentctx.StreamToolEnd:
-				toolCalls = append(toolCalls, agentctx.ToolCall{
-					ID:        currentToolID,
-					Name:      currentToolName,
-					Arguments: json.RawMessage(currentToolInput.String()),
-				})
-			case agentctx.StreamError:
-				if a.Router != nil {
-					failName := p.Name()
-					if modelName != "" {
-						failName = modelName
-					}
-					a.Router.RecordFailure(failName)
-				}
-				
-				// If this is not the primary provider, try the primary as immediate fallback
-				if p.Name() != a.Registry.Primary() {
-					if primary, err := a.Registry.GetPrimary(); err == nil {
-						log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
-						// Execute with primary provider (non-streaming)
-						a.runTurnNonStreaming(ctx, convCtx, out, prepared, primary, sessionID, modelName)
-						continue
-					} else {
-						out <- StreamEvent{Error: fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)}
-						return
-					}
-				} else {
-					// Primary provider failed, no fallback possible
-					out <- StreamEvent{Error: fmt.Errorf("primary provider streaming failed: %w", event.Error)}
-					return
-				}
-			case agentctx.StreamDone:
-				// Forward usage info from provider and track cost
-				lastUsage = event.Usage
-				out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
-			}
-		}
-
-		// Build parsed response
-		parsed := agentctx.ParsedResponse{
-			Text:      fullText,
-			ToolCalls: toolCalls,
-		}
-		if len(toolCalls) == 0 {
-			parsed.FinishReason = "stop"
-		} else {
-			parsed.FinishReason = "tool_use"
-		}
-
-		// Track cost for this turn
-		if a.Router != nil && lastUsage != nil {
-			a.Router.RecordTurnCost(p.Name(), lastUsage.PromptTokens, lastUsage.CompletionTokens, convCtx.Iteration)
-		}
-
-		// Record success (reset failure counter)
-		if a.Router != nil {
-			a.Router.RecordSuccess(p.Name())
-		}
-
-		// Emit tool execution events before dispatch
-		for _, tc := range toolCalls {
-			out <- StreamEvent{Type: agentctx.StreamToolExec, ToolName: tc.Name, ToolCallID: tc.ID}
+		// Process streaming events
+		parsed, err := a.processStreamingEvents(ctx, convCtx, out, streamCh, p, modelName)
+		if err != nil {
+			out <- StreamEvent{Error: err}
+			return
 		}
 
 		// Stage 4: Tool Dispatch (if tool calls present)
@@ -586,6 +502,100 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			continue
 		}
 	}
+}
+
+// processStreamingEvents handles the streaming events and constructs the parsed response.
+func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, streamCh <-chan agentctx.StreamEvent, p provider.Provider, modelName string) (agentctx.ParsedResponse, error) {
+	// Accumulate streaming response
+	var fullText string
+	var toolCalls []agentctx.ToolCall
+	var currentToolID string
+	var currentToolName string
+	var currentToolInput strings.Builder
+	var lastUsage *agentctx.UsageInfo
+
+	for event := range streamCh {
+		// Check interrupt during streaming — allows Ctrl+C to break
+		// out of a streaming response mid-turn, not just between iterations.
+		if convCtx.Interrupt.IsSet() {
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+			return agentctx.ParsedResponse{}, fmt.Errorf("interrupted")
+		}
+
+		switch event.Type {
+		case agentctx.StreamText:
+			out <- StreamEvent{Type: agentctx.StreamText, Text: event.Text}
+			fullText += event.Text
+		case agentctx.StreamToolStart:
+			currentToolID = event.ToolCallID
+			currentToolName = event.ToolName
+			currentToolInput.Reset()
+			out <- StreamEvent{Type: agentctx.StreamToolStart, ToolName: event.ToolName, ToolCallID: event.ToolCallID}
+		case agentctx.StreamToolDelta:
+			currentToolInput.WriteString(event.ToolInputDelta)
+		case agentctx.StreamToolEnd:
+			toolCalls = append(toolCalls, agentctx.ToolCall{
+				ID:        currentToolID,
+				Name:      currentToolName,
+				Arguments: json.RawMessage(currentToolInput.String()),
+			})
+		case agentctx.StreamError:
+			if a.Router != nil {
+				failName := p.Name()
+				if modelName != "" {
+					failName = modelName
+				}
+				a.Router.RecordFailure(failName)
+			}
+
+			// If this is not the primary provider, try the primary as immediate fallback
+			if p.Name() != a.Registry.Primary() {
+				if primary, err := a.Registry.GetPrimary(); err == nil {
+					log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
+					// Execute with primary provider (non-streaming)
+					a.runTurnNonStreaming(ctx, convCtx, out, a.Stage1.Process(convCtx), primary, "", modelName)
+					return agentctx.ParsedResponse{}, fmt.Errorf("fallback to primary provider")
+				} else {
+					return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)
+				}
+			} else {
+				// Primary provider failed, no fallback possible
+				return agentctx.ParsedResponse{}, fmt.Errorf("primary provider streaming failed: %w", event.Error)
+			}
+		case agentctx.StreamDone:
+			// Forward usage info from provider and track cost
+			lastUsage = event.Usage
+			out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
+		}
+	}
+
+	// Build parsed response
+	parsed := agentctx.ParsedResponse{
+		Text:      fullText,
+		ToolCalls: toolCalls,
+	}
+	if len(toolCalls) == 0 {
+		parsed.FinishReason = "stop"
+	} else {
+		parsed.FinishReason = "tool_use"
+	}
+
+	// Track cost for this turn
+	if a.Router != nil && lastUsage != nil {
+		a.Router.RecordTurnCost(p.Name(), lastUsage.PromptTokens, lastUsage.CompletionTokens, convCtx.Iteration)
+	}
+
+	// Record success (reset failure counter)
+	if a.Router != nil {
+		a.Router.RecordSuccess(p.Name())
+	}
+
+	// Emit tool execution events before dispatch
+	for _, tc := range toolCalls {
+		out <- StreamEvent{Type: agentctx.StreamToolExec, ToolName: tc.Name, ToolCallID: tc.ID}
+	}
+
+	return parsed, nil
 }
 
 // runTurnNonStreaming executes a single turn without streaming (fallback).
