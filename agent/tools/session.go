@@ -95,7 +95,7 @@ func makeListSessions(mnemo *client.Client) ToolHandler {
 func makeGetSession(mnemo *client.Client) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		sessionID := strArg(args, "session_id", "")
-		includeMessages := boolArg(args, "include_messages", false)
+		includeMessages := boolArg(args, "include_messages", true)
 
 		if sessionID == "" {
 			return "session_id is required", true
