@@ -46,7 +46,7 @@ func makeSearchSessions(mnemo *client.Client) ToolHandler {
 				title = "(untitled)"
 			}
 			result += fmt.Sprintf("- [%s] %s (%d messages, last active %s)\n",
-				truncate(s.ID, 8),
+				s.ID,
 				title,
 				s.MessageCount,
 				formatTime(s.LastActive),
@@ -80,7 +80,7 @@ func makeListSessions(mnemo *client.Client) ToolHandler {
 				title = "(untitled)"
 			}
 			result += fmt.Sprintf("- [%s] %s (%d messages, last active %s)\n",
-				truncate(s.ID, 8),
+				s.ID,
 				title,
 				s.MessageCount,
 				formatTime(s.LastActive),
