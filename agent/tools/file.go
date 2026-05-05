@@ -20,7 +20,8 @@ var allowedDirs []string
 // Used by the CLI to prompt the user before executing tools like FileWrite and Execute.
 var approvalRequired []string
 
-// IsApprovalRequired returns whether a tool requires human approval before execution.
+// IsApprovalRequired returns whether a tool is in the approval-required list.
+// This is a blanket check — use NeedsApproval for a smarter per-args check.
 func IsApprovalRequired(toolName string) bool {
 	for _, name := range approvalRequired {
 		if name == toolName {
@@ -28,6 +29,35 @@ func IsApprovalRequired(toolName string) bool {
 		}
 	}
 	return false
+}
+
+// NeedsApproval returns whether a specific tool invocation needs user approval.
+// For Execute: only if the command looks dangerous (isDangerousCommand or hasShellInjection).
+// For FileWrite: always (destructive by nature).
+// For other tools in the approval list: always.
+func NeedsApproval(toolName string, args map[string]interface{}) bool {
+	if !IsApprovalRequired(toolName) {
+		return false
+	}
+
+	// Smart approval: Execute commands that pass validation don't need approval
+	if toolName == "Execute" {
+		command, ok := args["command"].(string)
+		if !ok || command == "" {
+			return true // unknown command — require approval
+		}
+		// Check each sub-command in the chain
+		subCommands := splitChainedCommands(command)
+		for _, sub := range subCommands {
+			if isDangerousCommand(sub) || hasShellInjection(sub) {
+				return true // dangerous command in chain — require approval
+			}
+		}
+		return false // all sub-commands are safe — skip approval
+	}
+
+	// All other tools in the approval list always require approval
+	return true
 }
 
 // SetFileConfig configures file tools with security constraints.

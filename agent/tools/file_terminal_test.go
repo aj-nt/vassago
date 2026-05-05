@@ -445,3 +445,66 @@ func TestSplitChainedCommandsEdgeCases(t *testing.T) {
 		}
 	}
 }
+
+// --- NeedsApproval tests ---
+
+func TestNeedsApproval(t *testing.T) {
+	// Save and restore global state (SetFileConfig modifies allowedDirs and approvalRequired)
+	origDirs := allowedDirs
+	origApproval := approvalRequired
+	defer func() {
+		allowedDirs = origDirs
+		approvalRequired = origApproval
+	}()
+
+	// Set up approval list like the real config
+	SetFileConfig([]string{"/tmp"}, []string{"FileWrite", "Execute"})
+
+	tests := []struct {
+		name     string
+		toolName string
+		args     map[string]interface{}
+		expected bool
+	}{
+		// Tools not in the approval list never need approval
+		{"FileRead not in list", "FileRead", nil, false},
+		{"SearchMemories not in list", "SearchMemories", nil, false},
+
+		// FileWrite always needs approval
+		{"FileWrite always needs approval", "FileWrite", nil, true},
+
+		// Safe Execute commands don't need approval
+		{"git status safe", "Execute", map[string]interface{}{"command": "git status"}, false},
+		{"ls safe", "Execute", map[string]interface{}{"command": "ls -la"}, false},
+		{"grep safe", "Execute", map[string]interface{}{"command": "grep pattern file"}, false},
+		{"git fetch && git rebase safe", "Execute", map[string]interface{}{"command": "git fetch origin && git rebase origin/main"}, false},
+		{"cd && ls safe chain", "Execute", map[string]interface{}{"command": "cd /tmp && ls"}, false},
+		{"echo safe", "Execute", map[string]interface{}{"command": "echo hello"}, false},
+		{"cat safe", "Execute", map[string]interface{}{"command": "cat /tmp/file.txt"}, false},
+
+		// Dangerous Execute commands still need approval
+		{"rm -rf needs approval", "Execute", map[string]interface{}{"command": "rm -rf /tmp/test"}, true},
+		{"sudo needs approval", "Execute", map[string]interface{}{"command": "sudo apt install something"}, true},
+		{"shutdown needs approval", "Execute", map[string]interface{}{"command": "shutdown -h now"}, true},
+		{"shell injection needs approval", "Execute", map[string]interface{}{"command": "echo $(whoami)"}, true},
+		{"dangerous redirect needs approval", "Execute", map[string]interface{}{"command": "echo data > /etc/hosts"}, true},
+
+		// Chain with one dangerous command needs approval
+		{"safe && rm needs approval", "Execute", map[string]interface{}{"command": "cd /tmp && rm -rf test"}, true},
+		{"rm && safe needs approval", "Execute", map[string]interface{}{"command": "rm -rf /tmp/test && echo done"}, true},
+
+		// Empty/missing command needs approval (can't validate)
+		{"empty command needs approval", "Execute", map[string]interface{}{"command": ""}, true},
+		{"missing command needs approval", "Execute", map[string]interface{}{}, true},
+		{"non-string command needs approval", "Execute", map[string]interface{}{"command": 123}, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := NeedsApproval(tc.toolName, tc.args)
+			if result != tc.expected {
+				t.Errorf("NeedsApproval(%q, %v) = %v, expected %v", tc.toolName, tc.args, result, tc.expected)
+			}
+		})
+	}
+}

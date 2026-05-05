@@ -182,7 +182,7 @@ func processCommand(input string, c *CLI, ctx context.Context, sessionID *string
 // handleToolApproval sets up the tool approval function.
 func handleToolApproval(c *CLI, scanner *bufio.Scanner) {
 	c.Agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
-		if !tools.IsApprovalRequired(toolName) {
+		if !tools.NeedsApproval(toolName, args) {
 			return true
 		}
 		fmt.Println(formatApprovalRequest(toolName, args))
