@@ -8,3 +8,4 @@ coverage.out
 *.out
 mnemosyne-daemon
 binary
+mnemosyne.db

@@ -16,6 +16,7 @@ import (
 func main() {
 	source := flag.String("source", "", "Path to Hermes state.db to import")
 	target := flag.String("target", "", "Path to Mnemosyne database (default: ~/.mnemosyne/mnemosyne.db)")
+	agent := flag.String("agent", "hermes-import", "Agent ID for imported sessions and memories (default: hermes-import)")
 	dryRun := flag.Bool("dry-run", false, "Show what would be imported without actually importing")
 	flag.Parse()
 
@@ -33,10 +34,12 @@ func main() {
 
 	log.Printf("Importing from Hermes: %s", *source)
 	log.Printf("Target Mnemosyne: %s", *target)
+	log.Printf("Agent ID: %s", *agent)
 
 	if *dryRun {
 		log.Println("DRY RUN — no changes will be made")
 		// TODO: implement dry-run mode
+		os.Exit(0)
 	}
 
 	// Open Mnemosyne store
@@ -46,15 +49,16 @@ func main() {
 	}
 	defer mnemoStore.Close()
 
-	result, err := migration.ImportHermesDB(mnemoStore, *source)
+	result, err := migration.ImportHermesDB(mnemoStore, *source, *agent)
 	if err != nil {
 		log.Fatalf("Import failed: %v", err)
 	}
 
 	log.Printf("Import complete:")
 	log.Printf("  Memories: %d read, %d imported, %d skipped", result.MemoriesRead, result.MemoriesImported, result.MemoriesSkipped)
-	log.Printf("  Sessions: %d read, %d imported", result.SessionsRead, result.SessionsImported)
+	log.Printf("  Sessions: %d read, %d imported, %d skipped", result.SessionsRead, result.SessionsImported, result.SessionsSkipped)
 	log.Printf("  Messages: %d read, %d imported", result.MessagesRead, result.MessagesImported)
+	log.Printf("  Agents created: %d", result.AgentsCreated)
 
 	if len(result.Errors) > 0 {
 		log.Printf("  Errors (%d):", len(result.Errors))
