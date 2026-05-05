@@ -37,7 +37,7 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req interface{}) (<-chan ag
 		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	}
 
-	resp, err := p.client.Do(httpReq)
+	resp, err := p.streamClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("stream request failed: %w", err)
 	}
@@ -153,7 +153,7 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 					Type: agentctx.StreamToolEnd,
 				}
 			}
-			doneEvent := agentctx.StreamEvent{Type: agentctx.StreamDone, Done: true}
+			doneEvent := agentctx.StreamEvent{Type: agentctx.StreamDone, Done: true, StopReason: *choice.FinishReason}
 			if chunk.Usage != nil {
 				doneEvent.Usage = &agentctx.UsageInfo{
 					TotalTokens: chunk.Usage.TotalTokens,
@@ -162,5 +162,10 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 			ch <- doneEvent
 			return
 		}
+	}
+
+	// Check for scanner errors after the loop
+	if err := scanner.Err(); err != nil {
+		ch <- agentctx.StreamEvent{Type: agentctx.StreamError, Error: fmt.Errorf("stream read error: %w", err)}
 	}
 }

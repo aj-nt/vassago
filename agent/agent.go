@@ -517,6 +517,7 @@ func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.Co
 	var currentToolName string
 	var currentToolInput strings.Builder
 	var lastUsage *agentctx.UsageInfo
+	var stopReason string
 
 	for event := range streamCh {
 		// Check interrupt during streaming — allows Ctrl+C to break
@@ -569,6 +570,9 @@ func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.Co
 		case agentctx.StreamDone:
 			// Forward usage info from provider and track cost
 			lastUsage = event.Usage
+			if event.StopReason != "" {
+				stopReason = event.StopReason
+			}
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
 		}
 	}
@@ -578,7 +582,10 @@ func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.Co
 		Text:      fullText,
 		ToolCalls: toolCalls,
 	}
-	if len(toolCalls) == 0 {
+	// Use actual stop reason from stream, fallback to heuristic
+	if stopReason != "" {
+		parsed.FinishReason = stopReason
+	} else if len(toolCalls) == 0 {
 		parsed.FinishReason = "stop"
 	} else {
 		parsed.FinishReason = "tool_use"

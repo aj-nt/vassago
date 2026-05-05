@@ -29,6 +29,9 @@ type StreamEvent struct {
 
 	// Usage is set on the final event with token counts.
 	Usage *UsageInfo
+
+	// StopReason contains the reason the stream stopped (e.g., "stop", "tool_use", "max_tokens")
+	StopReason string
 }
 
 // StreamEventType identifies the kind of streaming event.

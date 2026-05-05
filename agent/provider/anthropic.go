@@ -20,6 +20,7 @@ type AnthropicProvider struct {
 	model        string
 	baseURL      string // defaults to "https://api.anthropic.com/v1/messages"
 	client       *http.Client
+	streamClient *http.Client
 	capabilities agentctx.ProviderCapabilities
 }
 
@@ -29,10 +30,11 @@ func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 		model = "claude-sonnet-4-6"
 	}
 	return &AnthropicProvider{
-		apiKey:  apiKey,
-		model:   model,
-		baseURL: "https://api.anthropic.com/v1/messages",
-		client:  NewHTTPClient(30 * time.Second),
+		apiKey:       apiKey,
+		model:        model,
+		baseURL:      "https://api.anthropic.com/v1/messages",
+		client:       NewHTTPClient(30 * time.Second),
+		streamClient: NewHTTPClient(5 * time.Minute),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,
@@ -123,8 +125,9 @@ func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.Convers
 	body := map[string]interface{}{
 		"model":      p.model,
 		"messages":   messages,
-		"max_tokens": 4096,
 	}
+
+	body["max_tokens"] = 16384
 
 	// System prompt goes in the top-level system field (not as a message)
 	if prepared.SystemPrompt != "" {
@@ -145,7 +148,7 @@ func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.Convers
 		body["tools"] = tools
 	}
 
-	// Merge API kwargs (temperature, etc.)
+	// Merge API kwargs (temperature, max_tokens override, etc.)
 	for k, v := range prepared.APIKwargs {
 		body[k] = v
 	}

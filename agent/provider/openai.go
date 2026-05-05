@@ -20,10 +20,11 @@ import (
 // OpenAIProvider implements Provider for OpenAI-compatible APIs.
 // Covers OpenAI, Ollama, OpenRouter, and any /v1/chat/completions endpoint.
 type OpenAIProvider struct {
-	baseURL    string
-	apiKey     string
-	model      string
-	client     *http.Client
+	baseURL      string
+	apiKey       string
+	model        string
+	client       *http.Client
+	streamClient *http.Client
 	capabilities agentctx.ProviderCapabilities
 }
 
@@ -33,10 +34,11 @@ func NewOpenAIProvider(baseURL, apiKey, model string) *OpenAIProvider {
 		baseURL = "https://api.openai.com/v1"
 	}
 	return &OpenAIProvider{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		apiKey:  apiKey,
-		model:   model,
-		client:  NewHTTPClient(30 * time.Second),
+		baseURL:      strings.TrimRight(baseURL, "/"),
+		apiKey:       apiKey,
+		model:        model,
+		client:       NewHTTPClient(30 * time.Second),
+		streamClient: NewHTTPClient(5 * time.Minute),
 		capabilities: agentctx.ProviderCapabilities{
 			SupportsStreaming:       true,
 			SupportsFunctionCalling: true,

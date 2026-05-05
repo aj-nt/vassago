@@ -37,7 +37,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req interface{}) (<-chan
 	httpReq.Header.Set("x-api-key", p.apiKey)
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := p.client.Do(httpReq)
+	resp, err := p.streamClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("stream request failed: %w", err)
 	}
@@ -182,7 +182,7 @@ func (p *AnthropicProvider) readSSEStream(ctx context.Context, resp *http.Respon
 			if err := json.Unmarshal([]byte(data), &event); err != nil {
 				continue
 			}
-			doneEvent := agentctx.StreamEvent{Type: agentctx.StreamDone, Done: true}
+			doneEvent := agentctx.StreamEvent{Type: agentctx.StreamDone, Done: true, StopReason: event.Delta.StopReason}
 			if event.Usage != nil {
 				doneEvent.Usage = &agentctx.UsageInfo{
 					CompletionTokens: event.Usage.OutputTokens,
@@ -194,5 +194,10 @@ func (p *AnthropicProvider) readSSEStream(ctx context.Context, resp *http.Respon
 		case "message_start", "message_stop", "ping":
 			// Metadata events — no action needed
 		}
+	}
+
+	// Check for scanner errors after the loop
+	if err := scanner.Err(); err != nil {
+		ch <- agentctx.StreamEvent{Type: agentctx.StreamError, Error: fmt.Errorf("stream read error: %w", err)}
 	}
 }
