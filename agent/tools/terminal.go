@@ -21,13 +21,17 @@ func Execute(args map[string]interface{}) (string, bool) {
 		return "Execute requires a 'command' argument", true
 	}
 
-	if isDangerousCommand(command) {
-		return fmt.Sprintf("Command blocked for safety: %q. This command matches a dangerous pattern.", command), true
-	}
-
-	// Check for shell injection metacharacters that allow command chaining
-	if hasShellInjection(command) {
-		return fmt.Sprintf("Command blocked: shell metacharacters detected in %q. Use single commands only — no chaining, pipes to shell, or subshells.", command), true
+	// Split chained commands and validate each individually.
+	// This allows safe chaining (git fetch && git rebase) while blocking
+	// chains that include dangerous commands.
+	subCommands := splitChainedCommands(command)
+	for _, sub := range subCommands {
+		if isDangerousCommand(sub) {
+			return fmt.Sprintf("Command blocked for safety: %q (in chain). This command matches a dangerous pattern.", sub), true
+		}
+		if hasShellInjection(sub) {
+			return fmt.Sprintf("Command blocked: shell metacharacters detected in %q. No subshells or unsafe redirects.", sub), true
+		}
 	}
 
 	cmd := exec.Command("sh", "-c", command)
@@ -85,9 +89,101 @@ func Execute(args map[string]interface{}) (string, bool) {
 	return truncateOutput(string(output), maxResultChars), false
 }
 
+// splitChainedCommands splits a command string on &&, ||, and ; separators,
+// returning each individual sub-command. It respects quoted strings so that
+// separators inside quotes are not treated as chain operators.
+func splitChainedCommands(command string) []string {
+	var parts []string
+	var current strings.Builder
+	quoteChar := byte(0) // 0=none, '\''=single, '"'=double
+	escaped := false
+
+	for i := 0; i < len(command); i++ {
+		ch := command[i]
+
+		if escaped {
+			current.WriteByte(ch)
+			escaped = false
+			continue
+		}
+
+		if ch == '\\' {
+			current.WriteByte(ch)
+			escaped = true
+			continue
+		}
+
+		// Track quote state
+		if ch == '\'' && quoteChar != '"' {
+			if quoteChar == '\'' {
+				quoteChar = 0
+			} else {
+				quoteChar = '\''
+			}
+			current.WriteByte(ch)
+			continue
+		}
+		if ch == '"' && quoteChar != '\'' {
+			if quoteChar == '"' {
+				quoteChar = 0
+			} else {
+				quoteChar = '"'
+			}
+			current.WriteByte(ch)
+			continue
+		}
+
+		// Only split on separators when not inside quotes
+		if quoteChar == 0 {
+			// Check for && and ||
+			if ch == '&' && i+1 < len(command) && command[i+1] == '&' {
+				part := strings.TrimSpace(current.String())
+				if part != "" {
+					parts = append(parts, part)
+				}
+				current.Reset()
+				i++ // skip second &
+				continue
+			}
+			if ch == '|' && i+1 < len(command) && command[i+1] == '|' {
+				part := strings.TrimSpace(current.String())
+				if part != "" {
+					parts = append(parts, part)
+				}
+				current.Reset()
+				i++ // skip second |
+				continue
+			}
+			// Check for ; (but not inside && or ||)
+			if ch == ';' && !(i > 0 && (command[i-1] == '&' || command[i-1] == '|')) {
+				part := strings.TrimSpace(current.String())
+				if part != "" {
+					parts = append(parts, part)
+				}
+				current.Reset()
+				continue
+			}
+		}
+
+		current.WriteByte(ch)
+	}
+
+	// Add final part
+	part := strings.TrimSpace(current.String())
+	if part != "" {
+		parts = append(parts, part)
+	}
+
+	// If no splitting occurred, return the whole command
+	if len(parts) == 0 {
+		return []string{command}
+	}
+	return parts
+}
+
 // isDangerousCommand checks if a command matches dangerous patterns.
 // Blocklist approach: known-destructive commands are rejected.
-// This is supplemented by hasShellInjection() for chaining/pipe attacks.
+// This is applied to each sub-command in a chain individually.
 func isDangerousCommand(command string) bool {
 	// Destructive file operations
 	dangerousPatterns := []string{
@@ -130,7 +226,7 @@ func isDangerousCommand(command string) bool {
 		"nc -e",
 		"/dev/tcp/",
 
-		// Package/dependency attacks
+		// Package/dependency attacks — pipes to interpreters
 		"curl|sh",
 		"curl|bash",
 		"wget|sh",
@@ -174,44 +270,55 @@ func isDangerousCommand(command string) bool {
 	return false
 }
 
-// hasShellInjection detects shell metacharacters that allow command chaining,
-// subshells, or piping to interpreters. These let an LLM bypass the single-command
-// restriction by appending destructive commands.
+// hasShellInjection detects unsafe shell metacharacters: subshell execution
+// and dangerous redirects. Command chaining (&&, ||, ;) is now handled by
+// splitChainedCommands + per-sub-command validation, so those are no longer
+// blocked here.
 func hasShellInjection(command string) bool {
-	// Allow safe pipes (e.g., grep pattern | sort, ls | wc -l)
-	// Block pipes to shells/interpreters (handled above in isDangerousCommand)
-	// Block command chaining and subshells
-
-	injectionPatterns := []string{
-		";",      // command separator: cmd1; cmd2
-		"&&",     // AND chaining: cmd1 && cmd2
-		"||",     // OR chaining: cmd1 || cmd2
-		"$(",     // command substitution: $(cmd)
-		"`",      // backtick substitution: `cmd`
-		"> /etc", // redirect to system files
-		"> /dev", // redirect to devices (except /dev/null below)
-		">>",     // append redirect — allow for legitimate use? Block for safety.
+	// Subshell substitution — always block
+	subshellPatterns := []string{
+		"$(",   // command substitution: $(cmd)
+		"`",    // backtick substitution: `cmd`
 	}
 
-	// Allow specific safe redirects
-	safeExceptions := []string{
+	for _, pattern := range subshellPatterns {
+		if strings.Contains(command, pattern) {
+			return true
+		}
+	}
+
+	// Dangerous redirects
+	// Block redirects to system files/devices
+	redirectPatterns := []string{
+		"> /etc",
+		"> /dev",
+		">>",
+	}
+
+	// Allow safe redirects (overwrite and append to safe locations)
+	safeRedirects := []string{
 		"> /dev/null",
 		"> /tmp/",
+		">> /tmp/",
 		"2>/dev/null",
 		"2> /dev/null",
 	}
 
-	for _, pattern := range injectionPatterns {
+	for _, pattern := range redirectPatterns {
 		if strings.Contains(command, pattern) {
-			// Check if it's a safe exception
-			isException := false
-			for _, ex := range safeExceptions {
-				if strings.Contains(command, ex) {
-					isException = true
+			isSafe := false
+			for _, safe := range safeRedirects {
+				if strings.Contains(command, safe) {
+					isSafe = true
 					break
 				}
 			}
-			if !isException {
+			// Additional check: if > /dev appears but is part of > /dev/null, it's safe
+			// This handles the case where "> /dev" matches "> /dev/null"
+			if pattern == "> /dev" && strings.Contains(command, "> /dev/null") {
+				isSafe = true
+			}
+			if !isSafe {
 				return true
 			}
 		}
@@ -227,13 +334,13 @@ func RegisterTerminalTools(registry *ToolRegistry) {
 
 var ExecuteSchema = map[string]interface{}{
 	"name":        "Execute",
-	"description": "Execute a terminal command and return its output. Dangerous commands and shell chaining are blocked for safety.",
+	"description": "Execute a terminal command and return its output. Dangerous commands are blocked. Command chaining with &&, ||, and ; is allowed for safe commands.",
 	"parameters": map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			"command": map[string]interface{}{
 				"type":        "string",
-				"description": "The command to execute",
+				"description": "The command to execute. Chaining with &&, ||, and ; is supported for safe commands.",
 			},
 			"cwd": map[string]interface{}{
 				"type":        "string",

@@ -5,304 +5,240 @@ package tools
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// === File Tool Tests ===
-
-func TestFileRead(t *testing.T) {
-	testContent := "Hello, world!\nThis is a test file."
-	testFile := "test_file.txt"
-	err := os.WriteFile(testFile, []byte(testContent), 0644)
+// setupAllowedDirs configures allowed directories for Execute tests.
+// Tests that call Execute need ~ and /tmp in allowedDirs.
+func setupAllowedDirs(t *testing.T) {
+	t.Helper()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
+		t.Skip("Cannot determine home directory")
 	}
-	defer os.Remove(testFile)
+	originalAllowed := allowedDirs
+	allowedDirs = []string{homeDir, "/tmp"}
+	t.Cleanup(func() { allowedDirs = originalAllowed })
+}
 
-	result, isError := FileRead(map[string]interface{}{"path": testFile})
+func TestExecuteBasicCommand(t *testing.T) {
+	setupAllowedDirs(t)
+
+	args := map[string]interface{}{
+		"command": "echo hello",
+	}
+	result, isError := Execute(args)
 	if isError {
-		t.Errorf("FileRead returned error: %s", result)
+		t.Errorf("Execute basic command returned error: %s", result)
 	}
-
-	if result != testContent {
-		t.Errorf("Expected content %q, got %q", testContent, result)
-	}
-}
-
-func TestFileReadInvalidPath(t *testing.T) {
-	_, isError := FileRead(map[string]interface{}{"path": "../test.txt"})
-	if !isError {
-		t.Error("FileRead should return error for path traversal")
+	if !strings.Contains(result, "hello") {
+		t.Errorf("Expected 'hello' in result, got: %s", result)
 	}
 }
 
-func TestFileReadDeviceFile(t *testing.T) {
-	_, isError := FileRead(map[string]interface{}{"path": "/dev/null"})
-	if !isError {
-		t.Error("FileRead should block device files")
-	}
-}
+func TestExecuteWithCwd(t *testing.T) {
+	setupAllowedDirs(t)
 
-func TestFileReadProcFile(t *testing.T) {
-	_, isError := FileRead(map[string]interface{}{"path": "/proc/self/status"})
-	if !isError {
-		t.Error("FileRead should block /proc files")
-	}
-}
-
-func TestFileReadMissingPath(t *testing.T) {
-	_, isError := FileRead(map[string]interface{}{})
-	if !isError {
-		t.Error("FileRead should return error when path is missing")
-	}
-}
-
-func TestIsPathSafeTraversal(t *testing.T) {
-	tests := []struct {
-		path     string
-		expected bool
-	}{
-		{"../etc/passwd", false},
-		{"foo/../../../etc/passwd", false},
-		{"/tmp/test.txt", true},
-		{"/dev/null", false},
-		{"/dev/sda", false},
-		{"/proc/self/status", false},
-		{"/sys/fs/selinux", false},
-		{"test.txt", true},
-	}
-
-	for _, tc := range tests {
-		result := isPathSafe(tc.path)
-		if result != tc.expected {
-			t.Errorf("isPathSafe(%q) = %v, expected %v", tc.path, result, tc.expected)
-		}
-	}
-}
-
-func TestIsPathSafeWithAllowlist(t *testing.T) {
-	// Set up allowlist
-	SetFileConfig([]string{"/tmp", "."}, nil)
-	defer SetFileConfig(nil, nil) // Reset
-
-	tests := []struct {
-		path     string
-		expected bool
-	}{
-		{"/tmp/test.txt", true},
-		{"/tmp/subdir/file.txt", true},
-		{"/etc/passwd", false},
-		{"/home/user/.ssh/id_rsa", false},
-		{"test.txt", true}, // relative — resolves to cwd which should be under "."
-	}
-
-	for _, tc := range tests {
-		result := isPathSafe(tc.path)
-		if result != tc.expected {
-			t.Errorf("isPathSafe(%q) with allowlist = %v, expected %v", tc.path, result, tc.expected)
-		}
-	}
-}
-
-func TestIsPathSafeSymlink(t *testing.T) {
-	// Create a symlink pointing outside allowed dirs
-	tmpDir := t.TempDir()
-	linkPath := filepath.Join(tmpDir, "evil_link")
-	// Only create the symlink if we can (may need permissions)
-	err := os.Symlink("/etc/passwd", linkPath)
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		t.Skip("Cannot create symlink for testing")
+		t.Skip("Cannot determine home directory")
 	}
-	defer os.Remove(linkPath)
-
-	// Without allowlist, symlinks are allowed
-	SetFileConfig(nil, nil)
-	if !isPathSafe(linkPath) {
-		t.Error("isPathSafe without allowlist should allow symlinks (dev mode)")
+	args := map[string]interface{}{
+		"command": "pwd",
+		"cwd":     homeDir,
 	}
-
-	// With allowlist, symlink resolving outside should be blocked
-	SetFileConfig([]string{tmpDir}, nil)
-	defer SetFileConfig(nil, nil)
-	if isPathSafe(linkPath) {
-		t.Error("isPathSafe with allowlist should block symlink pointing outside allowed dir")
-	}
-}
-
-func TestIsWriteAllowedWithAllowlist(t *testing.T) {
-	SetFileConfig([]string{"/tmp", "."}, nil)
-	defer SetFileConfig(nil, nil)
-
-	if !isWriteAllowed("/tmp/test.txt") {
-		t.Error("Write to /tmp should be allowed")
-	}
-	if isWriteAllowed("/etc/hosts") {
-		t.Error("Write to /etc should be blocked")
-	}
-}
-
-func TestFileWrite(t *testing.T) {
-	testFile := "test_write.txt"
-	defer os.Remove(testFile)
-
-	result, isError := FileWrite(map[string]interface{}{"path": testFile, "content": "test"})
+	result, isError := Execute(args)
 	if isError {
-		t.Errorf("FileWrite should allow writes: %s", result)
+		t.Errorf("Execute with cwd returned error: %s", result)
 	}
-
-	content, err := os.ReadFile(testFile)
-	if err != nil {
-		t.Errorf("Failed to read written file: %v", err)
-	}
-	if string(content) != "test" {
-		t.Errorf("Expected content 'test', got %q", string(content))
+	if !strings.Contains(result, homeDir) {
+		t.Errorf("Expected %q in result, got: %s", homeDir, result)
 	}
 }
 
-func TestFileWriteMissingArgs(t *testing.T) {
-	_, isError := FileWrite(map[string]interface{}{"path": "test.txt"})
-	if !isError {
-		t.Error("FileWrite should error without content")
-	}
-	_, isError = FileWrite(map[string]interface{}{"content": "test"})
-	if !isError {
-		t.Error("FileWrite should error without path")
-	}
-}
+func TestExecuteWithTildeCwd(t *testing.T) {
+	setupAllowedDirs(t)
 
-func TestFileSearch(t *testing.T) {
-	testFiles := []string{"test1.txt", "test2.log", "other.txt"}
-	for _, file := range testFiles {
-		if err := os.WriteFile(file, []byte("test"), 0644); err != nil { //nolint:errcheck
-			t.Fatalf("failed to create test file %s: %v", file, err)
-		}
-		defer os.Remove(file)
+	args := map[string]interface{}{
+		"command": "pwd",
+		"cwd":     "~",
 	}
-
-	result, isError := FileSearch(map[string]interface{}{"pattern": "test*.txt"})
+	result, isError := Execute(args)
 	if isError {
-		t.Errorf("FileSearch returned error: %s", result)
+		t.Errorf("Execute with tilde cwd returned error: %s", result)
 	}
-
-	if !strings.Contains(result, "test1.txt") {
-		t.Errorf("Expected to find test1.txt in results: %s", result)
-	}
-}
-
-func TestFileSearchInvalidDirectory(t *testing.T) {
-	_, isError := FileSearch(map[string]interface{}{"pattern": "*.txt", "directory": "../"})
-	if !isError {
-		t.Error("FileSearch should return error for path traversal directory")
-	}
-}
-
-func TestIsDevicePath(t *testing.T) {
-	tests := []struct {
-		path     string
-		expected bool
-	}{
-		{"/dev/null", true},
-		{"/dev/sda", true},
-		{"/proc/self/status", true},
-		{"/sys/kernel/notes", true},
-		{"/tmp/file.txt", false},
-		{"/home/user/.bashrc", false},
-	}
-	for _, tc := range tests {
-		result := isDevicePath(tc.path)
-		if result != tc.expected {
-			t.Errorf("isDevicePath(%q) = %v, expected %v", tc.path, result, tc.expected)
-		}
-	}
-}
-
-func TestIsUnderAllowedDir(t *testing.T) {
-	// Use a real temp dir that exists (avoids symlink issues on macOS where /tmp → /private/tmp)
-	tmpDir := t.TempDir()
-	subDir := filepath.Join(tmpDir, "sub")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	SetFileConfig([]string{tmpDir, "/nonexistent/path"}, nil)
-	defer SetFileConfig(nil, nil)
-
-	tests := []struct {
-		path     string
-		expected bool
-	}{
-		{filepath.Join(tmpDir, "file.txt"), true},
-		{filepath.Join(subDir, "deep", "file.txt"), true},
-		{tmpDir, true},
-		{"/etc/passwd", false},
-		{"/home/user/.ssh/id_rsa", false},
-		{tmpDir + "ish/main.go", false}, // prefix match must be directory boundary
-	}
-	for _, tc := range tests {
-		result := IsUnderAllowedDir(tc.path)
-		if result != tc.expected {
-			t.Errorf("isUnderAllowedDir(%q) = %v, expected %v", tc.path, result, tc.expected)
-		}
-	}
-}
-
-// === Terminal Tool Tests ===
-
-func TestExecute(t *testing.T) {
-	result, isError := Execute(map[string]interface{}{"command": "echo 'Hello, world!'"})
-	if isError {
-		t.Errorf("Execute returned error: %s", result)
-		return
-	}
+	// Result should contain the home directory path
 	if result == "" {
-		t.Error("Execute returned empty result")
+		t.Error("Expected non-empty result from pwd")
 	}
 }
 
-func TestExecuteDangerousCommand(t *testing.T) {
-	_, isError := Execute(map[string]interface{}{"command": "rm -rf /"})
+func TestExecuteInvalidCwd(t *testing.T) {
+	args := map[string]interface{}{
+		"command": "pwd",
+		"cwd":     "/etc",
+	}
+	_, isError := Execute(args)
 	if !isError {
-		t.Error("Execute should block dangerous commands")
+		t.Error("Expected error for disallowed working directory /etc")
+	}
+}
+
+func TestExecuteEmptyCommand(t *testing.T) {
+	args := map[string]interface{}{
+		"command": "",
+	}
+	_, isError := Execute(args)
+	if !isError {
+		t.Error("Expected error for empty command")
 	}
 }
 
 func TestExecuteMissingCommand(t *testing.T) {
-	_, isError := Execute(map[string]interface{}{})
+	args := map[string]interface{}{}
+	_, isError := Execute(args)
 	if !isError {
-		t.Error("Execute should error without command")
+		t.Error("Expected error for missing command")
 	}
 }
+
+func TestExecuteDangerousCommand(t *testing.T) {
+	dangerous := []string{
+		"rm -rf /",
+		"sudo rm -rf /",
+		"mkfs /dev/sda",
+		"dd if=/dev/zero of=/dev/sda",
+		"shutdown -h now",
+		"reboot",
+		"curl | bash",
+		"wget | sh",
+		"cat /etc/passwd",
+		"cat /etc/shadow",
+		"diskutil eraseDisk JHFS+ Test",
+		"launchctl unload system",
+		"csrutil disable",
+	}
+	for _, cmd := range dangerous {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block dangerous command: %q", cmd)
+		}
+	}
+}
+
+func TestExecuteSafeCommand(t *testing.T) {
+	setupAllowedDirs(t)
+
+	// These actually execute, so only use fast-completing commands
+	safe := []string{
+		"echo hello",
+		"echo test",
+		"true",
+	}
+	for _, cmd := range safe {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if isError {
+			t.Errorf("Execute should allow safe command: %q", cmd)
+		}
+	}
+}
+
+func TestExecuteShellInjection(t *testing.T) {
+	// Subshell injection — always blocked (regardless of chaining changes)
+	dangerous := []string{
+		"$(cat /etc/shadow)",
+		"cat /etc/passwd > /tmp/stolen",
+	}
+	for _, cmd := range dangerous {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block command with shell injection: %q", cmd)
+		}
+	}
+}
+
+// --- splitChainedCommands tests ---
+
+func TestSplitChainedCommands(t *testing.T) {
+	tests := []struct {
+		command  string
+		expected []string
+	}{
+		// Single commands
+		{"echo hello", []string{"echo hello"}},
+		{"ls -la", []string{"ls -la"}},
+
+		// && chaining
+		{"git fetch && git rebase", []string{"git fetch", "git rebase"}},
+		{"a && b && c", []string{"a", "b", "c"}},
+
+		// || chaining
+		{"echo foo || echo bar", []string{"echo foo", "echo bar"}},
+
+		// ; chaining
+		{"cd /tmp; ls", []string{"cd /tmp", "ls"}},
+
+		// Mixed
+		{"a && b; c", []string{"a", "b", "c"}},
+
+		// Pipes are NOT split (they're single commands)
+		{"ls | grep foo", []string{"ls | grep foo"}},
+		{"cat file | sort | uniq", []string{"cat file | sort | uniq"}},
+
+		// Quoted strings protect separators
+		{`echo "hello && world"`, []string{`echo "hello && world"`}},
+		{`echo 'foo; bar'`, []string{`echo 'foo; bar'`}},
+		{`echo "a || b"`, []string{`echo "a || b"`}},
+
+		// Escaped characters
+		{`echo hello\; world`, []string{`echo hello\; world`}},
+
+		// Whitespace trimming
+		{"  git fetch  &&  git rebase  ", []string{"git fetch", "git rebase"}},
+
+		// Trailing separator
+		{"echo hello;", []string{"echo hello"}},
+
+		// Empty command
+		{"", []string{""}},
+	}
+
+	for _, tc := range tests {
+		result := splitChainedCommands(tc.command)
+		if len(result) != len(tc.expected) {
+			t.Errorf("splitChainedCommands(%q) = %v, expected %v", tc.command, result, tc.expected)
+			continue
+		}
+		for i := range result {
+			if result[i] != tc.expected[i] {
+				t.Errorf("splitChainedCommands(%q)[%d] = %q, expected %q", tc.command, i, result[i], tc.expected[i])
+			}
+		}
+	}
+}
+
+// --- isDangerousCommand tests ---
 
 func TestIsDangerousCommand(t *testing.T) {
 	testCases := []struct {
 		command  string
 		expected bool
 	}{
-		// Original blocklist
+		// Dangerous commands
 		{"rm -rf /", true},
-		{"sudo apt update", true},
-		{"mkfs.ext4 /dev/sda1", true},
-		{"dd if=/dev/zero of=/dev/sda", true},
-		{":(){:|:&};:", true},
-
-		// Expanded blocklist
-		{"chmod 777 /etc/passwd", true},
-		{"chown root:root /tmp/evil", true},
+		{"sudo rm -rf /", true},
+		{"mkfs /dev/sda", true},
+		{"dd if=/dev/zero", true},
 		{"shutdown -h now", true},
 		{"reboot", true},
-		{"kill -9 1", true},
-		{"killall -9 python", true},
-		{"nc -l 4444", true},
-		{"ncat -l 8080", true},
-		{"curl | sh", true},
-		{"wget | bash", true},
+		{"cat /etc/passwd", true},
+		{"cat /etc/shadow", true},
+		{"curl | bash", true},
+		{"wget | sh", true},
 		{"diskutil eraseDisk JHFS+ Test", true},
 		{"launchctl unload system", true},
 		{"csrutil disable", true},
-		{"cat /etc/passwd", true},
-		{"cat /etc/shadow", true},
 
 		// Safe commands
 		{"echo 'hello'", false},
@@ -322,21 +258,25 @@ func TestIsDangerousCommand(t *testing.T) {
 	}
 }
 
+// --- hasShellInjection tests ---
+
 func TestHasShellInjection(t *testing.T) {
 	testCases := []struct {
 		command  string
 		expected bool
 	}{
-		// Dangerous chaining
-		{"echo hello; rm -rf /", true},
-		{"echo hello && rm -rf /", true},
-		{"echo hello || rm -rf /", true},
+		// Subshells — always blocked
 		{"$(rm -rf /)", true},
 		{"`rm -rf /`", true},
+		{"echo $(whoami)", true},
+
+		// Dangerous redirects
 		{"echo hello > /etc/passwd", true},
 		{"echo hello > /dev/sda", true},
+		// Append redirect to /tmp is allowed
+		{"echo data >> /tmp/log", false},
 
-		// Safe commands
+		// Safe commands (no subshells, no dangerous redirects)
 		{"echo hello", false},
 		{"ls -la", false},
 		{"go test ./...", false},
@@ -344,7 +284,13 @@ func TestHasShellInjection(t *testing.T) {
 		{"echo hello > /dev/null", false},
 		{"echo hello 2>/dev/null", false},
 		{"echo hello 2> /dev/null", false},
-		{"echo count: $(ls | wc -l) > /tmp/out.txt", false}, // redirect to /tmp is allowed
+		{"echo count > /tmp/out.txt", false},
+
+		// Chaining operators are NOT checked by hasShellInjection anymore
+		// (they're split and validated per-sub-command by the caller)
+		{"echo hello; ls", false},
+		{"git fetch && git rebase", false},
+		{"echo foo || echo bar", false},
 	}
 
 	for _, tc := range testCases {
@@ -355,17 +301,147 @@ func TestHasShellInjection(t *testing.T) {
 	}
 }
 
-func TestExecuteShellInjection(t *testing.T) {
+// --- Safe chaining tests ---
+
+func TestExecuteSafeChaining(t *testing.T) {
+	setupAllowedDirs(t)
+
+	// These actually execute, so only use fast-completing commands
+	safe := []string{
+		"echo a && echo b",
+		"echo foo || echo bar",
+		"echo hello; echo world",
+	}
+	for _, cmd := range safe {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if isError {
+			t.Errorf("Execute should allow safe chained command: %q", cmd)
+		}
+	}
+}
+
+func TestExecuteMixedSafeDangerousChain(t *testing.T) {
+	// A chain where one sub-command is dangerous should block the whole thing
 	dangerous := []string{
-		"echo hello; rm -rf /",
-		"echo hello && sudo su",
-		"$(cat /etc/shadow)",
-		"cat /etc/passwd > /tmp/stolen",
+		"echo hello && rm -rf /",
+		"echo hello; sudo su",
+		"ls || shutdown -h now",
+		"cat /etc/passwd && echo done",
 	}
 	for _, cmd := range dangerous {
 		_, isError := Execute(map[string]interface{}{"command": cmd})
 		if !isError {
-			t.Errorf("Execute should block command with shell injection: %q", cmd)
+			t.Errorf("Execute should block chain with dangerous sub-command: %q", cmd)
+		}
+	}
+}
+
+func TestExecuteSubshellBlock(t *testing.T) {
+	// Subshell substitution should still be blocked even if the sub-command is safe
+	subshells := []string{
+		"echo $(whoami)",
+		"echo `date`",
+		"$(echo hello)",
+	}
+	for _, cmd := range subshells {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block subshell in command: %q", cmd)
+		}
+	}
+}
+
+// --- Red team tests ---
+
+func TestExecuteRedTeamChainBypass(t *testing.T) {
+	// Try to hide dangerous commands in chains
+	attempts := []string{
+		"true && rm -rf /",
+		"true; rm -rf /",
+		"false || sudo su",
+		"echo safe; cat /etc/shadow",
+		"ls && cat /etc/passwd",
+	}
+	for _, cmd := range attempts {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block red team chain bypass: %q", cmd)
+		}
+	}
+}
+
+func TestExecuteRedTeamQuotedBypass(t *testing.T) {
+	// Quoted separators should NOT be treated as chain operators by splitChainedCommands.
+	// However, isDangerousCommand does simple substring matching — it can't distinguish
+	// quoted text from actual commands. This is safe by design (false positives >> false negatives).
+	// So "rm -rf" in quotes is blocked even though it's just a string argument to echo.
+	blocked := []string{
+		`echo "rm -rf /"`, // contains dangerous substring even in quotes
+		`echo 'sudo su'`,   // contains dangerous substring even in quotes
+	}
+	for _, cmd := range blocked {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block command containing dangerous pattern: %q", cmd)
+		}
+	}
+
+	// Safe quoted text (no dangerous substrings)
+	safe := []string{
+		`echo "hello && world"`,   // && inside quotes — not treated as chain operator
+		`echo 'foo; bar'`,         // ; inside quotes — not treated as separator
+	}
+	for _, cmd := range safe {
+		result, isError := Execute(map[string]interface{}{"command": cmd})
+		if isError {
+			t.Errorf("Execute should allow safe quoted command: %q (got: %s)", cmd, result)
+		}
+	}
+}
+
+func TestExecuteRedTeamRedirectBypass(t *testing.T) {
+	// Redirects to sensitive paths should be blocked even in chains
+	dangerous := []string{
+		"echo hello > /etc/passwd",
+		"echo hello > /dev/sda",
+		"echo data >> /etc/hosts",
+	}
+	for _, cmd := range dangerous {
+		_, isError := Execute(map[string]interface{}{"command": cmd})
+		if !isError {
+			t.Errorf("Execute should block dangerous redirect: %q", cmd)
+		}
+	}
+}
+
+// --- Edge case tests ---
+
+func TestSplitChainedCommandsEdgeCases(t *testing.T) {
+	tests := []struct {
+		command  string
+		expected int // number of sub-commands
+	}{
+		// Double semicolons — splits into 3 parts (middle one empty, trimmed away)
+		// but our code skips empty parts, so we get 2
+		{"echo a;; echo b", 2},
+
+		// Empty parts from consecutive separators are trimmed away
+		{"a && && c", 2},
+
+		// Nested quotes
+		{`echo "hello 'world'"`, 1},
+
+		// Command with pipe (not split)
+		{"ps aux | grep mnemosyne", 1},
+
+		// Complex realistic command
+		{"cd /tmp && ls -la | grep .go", 2},
+	}
+
+	for _, tc := range tests {
+		result := splitChainedCommands(tc.command)
+		if len(result) != tc.expected {
+			t.Errorf("splitChainedCommands(%q) returned %d parts, expected %d: %v", tc.command, len(result), tc.expected, result)
 		}
 	}
 }

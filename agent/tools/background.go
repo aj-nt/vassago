@@ -222,12 +222,16 @@ func handleBgStart(command, cwd string) (string, bool) {
 		return "Missing required parameter: command", true
 	}
 
-	// Safety: reuse Execute's dangerous command and injection checks
-	if isDangerousCommand(command) {
-		return fmt.Sprintf("Command blocked for safety: %q", command), true
-	}
-	if hasShellInjection(command) {
-		return fmt.Sprintf("Command blocked: shell metacharacters detected in %q. Use single commands only.", command), true
+	// Safety: check each sub-command in the chain individually
+	// (same logic as Execute — allows safe chaining, blocks dangerous sub-commands)
+	subCommands := splitChainedCommands(command)
+	for _, sub := range subCommands {
+		if isDangerousCommand(sub) {
+			return fmt.Sprintf("Command blocked for safety: %q (in chain)", sub), true
+		}
+		if hasShellInjection(sub) {
+			return fmt.Sprintf("Command blocked: shell metacharacters detected in %q. No subshells or unsafe redirects.", sub), true
+		}
 	}
 
 	// Validate cwd if provided (expand ~ first, same as Execute)
