@@ -369,7 +369,7 @@ func TestTruncateToolResult_ShortResult(t *testing.T) {
 }
 
 func TestTruncateToolResult_LongResult(t *testing.T) {
-	// Build a long result with more than 200 lines
+	// Build a long result with more than 100 lines
 	var lines []string
 	for i := 0; i < 250; i++ {
 		lines = append(lines, fmt.Sprintf("Line %d: This is a line of output", i+1))
@@ -393,7 +393,7 @@ func TestTruncateToolResult_LongResult(t *testing.T) {
 	}
 	
 	// Check that the first headCount lines are preserved
-	headCount := 200 / 2 // 100
+	headCount := 100 / 2 // 50
 	for i := 0; i < headCount; i++ {
 		if resultLines[i] != lines[i] {
 			t.Errorf("Line %d mismatch:\nExpected: %s\nGot: %s", i, lines[i], resultLines[i])
@@ -401,7 +401,7 @@ func TestTruncateToolResult_LongResult(t *testing.T) {
 	}
 	
 	// Check that tail lines are preserved
-	tailCount := 200 / 4 // 50
+	tailCount := 100 / 4 // 25
 	tailStart := len(lines) - tailCount
 	// Find the tail section (after the summary)
 	foundTailStart := -1
@@ -426,16 +426,16 @@ func TestTruncateToolResult_ErrorResult(t *testing.T) {
 }
 
 func TestTruncateToolResult_ExactFormat(t *testing.T) {
-	// Build a result with exactly 201 lines to test the truncation
+	// Build a result with exactly 101 lines to test the truncation
 	var lines []string
-	for i := 0; i < 201; i++ {
+	for i := 0; i < 101; i++ {
 		lines = append(lines, fmt.Sprintf("Line %d", i+1))
 	}
 	input := strings.Join(lines, "\n")
 	
 	result := truncateToolResult(input, false)
 	
-	// Check that result contains head (100 lines) + summary + tail (50 lines)
+	// Check that result contains head (50 lines) + summary + tail (25 lines)
 	resultLines := strings.Split(result, "\n")
 	
 	// Check that the summary line is present
@@ -450,7 +450,7 @@ func TestTruncateToolResult_ExactFormat(t *testing.T) {
 	}
 	
 	// Check that the first headCount lines are preserved
-	headCount := 200 / 2
+	headCount := 100 / 2
 	for i := 0; i < headCount; i++ {
 		if resultLines[i] != lines[i] {
 			t.Errorf("Line %d mismatch:\nExpected: %s\nGot: %s", i, lines[i], resultLines[i])

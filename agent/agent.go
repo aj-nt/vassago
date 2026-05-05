@@ -540,6 +540,10 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 			return
 		case agentctx.StageActionTERMINATE:
+			// Context overflow or max iterations — emit informative message
+			if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(a.Config.MaxContextTokens) {
+				out <- StreamEvent{Type: agentctx.StreamText, Text: "Context limit reached — conversation too long to continue."}
+			}
 			a.persistSession(ctx, sessionID, convCtx)
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 			return

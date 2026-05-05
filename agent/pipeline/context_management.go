@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	maxToolResultLines = 200
-	maxToolResultChars = 8000
+	maxToolResultLines = 100
+	maxToolResultChars = 4000
 )
 
 // truncateToolResult truncates long tool results to prevent context bloat.
@@ -195,7 +195,17 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 
 		// If still over limit after compaction, terminate
 		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-			return agentctx.StageActionTERMINATE
+			// Aggressively truncate any tool results we just added that are still large
+			// This helps when a single turn added multiple large results that pushed context over
+			for i := range convCtx.Messages {
+				if convCtx.Messages[i].Role == "tool" && len(convCtx.Messages[i].Content) > 500 {
+					convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", convCtx.Messages[i].Name, len(convCtx.Messages[i].Content))
+				}
+			}
+			// Check again after aggressive truncation
+			if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
+				return agentctx.StageActionTERMINATE
+			}
 		}
 	}
 
