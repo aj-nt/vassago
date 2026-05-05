@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -105,12 +104,6 @@ func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router 
 	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
 
 	return a
-}
-
-// effectiveMaxTokens returns the effective max tokens with a safety margin.
-// Delegates to agentctx.EffectiveMaxTokens for consistency across the codebase.
-func effectiveMaxTokens(maxTokens int) int {
-	return agentctx.EffectiveMaxTokens(maxTokens)
 }
 
 // Close cleans up agent resources.
@@ -224,71 +217,36 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 		sessionID = convCtx.SessionID
 	}
 
-	for {
-		// Check termination conditions
-		if convCtx.Interrupt.IsSet() {
-			return &agentctx.PipelineResult{Interrupted: true, SessionID: sessionID}, nil
-		}
-		if convCtx.Iteration >= convCtx.MaxIterations {
-			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
-		}
-		// Check context token limit (with safety margin for estimate inaccuracy)
-		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > effectiveMaxTokens(a.Config.MaxContextTokens) {
-			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
-		}
-
-		// Emit iteration event
-		a.EventBus.Emit(eventbus.Event{Kind: "iteration_start", Data: convCtx.Iteration})
-
-		// Stage 1: Request Preparation
-		prepared := a.Stage1.Process(convCtx)
-
-		// Stage 2: Provider Call
-		result := a.Stage2.Process(ctx, convCtx, prepared)
-		if result.Error != nil {
-			return nil, fmt.Errorf("provider call failed: %w", result.Error)
-		}
-
-		// Stage 3: Response Processing
-		parsed, err := a.Stage3.Process(ctx, result)
-		if err != nil {
-			return nil, fmt.Errorf("response processing failed: %w", err)
-		}
-
-		// Emit response event
-		a.EventBus.Emit(eventbus.Event{Kind: "response", Data: parsed})
-
-		// Stage 4: Tool Dispatch
-		dispatch := a.Stage4.Process(convCtx, parsed)
-
-		// Stage 5: Context Management
-		action := a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
-
-		// Emit iteration end event
-		a.EventBus.Emit(eventbus.Event{Kind: "iteration_end", Data: action})
-
-		convCtx.Iteration++
-
-		switch action {
-		case agentctx.StageActionYIELD:
-			a.persistSession(ctx, sessionID, convCtx)
-			return &agentctx.PipelineResult{
-				Response:   &parsed,
-				Iterations: convCtx.Iteration,
-				SessionID:  sessionID,
-			}, nil
-		case agentctx.StageActionTERMINATE:
-			a.persistSession(ctx, sessionID, convCtx)
-			return &agentctx.PipelineResult{
-				Response:         &parsed,
-				Iterations:       convCtx.Iteration,
-				MaxIterationsHit: convCtx.Iteration >= convCtx.MaxIterations,
-				SessionID:        sessionID,
-			}, nil
-		case agentctx.StageActionCONTINUE:
-			continue
-		}
+	caller := pipeline.NewBlockingCaller(a.Stage2, a.Stage3)
+	cfg := &pipeline.LoopConfig{
+		Stages: &pipeline.Stages{
+			Stage1: a.Stage1,
+			Stage2: a.Stage2,
+			Stage3: a.Stage3,
+			Stage4: a.Stage4,
+			Stage5: a.Stage5,
+		},
+		MaxContextTokens:     a.Config.MaxContextTokens,
+		EventBus:             a.EventBus,
+		MaxConsecutiveErrors: 1, // Blocking mode: any provider error is fatal (no retries)
+		PersistFunc: func(sid string) {
+			a.persistSession(ctx, sid, convCtx)
+		},
 	}
+
+	result := pipeline.RunPipelineLoop(ctx, convCtx, cfg, caller, sessionID)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return &agentctx.PipelineResult{
+		Response:         &result.Parsed,
+		Iterations:       result.Iterations,
+		Interrupted:      result.Interrupted,
+		MaxIterationsHit: result.MaxIterationsHit,
+		SessionID:        sessionID,
+	}, nil
 }
 
 // SetHotBlockCache sets the hot block cache for Telepathy-driven updates.
@@ -426,295 +384,46 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		sessionID = convCtx.SessionID
 	}
 
-	// Track consecutive provider errors to prevent infinite loops when
-	// TokenCount() estimate is lower than actual tokens and the LLM API
-	// rejects requests for context overflow. Without this counter, the loop
-	// would retry the same oversized request forever because the iteration
-	// counter only increments on successful Stage4/Stage5 processing.
-	consecutiveErrors := 0
-	const maxConsecutiveErrors = 3
+	caller := newStreamingCaller(a, out, ctx, convCtx)
+	cfg := &pipeline.LoopConfig{
+		Stages: &pipeline.Stages{
+			Stage1: a.Stage1,
+			Stage2: a.Stage2,
+			Stage3: a.Stage3,
+			Stage4: a.Stage4,
+			Stage5: a.Stage5,
+		},
+		MaxContextTokens:     a.Config.MaxContextTokens,
+		EventBus:             a.EventBus,
+		MaxConsecutiveErrors: 3,
+		PersistFunc: func(sid string) {
+			a.persistSession(ctx, sid, convCtx)
+		},
+	}
 
-	for {
-		if convCtx.Interrupt.IsSet() {
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return
-		}
-		if convCtx.Iteration >= convCtx.MaxIterations {
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return
-		}
-		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > effectiveMaxTokens(a.Config.MaxContextTokens) {
-			// Context exceeds token limit — yield with an informative message.
-			// Note: TokenCount() is a rough estimate (chars/4). We use a 90% safety
-			// margin so that the actual token count (which may be higher) doesn't
-			// exceed the LLM's context window.
+	result := pipeline.RunPipelineLoop(ctx, convCtx, cfg, caller, sessionID)
+
+	// Handle loop result — convert LoopResult to stream events
+	switch {
+	case result.Interrupted:
+		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+	case result.MaxIterationsHit:
+		if result.ContextOverflow {
 			out <- StreamEvent{Type: agentctx.StreamText, Text: "Context limit reached — conversation too long to continue."}
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return
 		}
-
-		// Stage 1: Request Preparation
-		prepared := a.Stage1.Process(convCtx)
-
-		// Stage 2: Try streaming with the router-selected provider
-		p, err := a.selectProvider(convCtx)
-		if err != nil {
-			out <- StreamEvent{Error: fmt.Errorf("provider error: %w", err)}
-			return
+		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+	case result.StoppedOnError:
+		if result.Error != nil {
+			out <- StreamEvent{Error: result.Error}
 		}
-
-		// Track the model name for failure demotion (provider name ≠ model name)
-		modelName := ""
-		if a.Router != nil {
-			modelCfg, selectErr := a.Router.Select(provider.RoutingContext{
-				Iteration:       convCtx.Iteration,
-				UserMessage:     firstUserMessage(convCtx.Messages),
-				HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
-				ToolCallCount:   countToolResults(convCtx.Messages),
-				PromptCharCount: convCtx.TokenCount() * 4,
-			})
-			if selectErr == nil {
-				modelName = modelCfg.Name
-			}
+		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+	case result.Action == agentctx.StageActionYIELD:
+		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+	case result.Action == agentctx.StageActionTERMINATE:
+		// Context overflow or max iterations — emit informative message
+		if result.ContextOverflow {
+			out <- StreamEvent{Type: agentctx.StreamText, Text: "Context limit reached — conversation too long to continue."}
 		}
-
-		req, err := p.Prepare(ctx, convCtx, prepared)
-		if err != nil {
-			out <- StreamEvent{Error: fmt.Errorf("prepare error: %w", err)}
-			return
-		}
-
-		// Try streaming
-		streamCh, streamErr := p.Stream(ctx, req)
-		if streamErr != nil {
-			// Streaming not supported or stream init error — fall back to non-streaming
-			action, turnErr := a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID, modelName)
-			if turnErr != nil {
-				consecutiveErrors++
-				if consecutiveErrors >= maxConsecutiveErrors {
-					out <- StreamEvent{Error: fmt.Errorf("provider failed %d times: %w", consecutiveErrors, turnErr)}
-					return
-				}
-				// Increment iteration on error to prevent infinite loop
-				convCtx.Iteration++
-				continue
-			}
-			consecutiveErrors = 0 // reset on success
-			switch action {
-			case agentctx.StageActionYIELD:
-				a.persistSession(ctx, sessionID, convCtx)
-				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-				return
-			case agentctx.StageActionTERMINATE:
-				a.persistSession(ctx, sessionID, convCtx)
-				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-				return
-			case agentctx.StageActionCONTINUE:
-				// Tool call was made — continue the loop
-			}
-			if convCtx.Iteration >= convCtx.MaxIterations {
-				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-				return
-			}
-			continue
-		}
-
-		// Process streaming events
-		parsed, err := a.processStreamingEvents(ctx, convCtx, out, streamCh, p, modelName)
-		if err != nil {
-			out <- StreamEvent{Error: err}
-			return
-		}
-
-		// Stage 4: Tool Dispatch (if tool calls present)
-		dispatch := a.Stage4.Process(convCtx, parsed)
-
-		// Stage 5: Context Management
-		action := a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
-
-		convCtx.Iteration++
-
-		switch action {
-		case agentctx.StageActionYIELD:
-			a.persistSession(ctx, sessionID, convCtx)
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return
-		case agentctx.StageActionTERMINATE:
-			// Context overflow or max iterations — emit informative message
-			if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(a.Config.MaxContextTokens) {
-				out <- StreamEvent{Type: agentctx.StreamText, Text: "Context limit reached — conversation too long to continue."}
-			}
-			a.persistSession(ctx, sessionID, convCtx)
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return
-		case agentctx.StageActionCONTINUE:
-			// Tool call was made — continue the loop
-			continue
-		}
+		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 	}
-}
-
-// processStreamingEvents handles the streaming events and constructs the parsed response.
-func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, streamCh <-chan agentctx.StreamEvent, p provider.Provider, modelName string) (agentctx.ParsedResponse, error) {
-	// Accumulate streaming response
-	var fullText string
-	var toolCalls []agentctx.ToolCall
-	var currentToolID string
-	var currentToolName string
-	var currentToolInput strings.Builder
-	var lastUsage *agentctx.UsageInfo
-	var stopReason string
-
-	for event := range streamCh {
-		// Check interrupt during streaming — allows Ctrl+C to break
-		// out of a streaming response mid-turn, not just between iterations.
-		if convCtx.Interrupt.IsSet() {
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
-			return agentctx.ParsedResponse{}, fmt.Errorf("interrupted")
-		}
-
-		switch event.Type {
-		case agentctx.StreamText:
-			out <- StreamEvent{Type: agentctx.StreamText, Text: event.Text}
-			fullText += event.Text
-		case agentctx.StreamToolStart:
-			currentToolID = event.ToolCallID
-			currentToolName = event.ToolName
-			currentToolInput.Reset()
-			out <- StreamEvent{Type: agentctx.StreamToolStart, ToolName: event.ToolName, ToolCallID: event.ToolCallID}
-		case agentctx.StreamToolDelta:
-			currentToolInput.WriteString(event.ToolInputDelta)
-		case agentctx.StreamToolEnd:
-			toolCalls = append(toolCalls, agentctx.ToolCall{
-				ID:        currentToolID,
-				Name:      currentToolName,
-				Arguments: json.RawMessage(currentToolInput.String()),
-			})
-		case agentctx.StreamError:
-			if a.Router != nil {
-				failName := p.Name()
-				if modelName != "" {
-					failName = modelName
-				}
-				a.Router.RecordFailure(failName)
-			}
-
-			// If this is not the primary provider, try the primary as immediate fallback
-			if p.Name() != a.Registry.Primary() {
-				if primary, err := a.Registry.GetPrimary(); err == nil {
-					log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
-					// Execute with primary provider (non-streaming)
-					_, fallbackErr := a.runTurnNonStreaming(ctx, convCtx, out, a.Stage1.Process(convCtx), primary, "", modelName)
-					if fallbackErr != nil {
-						return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback also failed: %w (original: %v)", fallbackErr, event.Error)
-					}
-					return agentctx.ParsedResponse{}, fmt.Errorf("fallback to primary provider")
-				} else {
-					return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)
-				}
-			} else {
-				// Primary provider failed, no fallback possible
-				return agentctx.ParsedResponse{}, fmt.Errorf("primary provider streaming failed: %w", event.Error)
-			}
-		case agentctx.StreamDone:
-			// Forward usage info from provider and track cost
-			lastUsage = event.Usage
-			if event.StopReason != "" {
-				stopReason = event.StopReason
-			}
-			out <- StreamEvent{Type: agentctx.StreamDone, Done: true, Usage: event.Usage}
-		}
-	}
-
-	// Build parsed response
-	parsed := agentctx.ParsedResponse{
-		Text:      fullText,
-		ToolCalls: toolCalls,
-	}
-	// Use actual stop reason from stream, fallback to heuristic
-	if stopReason != "" {
-		parsed.FinishReason = stopReason
-	} else if len(toolCalls) == 0 {
-		parsed.FinishReason = "stop"
-	} else {
-		parsed.FinishReason = "tool_use"
-	}
-
-	// Track cost for this turn
-	if a.Router != nil && lastUsage != nil {
-		a.Router.RecordTurnCost(p.Name(), lastUsage.PromptTokens, lastUsage.CompletionTokens, convCtx.Iteration)
-	}
-
-	// Record success (reset failure counter)
-	if a.Router != nil {
-		a.Router.RecordSuccess(p.Name())
-	}
-
-	// Emit tool execution events before dispatch
-	for _, tc := range toolCalls {
-		out <- StreamEvent{Type: agentctx.StreamToolExec, ToolName: tc.Name, ToolCallID: tc.ID}
-	}
-
-	return parsed, nil
-}
-
-// runTurnNonStreaming executes a single turn without streaming (fallback).
-// Returns the stage action and an error if the provider call failed.
-// On success, the action indicates whether to YIELD, TERMINATE, or CONTINUE.
-func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string, modelName string) (agentctx.StageAction, error) {
-	result := a.Stage2.Process(ctx, convCtx, prepared)
-	if result.Error != nil {
-		// Record failure for routing demotion — use model name if available
-		if a.Router != nil {
-			failName := p.Name()
-			if modelName != "" {
-				failName = modelName
-			}
-			a.Router.RecordFailure(failName)
-		}
-		// If this is not the primary provider, try the primary as immediate fallback
-		if p.Name() != a.Registry.Primary() {
-			if primary, err := a.Registry.GetPrimary(); err == nil {
-				log.Printf("Provider %q failed, falling back to primary %q: %v", p.Name(), primary.Name(), result.Error)
-				// Re-prepare and execute with primary
-				req, err2 := primary.Prepare(ctx, convCtx, prepared)
-				if err2 == nil {
-					fallbackResult, execErr := primary.Execute(ctx, req)
-					if execErr == nil && fallbackResult.Error == nil {
-						result = fallbackResult
-					}
-				}
-				if result.Error != nil {
-					err := fmt.Errorf("provider call failed: %w", result.Error)
-					out <- StreamEvent{Error: err}
-					return agentctx.StageActionYIELD, err
-				}
-			} else {
-				err := fmt.Errorf("provider call failed: %w", result.Error)
-				out <- StreamEvent{Error: err}
-				return agentctx.StageActionYIELD, err
-			}
-		} else {
-			err := fmt.Errorf("provider call failed: %w", result.Error)
-			out <- StreamEvent{Error: err}
-			return agentctx.StageActionYIELD, err
-		}
-	}
-
-	parsed, err := a.Stage3.Process(ctx, result)
-	if err != nil {
-		out <- StreamEvent{Error: fmt.Errorf("response processing failed: %w", err)}
-		return agentctx.StageActionYIELD, err
-	}
-
-	// Emit text as a single chunk
-	if parsed.Text != "" {
-		out <- StreamEvent{Type: agentctx.StreamText, Text: parsed.Text}
-	}
-
-	// Stage 4 & 5
-	dispatch := a.Stage4.Process(convCtx, parsed)
-	action := a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
-
-	return action, nil
 }
