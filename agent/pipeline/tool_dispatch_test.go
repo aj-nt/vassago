@@ -31,12 +31,12 @@ func TestToolBudget(t *testing.T) {
 	// Create tool dispatch stage
 	stage := NewToolDispatchStage(registry, &eventbus.EventBus{})
 
-	// Test FileRead budget (max 3)
+	// Test FileRead budget (max 5)
 	t.Run("FileRead_budget", func(t *testing.T) {
 		stage.callCounts = make(map[string]int)
 		
-		// First 3 calls should succeed
-		for i := 0; i < 3; i++ {
+		// First 5 calls should succeed
+		for i := 0; i < 5; i++ {
 			result := stage.Process(nil, agentctx.ParsedResponse{
 				ToolCalls: []agentctx.ToolCall{{
 					ID:       fmt.Sprintf("call%d", i),
@@ -49,27 +49,27 @@ func TestToolBudget(t *testing.T) {
 			}
 		}
 
-		// 4th call should be blocked
+		// 6th call should be blocked
 		result := stage.Process(nil, agentctx.ParsedResponse{
 			ToolCalls: []agentctx.ToolCall{{
-				ID:       "call4",
+				ID:       "call6",
 				Name:     "FileRead",
 				Arguments: []byte("{}"),
 			}},
 		})
 		if len(result.ToolResults) != 1 || !result.ToolResults[0].IsError {
-			t.Error("FileRead 4th call should be blocked")
-		} else if !contains(result.ToolResults[0].Result, "already called 3 times") {
+			t.Error("FileRead 6th call should be blocked")
+		} else if !contains(result.ToolResults[0].Result, "already called 5 times") {
 			t.Errorf("Expected budget exceeded message, got: %s", result.ToolResults[0].Result)
 		}
 	})
 
-	// Test Execute budget (max 2)
+	// Test Execute budget (max 10)
 	t.Run("Execute_budget", func(t *testing.T) {
 		stage.callCounts = make(map[string]int)
 		
-		// First 2 calls should succeed
-		for i := 0; i < 2; i++ {
+		// First 10 calls should succeed
+		for i := 0; i < 10; i++ {
 			result := stage.Process(nil, agentctx.ParsedResponse{
 				ToolCalls: []agentctx.ToolCall{{
 					ID:       fmt.Sprintf("call%d", i),
@@ -82,17 +82,17 @@ func TestToolBudget(t *testing.T) {
 			}
 		}
 
-		// 3rd call should be blocked
+		// 11th call should be blocked
 		result := stage.Process(nil, agentctx.ParsedResponse{
 			ToolCalls: []agentctx.ToolCall{{
-				ID:       "call3",
+				ID:       "call11",
 				Name:     "Execute",
 				Arguments: []byte("{}"),
 			}},
 		})
 		if len(result.ToolResults) != 1 || !result.ToolResults[0].IsError {
-			t.Error("Execute 3rd call should be blocked")
-		} else if !contains(result.ToolResults[0].Result, "already called 2 times") {
+			t.Error("Execute 11th call should be blocked")
+		} else if !contains(result.ToolResults[0].Result, "already called 10 times") {
 			t.Errorf("Expected budget exceeded message, got: %s", result.ToolResults[0].Result)
 		}
 	})

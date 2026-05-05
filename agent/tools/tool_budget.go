@@ -7,10 +7,12 @@ import "fmt"
 
 // PerToolBudget defines the maximum number of calls per tool per turn.
 // Tools not in this map have unlimited calls.
+// Execute raised from 2 to 10 now that we have proper dangerous-command
+// validation (isDangerousCommand) and chain-splitting (splitChainedCommands).
 var PerToolBudget = map[string]int{
-	"FileRead":    3,
-	"FileSearch":  2,
-	"Execute":     2,
+	"FileRead":    5,  // raised from 3 — common to read several files in one turn
+	"FileSearch":  3,  // raised from 2 — often need multiple searches
+	"Execute":     10, // raised from 2 — chaining support + approval gate means 2 is too restrictive
 }
 
 // CheckBudget returns true if the tool has NOT exceeded its per-turn budget.
