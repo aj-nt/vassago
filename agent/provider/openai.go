@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -144,7 +145,33 @@ func (p *OpenAIProvider) Prepare(_ context.Context, convCtx *agentctx.Conversati
 		body[k] = v
 	}
 
+	debugLogMessages(messages)
+
 	return body, nil
+}
+
+// debugLogMessages logs the messages being sent to the provider for debugging.
+// Enabled when MNEMO_DEBUG environment variable is set.
+func debugLogMessages(messages []map[string]interface{}) {
+	if os.Getenv("MNEMO_DEBUG") == "" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\n=== Provider Request Messages ===\n")
+	for i, m := range messages {
+		role := m["role"]
+		content, _ := m["content"].(string)
+		if len(content) > 200 {
+			content = content[:200] + "..."
+		}
+		if tc, ok := m["tool_calls"]; ok {
+			fmt.Fprintf(os.Stderr, "  [%d] role=%s tool_calls=%v content=%q\n", i, role, tc, content)
+		} else if tcid, ok := m["tool_call_id"]; ok {
+			fmt.Fprintf(os.Stderr, "  [%d] role=%s tool_call_id=%v name=%v content=%q\n", i, role, tcid, m["name"], content)
+		} else {
+			fmt.Fprintf(os.Stderr, "  [%d] role=%s content=%q\n", i, role, content)
+		}
+	}
+	fmt.Fprintf(os.Stderr, "=== End Messages ===\n\n")
 }
 
 // Execute sends the request to the OpenAI-compatible API.
