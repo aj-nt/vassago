@@ -5,6 +5,8 @@ package agent
 
 import (
 	"testing"
+
+	"github.com/aj-nt/mnemosyne/agent/provider"
 )
 
 func TestAgentConfigValidate(t *testing.T) {
@@ -123,6 +125,70 @@ func TestToAgentConfig(t *testing.T) {
 	}
 	if result.Temperature != 0.7 {
 		t.Errorf("Temperature = %v, want 0.7", result.Temperature)
+	}
+	// Default: no routing models → 128000
+	if result.MaxContextTokens != 128000 {
+		t.Errorf("MaxContextTokens = %d, want 128000 (default when no models)", result.MaxContextTokens)
+	}
+}
+
+func TestToAgentConfig_ContextFromRoutingModels(t *testing.T) {
+	tests := []struct {
+		name           string
+		models         []provider.ModelConfig
+		wantMaxContext int
+	}{
+		{
+			name:           "no models defaults to 128000",
+			models:         nil,
+			wantMaxContext: 128000,
+		},
+		{
+			name: "single model uses its context window",
+		models: []provider.ModelConfig{
+			{Name: "claude-sonnet-4-6", Provider: "anthropic", ContextWindow: 200000},
+		},
+			wantMaxContext: 200000,
+		},
+		{
+			name: "uses smallest context window across models",
+			models: []provider.ModelConfig{
+				{Name: "claude-sonnet-4-6", Provider: "anthropic", ContextWindow: 200000},
+				{Name: "glm-5.1:cloud", Provider: "openai", ContextWindow: 32000},
+			},
+			wantMaxContext: 32000,
+		},
+		{
+			name: "ignores models with zero context window",
+			models: []provider.ModelConfig{
+				{Name: "claude-sonnet-4-6", Provider: "anthropic", ContextWindow: 200000},
+				{Name: "local-model", Provider: "openai", ContextWindow: 0}, // unknown
+			},
+			wantMaxContext: 200000,
+		},
+		{
+			name: "real config: claude 200K + glm 200K = 200K",
+			models: []provider.ModelConfig{
+				{Name: "claude-sonnet-4-6", Provider: "anthropic", ContextWindow: 200000, Reasoning: "high", ToolUse: true, Speed: "medium"},
+				{Name: "glm-5.1:cloud", Provider: "openai", ContextWindow: 200000, Reasoning: "low", ToolUse: true, Speed: "fast"},
+			},
+			wantMaxContext: 200000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := AgentConfig{
+				Agent:      AgentSection{ID: "test", MaxTurns: 10},
+				Provider:   ProviderSection{Name: "anthropic", Model: "claude-sonnet-4-6"},
+				Mnemosyne:  MnemosyneSection{Address: "localhost:50051"},
+				Routing:    RoutingSection{Models: tt.models},
+			}
+			result := cfg.ToAgentConfig()
+			if result.MaxContextTokens != tt.wantMaxContext {
+				t.Errorf("MaxContextTokens = %d, want %d", result.MaxContextTokens, tt.wantMaxContext)
+			}
+		})
 	}
 }
 

@@ -431,14 +431,29 @@ func (c *AgentConfig) Validate() error {
 
 // ToAgentConfig converts the YAML config to the Agent's Config struct.
 func (c *AgentConfig) ToAgentConfig() Config {
+	// Compute MaxContextTokens from the smallest context_window in the routing models.
+	// This ensures we never overflow a smaller model's context window.
+	// If no models are defined, fall back to 128000.
+	maxContextTokens := 0
+	for _, m := range c.Routing.Models {
+		if m.ContextWindow > 0 {
+			if maxContextTokens == 0 || m.ContextWindow < maxContextTokens {
+				maxContextTokens = m.ContextWindow
+			}
+		}
+	}
+	if maxContextTokens == 0 {
+		maxContextTokens = 128000
+	}
+
 	return Config{
-		AgentID:      c.Agent.ID,
-		AgentName:    c.Agent.Name,
-		AgentRole:    c.Agent.Role,
-		Personality:  c.Agent.Personality,
-		Temperature:  c.Provider.Temperature,
-		MaxTurns:      c.Agent.MaxTurns,
-		MaxContextTokens: 128000,
+		AgentID:          c.Agent.ID,
+		AgentName:        c.Agent.Name,
+		AgentRole:        c.Agent.Role,
+		Personality:      c.Agent.Personality,
+		Temperature:      c.Provider.Temperature,
+		MaxTurns:         c.Agent.MaxTurns,
+		MaxContextTokens:  maxContextTokens,
 		HotBlockConfig: HotBlockConfig{
 			CharLimit:          c.HotBlock.MemoryCharLimit,
 			MinPriority:        c.HotBlock.MinPriority,
