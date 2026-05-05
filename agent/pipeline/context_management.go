@@ -28,9 +28,25 @@ func truncateToolResult(result string, isError bool) string {
 		return result
 	}
 
+	// If the result has very few lines but many chars (single long line),
+	// truncate by character count instead of lines.
+	if len(lines) <= maxToolResultLines/2 {
+		half := maxToolResultChars / 2
+		if len(result) > half {
+			return fmt.Sprintf("%s\n\n... (truncated: %d total chars, showing first %d)", result[:half], len(result), half)
+		}
+		return result
+	}
+
 	// Show head + tail: first half of maxToolResultLines, then last quarter
 	headCount := maxToolResultLines / 2
 	tailCount := maxToolResultLines / 4
+	if headCount > len(lines) {
+		headCount = len(lines)
+	}
+	if tailCount > len(lines) {
+		tailCount = len(lines)
+	}
 	head := strings.Join(lines[:headCount], "\n")
 	tail := strings.Join(lines[len(lines)-tailCount:], "\n")
 
@@ -135,14 +151,36 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionYIELD
 	}
 
-	// Detect stuck agent FIRST — check both current tool results and
-	// conversation history for consecutive failures. This takes priority
-	// over loop detection because stuck detection provides a helpful message
-	// to the user, while loop detection just silently breaks the loop.
+	// PRIORITY 1: Check if the context is already over the token limit.
+	// This must come before loop detection because:
+	// - If the context is too large, the LLM can't process it anyway
+	// - Loop detection returns YIELD (conversation ends), but doesn't truncate
+	//   or emit the "Context limit reached" message
+	// - An oversized context that's YIELDed will still be oversized on the next turn
+	compacted := false
+	if s.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
+		compactContext(convCtx, s.MaxContextTokens)
+		compacted = true
+
+		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
+			// Aggressively truncate tool results over 500 chars to summary placeholders
+			for i := range convCtx.Messages {
+				if convCtx.Messages[i].Role == "tool" && len(convCtx.Messages[i].Content) > 500 {
+					convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", convCtx.Messages[i].Name, len(convCtx.Messages[i].Content))
+				}
+			}
+			if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
+				return agentctx.StageActionTERMINATE
+			}
+		}
+	}
+
+	// PRIORITY 2: Detect stuck agent — check both current tool results and
+	// conversation history for consecutive failures. Stuck detection yields
+	// a helpful message to the user.
 	stuckFromResults := isStuck(toolResults)
 	stuckFromHistory := isStuckFromHistory(convCtx.Messages)
 	if stuckFromResults || stuckFromHistory {
-		// Replace tool calls with a text-only response asking for clarification
 		convCtx.AddMessage(agentctx.Message{
 			Role:    "assistant",
 			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
@@ -150,15 +188,16 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionYIELD
 	}
 
-	// Detect same-tool loop: if the same tool name appears 3+ times consecutively
-	// in tool calls with no text response between iterations, break the loop.
-	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
+	// PRIORITY 3: Detect same-tool loop — same tool 3+ times consecutively
+	// Skip loop detection if we just compacted — compaction changes the context
+	// and the agent should have a chance to continue with the smaller context.
+	if !compacted && isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
 		return agentctx.StageActionYIELD
 	}
 
-	// Detect cross-tool loop: if there have been 4+ consecutive iterations with ANY tool calls,
-	// break the loop to prevent agents from looping across different tools.
-	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
+	// PRIORITY 4: Detect cross-tool loop — 4+ consecutive tool iterations
+	// Skip loop detection if we just compacted (same reasoning as above).
+	if !compacted && isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
 		return agentctx.StageActionYIELD
 	}
 
@@ -189,20 +228,17 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 		return agentctx.StageActionTERMINATE
 	}
 
-	// Check context token limit — try compaction before terminating
+	// Check context token limit again after appending new messages — try compaction
 	if s.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
 		compactContext(convCtx, s.MaxContextTokens)
 
-		// If still over limit after compaction, terminate
 		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-			// Aggressively truncate any tool results we just added that are still large
-			// This helps when a single turn added multiple large results that pushed context over
+			// Aggressively truncate large tool results
 			for i := range convCtx.Messages {
 				if convCtx.Messages[i].Role == "tool" && len(convCtx.Messages[i].Content) > 500 {
 					convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", convCtx.Messages[i].Name, len(convCtx.Messages[i].Content))
 				}
 			}
-			// Check again after aggressive truncation
 			if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
 				return agentctx.StageActionTERMINATE
 			}
