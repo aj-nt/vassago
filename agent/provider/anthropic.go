@@ -138,10 +138,24 @@ func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.Convers
 	if len(prepared.Tools) > 0 && p.capabilities.SupportsFunctionCalling {
 		tools := make([]map[string]interface{}, 0, len(prepared.Tools))
 		for _, t := range prepared.Tools {
+			// Normalize input_schema for Anthropic: must have "type": "object"
+			schema := t.Parameters
+			if schema == nil {
+				schema = map[string]interface{}{}
+			}
+			// Ensure "type" is set — Anthropic requires it, OpenAI defaults it
+			if _, hasType := schema["type"]; !hasType {
+				schemaCopy := make(map[string]interface{}, len(schema)+1)
+				for k, v := range schema {
+					schemaCopy[k] = v
+				}
+				schemaCopy["type"] = "object"
+				schema = schemaCopy
+			}
 			tool := map[string]interface{}{
 				"name":        t.Name,
 				"description": t.Description,
-				"input_schema": t.Parameters,
+				"input_schema": schema,
 			}
 			tools = append(tools, tool)
 		}
