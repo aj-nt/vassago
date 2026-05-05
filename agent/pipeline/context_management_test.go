@@ -151,26 +151,28 @@ func TestContextManagementStageProcess_AppendsErrorToolResults(t *testing.T) {
 }
 
 func TestContextManagementStageProcess_CompactsOldToolResults(t *testing.T) {
-	// Build a context with old tool calls that should be compacted
+	// Build a context with old tool calls and enough content to exceed a low token limit
 	args, _ := json.Marshal(map[string]interface{}{})
+
+	longToolResult := strings.Repeat("data ", 100) // > 500 chars → ~125 tokens
 
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
-			{Role: "user", Content: "What's my name?"},
+			{Role: "user", Content: strings.Repeat("question ", 50)}, // long enough to contribute
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
-			{Role: "tool", Content: "Found: AJ", ToolCallID: "1", Name: "SearchMemories"},
+			{Role: "tool", Content: longToolResult, ToolCallID: "1", Name: "SearchMemories"},
 			{Role: "assistant", Content: "Your name is AJ."},
 			{Role: "user", Content: "What's the weather?"},
 			{Role: "assistant", Content: "I don't have weather data."},
 		},
 		MaxIterations: 10,
-		Iteration:      0,
+		Iteration:     0,
 	}
 
-	// Trigger compaction with a low token limit
-	compactContext(convCtx, 50) // very low limit
+	// Trigger compaction with a very low token limit → the long tool result forces compaction
+	convCtx.Compact(50)
 
-	// The old tool result should be removed
+	// The old tool result should be removed (it's before the yield point "Your name is AJ.")
 	toolCount := 0
 	for _, m := range convCtx.Messages {
 		if m.Role == "tool" {
@@ -362,7 +364,7 @@ func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
 func TestTruncateToolResult_ShortResult(t *testing.T) {
 	shortResult := "This is a short result\nwith only a few lines\nnot enough to trigger truncation"
 	
-	result := truncateToolResult(shortResult, false)
+	result := agentctx.TruncateToolResult(shortResult, false)
 	if result != shortResult {
 		t.Errorf("Expected short result to remain unchanged, got:\n%s", result)
 	}
@@ -376,7 +378,7 @@ func TestTruncateToolResult_LongResult(t *testing.T) {
 	}
 	longResult := strings.Join(lines, "\n")
 	
-	result := truncateToolResult(longResult, false)
+	result := agentctx.TruncateToolResult(longResult, false)
 	
 	// Result should have head + tail format
 	resultLines := strings.Split(result, "\n")
@@ -419,7 +421,7 @@ func TestTruncateToolResult_LongResult(t *testing.T) {
 func TestTruncateToolResult_ErrorResult(t *testing.T) {
 	errorResult := "This is an error message\nthat should not be truncated"
 	
-	result := truncateToolResult(errorResult, true)
+	result := agentctx.TruncateToolResult(errorResult, true)
 	if result != errorResult {
 		t.Errorf("Expected error result to remain unchanged, got:\n%s", result)
 	}
@@ -433,7 +435,7 @@ func TestTruncateToolResult_ExactFormat(t *testing.T) {
 	}
 	input := strings.Join(lines, "\n")
 	
-	result := truncateToolResult(input, false)
+	result := agentctx.TruncateToolResult(input, false)
 	
 	// Check that result contains head (50 lines) + summary + tail (25 lines)
 	resultLines := strings.Split(result, "\n")
@@ -714,10 +716,10 @@ func TestContextManagement_BreaksStuckLoop_ViaHistory(t *testing.T) {
 // --- Aggressive compaction tests ---
 
 func TestCompactContext_HighIteration(t *testing.T) {
-	// Test that iteration 5+ strips long tool results
+	// Test that iteration 5+ strips long tool results when over the token limit
 	args, _ := json.Marshal(map[string]interface{}{})
 
-	// Create a context with a long tool result
+	// Create a context with a long tool result and enough total content to exceed a low limit
 	longResult := "This is a very long tool result that contains lots of information " +
 		"and should be stripped down to a summary during aggressive compaction for " +
 		"high iteration counts. This text needs to be over 200 characters to trigger " +
@@ -725,7 +727,7 @@ func TestCompactContext_HighIteration(t *testing.T) {
 
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
-			{Role: "user", Content: "What's my name?"},
+			{Role: "user", Content: strings.Repeat("question ", 100)}, // force over limit
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
 			{Role: "tool", Content: longResult, ToolCallID: "1", Name: "SearchMemories"},
 		},
@@ -733,10 +735,10 @@ func TestCompactContext_HighIteration(t *testing.T) {
 		Iteration:     5, // High iteration should trigger aggressive compaction
 	}
 
-	// Trigger compaction
-	compactContext(convCtx, 1000) // High limit so we don't trigger normal compaction
+	// Trigger compaction with a low limit so it actually compacts
+	convCtx.Compact(50)
 
-	// The long tool result should be replaced with a summary
+	// The long tool result should be replaced with a summary (by Phase 0 aggressive stripping)
 	foundSummary := false
 	for _, m := range convCtx.Messages {
 		if m.Role == "tool" && strings.Contains(m.Content, "[tool result:") {
@@ -772,9 +774,9 @@ func TestIsResultNotFound(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := isResultNotFound(tt.content)
+		result := agentctx.IsResultNotFound(tt.content)
 		if result != tt.expected {
-			t.Errorf("isResultNotFound(%q) = %v, expected %v", tt.content, result, tt.expected)
+			t.Errorf("IsResultNotFound(%q) = %v, expected %v", tt.content, result, tt.expected)
 		}
 	}
 }

@@ -168,9 +168,9 @@ func TestRT_ResultNotFound_EdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		result := isResultNotFound(tc.content)
+		result := agentctx.IsResultNotFound(tc.content)
 		if result != tc.expected {
-			t.Errorf("isResultNotFound(%q) = %v, expected %v", tc.content, result, tc.expected)
+			t.Errorf("IsResultNotFound(%q) = %v, expected %v", tc.content, result, tc.expected)
 		}
 	}
 }

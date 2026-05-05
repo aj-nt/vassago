@@ -4,67 +4,235 @@
 package pipeline
 
 import (
-	"fmt"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 )
 
-const (
-	maxToolResultLines = 100
-	maxToolResultChars = 4000
-)
+// ContextHandler is a link in the Chain of Responsibility for context management.
+// Each handler checks a specific condition. If it handles the request (returns
+// handled=true), the chain stops. Otherwise, it passes to the next handler.
+type ContextHandler interface {
+	// Handle checks a condition in the pipeline. Returns (action, handled).
+	// If handled=true, the chain stops and the action is returned.
+	// If handled=false, the next handler in the chain is called.
+	Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool)
+}
 
-// truncateToolResult truncates long tool results to prevent context bloat.
-// Keeps first half and last quarter of lines, with a summary in between.
-// Error results are never truncated (they're usually short and important).
-func truncateToolResult(result string, isError bool) string {
-	if isError {
-		return result
-	}
+// HandlerChain executes a sequence of ContextHandlers in order.
+// The first handler that returns handled=true wins.
+type HandlerChain struct {
+	handlers []ContextHandler
+}
 
-	lines := strings.Split(result, "\n")
-	if len(lines) <= maxToolResultLines && len(result) <= maxToolResultChars {
-		return result
-	}
+// NewHandlerChain creates a chain from the given handlers.
+func NewHandlerChain(handlers ...ContextHandler) *HandlerChain {
+	return &HandlerChain{handlers: handlers}
+}
 
-	// If the result has very few lines but many chars (single long line),
-	// truncate by character count instead of lines.
-	if len(lines) <= maxToolResultLines/2 {
-		half := maxToolResultChars / 2
-		if len(result) > half {
-			return fmt.Sprintf("%s\n\n... (truncated: %d total chars, showing first %d)", result[:half], len(result), half)
+// Handle walks the chain. Returns the action from the first handler that
+// handles the request, or StageActionCONTINUE if none do.
+func (c *HandlerChain) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) agentctx.StageAction {
+	for _, h := range c.handlers {
+		action, handled := h.Handle(convCtx, toolResults, parsed)
+		if handled {
+			return action
 		}
-		return result
 	}
-
-	// Show head + tail: first half of maxToolResultLines, then last quarter
-	headCount := maxToolResultLines / 2
-	tailCount := maxToolResultLines / 4
-	if headCount > len(lines) {
-		headCount = len(lines)
-	}
-	if tailCount > len(lines) {
-		tailCount = len(lines)
-	}
-	head := strings.Join(lines[:headCount], "\n")
-	tail := strings.Join(lines[len(lines)-tailCount:], "\n")
-
-	return fmt.Sprintf("%s\n\n... (truncated: %d total lines, %d chars, showing first %d and last %d)\n\n%s",
-		head, len(lines), len(result), headCount, tailCount, tail)
+	return agentctx.StageActionCONTINUE
 }
 
-// isResultNotFound checks if a tool result content indicates a "not found" condition.
-func isResultNotFound(content string) bool {
-	lower := strings.ToLower(content)
-	return strings.Contains(lower, "not found") ||
-		strings.Contains(lower, "no such file") ||
-		strings.Contains(lower, "does not exist") ||
-		strings.Contains(lower, "no results") ||
-		strings.Contains(lower, "no matches") ||
-		strings.Contains(lower, "0 files found") ||
-		strings.Contains(lower, "empty result")
+// --- Concrete handlers ---
+
+// OverflowHandler checks if the context exceeds the token limit and
+// attempts compaction. If compaction doesn't bring it under the limit,
+// it terminates the loop. This must be PRIORITY 1 — a bloated context
+// makes all other checks unreliable.
+type OverflowHandler struct {
+	MaxContextTokens int
 }
+
+// Handle checks context overflow.
+func (h *OverflowHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	if h.MaxContextTokens <= 0 || !convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Try to compact
+	convCtx.Compact(h.MaxContextTokens)
+
+	// If still over after compaction, aggressively summarize
+	if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+		convCtx.SummarizeLargeToolResults(500)
+		if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+			return agentctx.StageActionTERMINATE, true
+		}
+	}
+
+	// Compaction succeeded — let later handlers run with the smaller context.
+	// We track that compaction happened to suppress loop detection (the model
+	// needs a chance to operate on the newly compacted context).
+	// This is surfaced by attaching compacted=true to the next handler's state.
+	// Instead of passing a flag, we store it on the context for the next handler.
+	convCtx.CompactedThisTurn = true
+	return agentctx.StageActionCONTINUE, false
+}
+
+// StuckHandler detects if the agent is stuck (consecutive errors or "not found"
+// results). It yields a helpful message to break the loop.
+type StuckHandler struct{}
+
+// Handle checks for stuck agent patterns.
+func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	stuckFromResults := isStuck(toolResults)
+	stuckFromHistory := isStuckFromHistory(convCtx.Messages)
+
+	if stuckFromResults || stuckFromHistory {
+		convCtx.AddMessage(agentctx.Message{
+			Role:    "assistant",
+			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
+		})
+		return agentctx.StageActionYIELD, true
+	}
+
+	return agentctx.StageActionCONTINUE, false
+}
+
+// RepetitiveLoopHandler detects same-tool loops (e.g., GetHotBlock called
+// 3+ times consecutively). Skipped if the context was just compacted.
+type RepetitiveLoopHandler struct{}
+
+// Handle checks for repetitive tool loops.
+func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Skip loop detection after compaction — the model should get a chance
+	// with the smaller context.
+	if convCtx.CompactedThisTurn {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
+		return agentctx.StageActionYIELD, true
+	}
+
+	return agentctx.StageActionCONTINUE, false
+}
+
+// ConsecutiveLoopHandler detects cross-tool loops (4+ consecutive tool
+// iterations regardless of tool name). Skipped after compaction.
+type ConsecutiveLoopHandler struct{}
+
+// Handle checks for consecutive iteration loops.
+func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Skip loop detection after compaction
+	if convCtx.CompactedThisTurn {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
+		return agentctx.StageActionYIELD, true
+	}
+
+	return agentctx.StageActionCONTINUE, false
+}
+
+// AppendAndContinueHandler appends assistant messages and tool results to the
+// conversation, then checks iteration and overflow limits. This is always
+// the last handler in the chain — it does the bookkeeping that allows the
+// loop to continue.
+type AppendAndContinueHandler struct {
+	MaxContextTokens int
+}
+
+// Handle appends messages and checks post-append limits.
+func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Append assistant message with tool calls
+	assistantMsg := agentctx.Message{
+		Role:      "assistant",
+		Content:   parsed.Text,
+		ToolCalls: parsed.ToolCalls,
+	}
+	convCtx.AddMessage(assistantMsg)
+
+	// Append tool results (with truncation)
+	convCtx.AppendToolResults(toolResults)
+
+	// Check iteration limit
+	if convCtx.Iteration >= convCtx.MaxIterations {
+		return agentctx.StageActionTERMINATE, true
+	}
+
+	// Check context token limit again after appending
+	if h.MaxContextTokens > 0 && convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+		convCtx.Compact(h.MaxContextTokens)
+
+		if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+			// Aggressively truncate large tool results
+			convCtx.SummarizeLargeToolResults(500)
+			if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+				return agentctx.StageActionTERMINATE, true
+			}
+		}
+	}
+
+	// Continue the loop to process tool results
+	return agentctx.StageActionCONTINUE, true
+}
+
+// ContextManagementStage appends results, checks limits, and decides whether to loop.
+// When the context exceeds the token limit, it attempts to compact by removing old
+// tool call/result pairs before terminating.
+//
+// Internally, it uses a Chain of Responsibility pattern: a sequence of handlers
+// that each check a specific condition. The first handler that "handles" the
+// request determines the action. The chain order is:
+//
+//	1. OverflowHandler     — compact/terminate on token overflow
+//	2. StuckHandler        — yield on consecutive errors/not-found
+//	3. RepetitiveLoopHandler — yield on same-tool loops (3+ repeats)
+//	4. ConsecutiveLoopHandler — yield on cross-tool loops (4+ iterations)
+//	5. AppendAndContinueHandler — append messages + check limits, then CONTINUE
+type ContextManagementStage struct {
+	MaxContextTokens int
+	chain            *HandlerChain
+}
+
+// NewContextManagementStage creates a new Stage 5 with the default handler chain.
+func NewContextManagementStage(maxContextTokens int) *ContextManagementStage {
+	s := &ContextManagementStage{MaxContextTokens: maxContextTokens}
+	s.chain = s.defaultChain()
+	return s
+}
+
+// defaultChain builds the standard handler chain used in production.
+func (s *ContextManagementStage) defaultChain() *HandlerChain {
+	return NewHandlerChain(
+		&OverflowHandler{MaxContextTokens: s.MaxContextTokens},
+		&StuckHandler{},
+		&RepetitiveLoopHandler{},
+		&ConsecutiveLoopHandler{},
+		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens},
+	)
+}
+
+// Process updates the conversation context and returns the next action.
+// If the LLM returned text (no tool calls), it returns YIELD immediately.
+// Otherwise, it runs the handler chain.
+func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) agentctx.StageAction {
+	// Reset per-turn state (always, even for YIELD paths)
+	convCtx.CompactedThisTurn = false
+
+	// If LLM just returned text (no tool calls), we're done
+	if len(parsed.ToolCalls) == 0 {
+		return agentctx.StageActionYIELD
+	}
+
+	// Run the handler chain
+	action := s.chain.Handle(convCtx, toolResults, parsed)
+
+	return action
+}
+
+// --- Helper functions that remain local to pipeline ---
 
 // isStuckFromHistory checks conversation messages for recent tool failures.
 // It looks at the last N tool results in the conversation history for consecutive
@@ -99,7 +267,7 @@ func isStuckFromHistory(messages []agentctx.Message) bool {
 	// Check if the last 2+ tool results all indicate failure
 	failureCount := 0
 	for _, r := range recentResults {
-		if r.isError || isResultNotFound(r.content) {
+		if r.isError || agentctx.IsResultNotFound(r.content) {
 			failureCount++
 		}
 	}
@@ -125,246 +293,15 @@ func isStuck(results []agentctx.ToolResult) bool {
 	}
 
 	// Check if both contain "not found" or "no such file" (case insensitive)
-	if isResultNotFound(lastResult.Result) && isResultNotFound(secondLastResult.Result) {
+	if agentctx.IsResultNotFound(lastResult.Result) && agentctx.IsResultNotFound(secondLastResult.Result) {
 		return true
 	}
 
 	return false
 }
 
-// ContextManagementStage appends results, checks limits, and decides whether to loop.
-// When the context exceeds the token limit, it attempts to compact by removing old
-// tool call/result pairs before terminating.
-type ContextManagementStage struct {
-	MaxContextTokens int
-}
-
-// NewContextManagementStage creates a new Stage 5.
-func NewContextManagementStage(maxContextTokens int) *ContextManagementStage {
-	return &ContextManagementStage{MaxContextTokens: maxContextTokens}
-}
-
-// Process updates the conversation context and returns the next action.
-func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) agentctx.StageAction {
-	// If LLM just returned text (no tool calls), we're done
-	if len(parsed.ToolCalls) == 0 {
-		return agentctx.StageActionYIELD
-	}
-
-	// PRIORITY 1: Check if the context is already over the token limit.
-	// This must come before loop detection because:
-	// - If the context is too large, the LLM can't process it anyway
-	// - Loop detection returns YIELD (conversation ends), but doesn't truncate
-	//   or emit the "Context limit reached" message
-	// - An oversized context that's YIELDed will still be oversized on the next turn
-	compacted := false
-	if s.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-		compactContext(convCtx, s.MaxContextTokens)
-		compacted = true
-
-		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-			// Aggressively truncate tool results over 500 chars to summary placeholders
-			for i := range convCtx.Messages {
-				if convCtx.Messages[i].Role == "tool" && len(convCtx.Messages[i].Content) > 500 {
-					convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", convCtx.Messages[i].Name, len(convCtx.Messages[i].Content))
-				}
-			}
-			if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-				return agentctx.StageActionTERMINATE
-			}
-		}
-	}
-
-	// PRIORITY 2: Detect stuck agent — check both current tool results and
-	// conversation history for consecutive failures. Stuck detection yields
-	// a helpful message to the user.
-	stuckFromResults := isStuck(toolResults)
-	stuckFromHistory := isStuckFromHistory(convCtx.Messages)
-	if stuckFromResults || stuckFromHistory {
-		convCtx.AddMessage(agentctx.Message{
-			Role:    "assistant",
-			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
-		})
-		return agentctx.StageActionYIELD
-	}
-
-	// PRIORITY 3: Detect same-tool loop — same tool 3+ times consecutively
-	// Skip loop detection if we just compacted — compaction changes the context
-	// and the agent should have a chance to continue with the smaller context.
-	if !compacted && isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
-		return agentctx.StageActionYIELD
-	}
-
-	// PRIORITY 4: Detect cross-tool loop — 4+ consecutive tool iterations
-	// Skip loop detection if we just compacted (same reasoning as above).
-	if !compacted && isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
-		return agentctx.StageActionYIELD
-	}
-
-	// Append assistant message with tool calls
-	assistantMsg := agentctx.Message{
-		Role:      "assistant",
-		Content:   parsed.Text,
-		ToolCalls: parsed.ToolCalls,
-	}
-	convCtx.AddMessage(assistantMsg)
-
-	// Append tool results (truncated to prevent context bloat)
-	for _, tr := range toolResults {
-		content := truncateToolResult(tr.Result, tr.IsError)
-		if tr.IsError {
-			content = fmt.Sprintf("Error: %s", content)
-		}
-		convCtx.AddMessage(agentctx.Message{
-			Role:       "tool",
-			Content:    content,
-			ToolCallID: tr.CallID,
-			Name:       tr.Name,
-		})
-	}
-
-	// Check iteration limit
-	if convCtx.Iteration >= convCtx.MaxIterations {
-		return agentctx.StageActionTERMINATE
-	}
-
-	// Check context token limit again after appending new messages — try compaction
-	if s.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-		compactContext(convCtx, s.MaxContextTokens)
-
-		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-			// Aggressively truncate large tool results
-			for i := range convCtx.Messages {
-				if convCtx.Messages[i].Role == "tool" && len(convCtx.Messages[i].Content) > 500 {
-					convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", convCtx.Messages[i].Name, len(convCtx.Messages[i].Content))
-				}
-			}
-			if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
-				return agentctx.StageActionTERMINATE
-			}
-		}
-	}
-
-	// Continue the loop to process tool results
-	return agentctx.StageActionCONTINUE
-}
-
-// compactContext removes old messages from the conversation to bring it under
-// the token limit. Strategy (in order):
-//  1. Remove old tool call/result pairs (keep the assistant text summary)
-//  2. Remove oldest user/assistant pairs, preserving the most recent context
-//
-// The system prompt is not compacted — it's always included.
-func compactContext(convCtx *agentctx.ConversationContext, maxTokens int) {
-	// Phase 0: For high iterations (5+), aggressively strip tool results
-	// The model has had multiple chances to read the details — now force it
-	// to rely on accumulated understanding.
-	if convCtx.Iteration >= 5 {
-		for i, msg := range convCtx.Messages {
-			if msg.Role == "tool" && len(msg.Content) > 200 {
-				convCtx.Messages[i].Content = fmt.Sprintf("[tool result: %s (%d chars)]", msg.Name, len(msg.Content))
-			}
-		}
-	}
-
-	// Phase 1: Strip old tool results and summarize tool calls
-	// Find the last YIELD point (assistant text response with no tool calls)
-	lastYieldIdx := -1
-	for i := len(convCtx.Messages) - 1; i >= 0; i-- {
-		if convCtx.Messages[i].Role == "assistant" && len(convCtx.Messages[i].ToolCalls) == 0 && convCtx.Messages[i].Content != "" {
-			lastYieldIdx = i
-			break
-		}
-	}
-
-	if lastYieldIdx > 0 {
-		// Compact messages before the last yield point
-		var compacted []agentctx.Message
-		for i, msg := range convCtx.Messages {
-			switch msg.Role {
-			case "user":
-				compacted = append(compacted, msg)
-			case "assistant":
-				if i < lastYieldIdx && len(msg.ToolCalls) > 0 {
-					// Summarize old tool calls
-					names := make([]string, 0, len(msg.ToolCalls))
-					for _, tc := range msg.ToolCalls {
-						names = append(names, tc.Name)
-					}
-					summary := "[Called " + joinNames(names) + "]"
-					if msg.Content != "" {
-						summary = msg.Content + "\n" + summary
-					}
-					compacted = append(compacted, agentctx.Message{
-						Role:    "assistant",
-						Content: summary,
-					})
-				} else {
-					compacted = append(compacted, msg)
-				}
-			case "tool":
-				// Only keep tool results after the last yield
-				if i > lastYieldIdx {
-					compacted = append(compacted, msg)
-				}
-				// Old tool results are dropped
-			default:
-				compacted = append(compacted, msg)
-			}
-		}
-		convCtx.Messages = compacted
-	}
-
-	// Phase 2: If still over limit, remove oldest user/assistant pairs
-	if convCtx.TokenCount() > maxTokens {
-		for len(convCtx.Messages) > 2 && convCtx.TokenCount() > maxTokens {
-			// Remove the first user message and its response
-			// Find the first pair to remove
-			removed := 0
-			filtered := make([]agentctx.Message, 0, len(convCtx.Messages))
-			skipNext := false
-			for i, msg := range convCtx.Messages {
-				if skipNext {
-					skipNext = false
-					removed++
-					continue
-				}
-				if msg.Role == "user" && i > 0 && removed == 0 {
-					// Skip this user message and the next assistant/tool message
-					skipNext = true
-					removed++
-					continue
-				}
-				filtered = append(filtered, msg)
-			}
-			if removed == 0 {
-				break // Nothing left to remove
-			}
-			convCtx.Messages = filtered
-		}
-	}
-}
-
-// joinNames joins tool names with commas for summaries.
-func joinNames(names []string) string {
-	result := names[0]
-	for _, n := range names[1:] {
-		result += ", " + n
-	}
-	return result
-}
-
 // isRepetitiveToolLoop detects if the same tool is being called repeatedly
-// without a meaningful text response between iterations. This breaks infinite
-// loops where the agent calls GetHotBlock (or similar tools) on every iteration.
-//
-// Returns true if any tool name in the current call appears 3+ times consecutively
-// in the conversation. An assistant message with ONLY text (no tool calls)
-// resets the counter, because that represents a genuine turn where the model
-// responded to the user before deciding to use a tool again.
-// An assistant message with BOTH text and tool calls does NOT reset the counter,
-// because that's the loop pattern: model says something, calls GetHotBlock, gets
-// the result, says something slightly different, calls GetHotBlock again.
+// without a meaningful text response between iterations.
 func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
 	for _, call := range currentCalls {
 		count := 1 // current call
@@ -393,10 +330,8 @@ func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.T
 	return false
 }
 
-// isConsecutiveToolIterationLoop checks if there have been 4+ consecutive iterations with ANY tool calls.
-// This catches cross-tool loops (FileSearch→Execute→FileRead→repeat) that isRepetitiveToolLoop misses
-// because it only checks for same-tool repetition. The threshold of 4 allows legitimate 3-step
-// workflows (read→search→edit) while still breaking loops before they consume excessive turns.
+// isConsecutiveToolIterationLoop checks if there have been 4+ consecutive iterations
+// with ANY tool calls. This catches cross-tool loops that isRepetitiveToolLoop misses.
 func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
 	count := 0
 
