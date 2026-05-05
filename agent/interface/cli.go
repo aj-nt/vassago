@@ -298,14 +298,14 @@ func updateStats(stats *SessionStats, toolCalls int, c *CLI) {
 }
 
 // displayResponse displays the agent's response.
+// In streaming mode, text was already printed in real-time via fmt.Print(event.Text).
+// We do NOT erase and redraw — the line count estimation is unreliable (tool call
+// indicators take lines too, word-wrap on narrow terminals adds lines, and GLM's
+// fragmented streaming produces partial lines). Instead, we just add a newline to
+// separate the response from the prompt, then show context usage.
 func displayResponse(responseText strings.Builder, agentName string, convCtx *agentctx.ConversationContext, c *CLI) {
-	if responseText.Len() > 0 && useColor() {
-		lines := countLines(responseText.String())
-		if lines > 0 {
-			fmt.Print(eraseLines(lines))
-		}
-		fmt.Println(formatResponse(responseText.String(), agentName))
-	} else if responseText.Len() > 0 {
+	// Text was already streamed to the terminal — just add spacing
+	if responseText.Len() > 0 {
 		fmt.Println()
 	}
 
@@ -465,15 +465,19 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	}
 
 	fmt.Println()
+	// In single-query mode, text was already streamed.
+	// For color terminals, show a clean boxed panel by erasing streamed text.
+	// We add a generous buffer to the line count to account for tool call
+	// indicators and word-wrap that countLines doesn't track.
 	if responseText.Len() > 0 && useColor() {
-		// In single-query mode, text was already streamed. Erase it and show a clean panel.
 		lines := countLines(responseText.String())
+		// Add 3 extra lines as buffer for tool indicators, wrapping, etc.
 		if lines > 0 {
-			fmt.Print(eraseLines(lines))
+			fmt.Print(eraseLines(lines + 3))
 		}
 		fmt.Println(formatResponse(responseText.String(), c.Agent.Config.AgentName))
 	} else if responseText.Len() > 0 {
-		// No color: text already streamed
+		// No color: text already streamed, nothing more to do
 	}
 	return nil
 }
