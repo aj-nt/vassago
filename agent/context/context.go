@@ -52,3 +52,16 @@ func (c *ConversationContext) TokenCount() int {
 	}
 	return total / 4
 }
+
+// EffectiveMaxTokens returns the effective max tokens with a safety margin.
+// TokenCount() uses chars/4 as a rough estimate, but actual tokenizers (BPE,
+// tiktoken, etc.) may use more tokens per character for certain languages,
+// code, or special sequences. We apply a 10% safety margin so the estimate
+// doesn't let through requests that actually exceed the limit.
+func EffectiveMaxTokens(maxTokens int) int {
+	if maxTokens <= 0 {
+		return maxTokens
+	}
+	// 90% safety margin — if estimate says 90% of limit, consider it at limit
+	return int(float64(maxTokens) * 0.9)
+}

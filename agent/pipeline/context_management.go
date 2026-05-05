@@ -190,11 +190,11 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 	}
 
 	// Check context token limit — try compaction before terminating
-	if s.MaxContextTokens > 0 && convCtx.TokenCount() > s.MaxContextTokens {
+	if s.MaxContextTokens > 0 && convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
 		compactContext(convCtx, s.MaxContextTokens)
 
 		// If still over limit after compaction, terminate
-		if convCtx.TokenCount() > s.MaxContextTokens {
+		if convCtx.TokenCount() > agentctx.EffectiveMaxTokens(s.MaxContextTokens) {
 			return agentctx.StageActionTERMINATE
 		}
 	}

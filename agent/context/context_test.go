@@ -184,3 +184,26 @@ func TestMessageJSON(t *testing.T) {
 		t.Errorf("Unexpected marshaled arguments: %s", data)
 	}
 }
+
+func TestEffectiveMaxTokens(t *testing.T) {
+	tests := []struct {
+		name      string
+		maxTokens int
+		want      int
+	}{
+		{name: "zero returns zero", maxTokens: 0, want: 0},
+		{name: "negative returns negative", maxTokens: -1, want: -1},
+		{name: "128K returns 115200", maxTokens: 128000, want: 115200},
+		{name: "200K returns 180000", maxTokens: 200000, want: 180000},
+		{name: "small value", maxTokens: 100, want: 90},
+		{name: "tiny value rounds down", maxTokens: 10, want: 9},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EffectiveMaxTokens(tt.maxTokens)
+			if got != tt.want {
+				t.Errorf("EffectiveMaxTokens(%d) = %d, want %d", tt.maxTokens, got, tt.want)
+			}
+		})
+	}
+}

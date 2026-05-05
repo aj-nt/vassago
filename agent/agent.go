@@ -107,6 +107,12 @@ func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router 
 	return a
 }
 
+// effectiveMaxTokens returns the effective max tokens with a safety margin.
+// Delegates to agentctx.EffectiveMaxTokens for consistency across the codebase.
+func effectiveMaxTokens(maxTokens int) int {
+	return agentctx.EffectiveMaxTokens(maxTokens)
+}
+
 // Close cleans up agent resources.
 func (a *Agent) Close() {
 	a.EventBus.Close()
@@ -226,8 +232,8 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 		if convCtx.Iteration >= convCtx.MaxIterations {
 			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
 		}
-		// Check context token limit
-		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > a.Config.MaxContextTokens {
+		// Check context token limit (with safety margin for estimate inaccuracy)
+		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > effectiveMaxTokens(a.Config.MaxContextTokens) {
 			return &agentctx.PipelineResult{MaxIterationsHit: true, Iterations: convCtx.Iteration, SessionID: sessionID}, nil
 		}
 
@@ -420,6 +426,14 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		sessionID = convCtx.SessionID
 	}
 
+	// Track consecutive provider errors to prevent infinite loops when
+	// TokenCount() estimate is lower than actual tokens and the LLM API
+	// rejects requests for context overflow. Without this counter, the loop
+	// would retry the same oversized request forever because the iteration
+	// counter only increments on successful Stage4/Stage5 processing.
+	consecutiveErrors := 0
+	const maxConsecutiveErrors = 3
+
 	for {
 		if convCtx.Interrupt.IsSet() {
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
@@ -429,7 +443,12 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 			return
 		}
-		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > a.Config.MaxContextTokens {
+		if a.Config.MaxContextTokens > 0 && convCtx.TokenCount() > effectiveMaxTokens(a.Config.MaxContextTokens) {
+			// Context exceeds token limit — yield with an informative message.
+			// Note: TokenCount() is a rough estimate (chars/4). We use a 90% safety
+			// margin so that the actual token count (which may be higher) doesn't
+			// exceed the LLM's context window.
+			out <- StreamEvent{Type: agentctx.StreamText, Text: "Context limit reached — conversation too long to continue."}
 			out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 			return
 		}
@@ -468,8 +487,31 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		// Try streaming
 		streamCh, streamErr := p.Stream(ctx, req)
 		if streamErr != nil {
-			// Streaming not supported — fall back to non-streaming
-			a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID, modelName)
+			// Streaming not supported or stream init error — fall back to non-streaming
+			action, turnErr := a.runTurnNonStreaming(ctx, convCtx, out, prepared, p, sessionID, modelName)
+			if turnErr != nil {
+				consecutiveErrors++
+				if consecutiveErrors >= maxConsecutiveErrors {
+					out <- StreamEvent{Error: fmt.Errorf("provider failed %d times: %w", consecutiveErrors, turnErr)}
+					return
+				}
+				// Increment iteration on error to prevent infinite loop
+				convCtx.Iteration++
+				continue
+			}
+			consecutiveErrors = 0 // reset on success
+			switch action {
+			case agentctx.StageActionYIELD:
+				a.persistSession(ctx, sessionID, convCtx)
+				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+				return
+			case agentctx.StageActionTERMINATE:
+				a.persistSession(ctx, sessionID, convCtx)
+				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
+				return
+			case agentctx.StageActionCONTINUE:
+				// Tool call was made — continue the loop
+			}
 			if convCtx.Iteration >= convCtx.MaxIterations {
 				out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 				return
@@ -558,7 +600,10 @@ func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.Co
 				if primary, err := a.Registry.GetPrimary(); err == nil {
 					log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
 					// Execute with primary provider (non-streaming)
-					a.runTurnNonStreaming(ctx, convCtx, out, a.Stage1.Process(convCtx), primary, "", modelName)
+					_, fallbackErr := a.runTurnNonStreaming(ctx, convCtx, out, a.Stage1.Process(convCtx), primary, "", modelName)
+					if fallbackErr != nil {
+						return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback also failed: %w (original: %v)", fallbackErr, event.Error)
+					}
 					return agentctx.ParsedResponse{}, fmt.Errorf("fallback to primary provider")
 				} else {
 					return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)
@@ -610,7 +655,9 @@ func (a *Agent) processStreamingEvents(ctx context.Context, convCtx *agentctx.Co
 }
 
 // runTurnNonStreaming executes a single turn without streaming (fallback).
-func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string, modelName string) {
+// Returns the stage action and an error if the provider call failed.
+// On success, the action indicates whether to YIELD, TERMINATE, or CONTINUE.
+func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent, prepared agentctx.PreparedRequest, p provider.Provider, sessionID string, modelName string) (agentctx.StageAction, error) {
 	result := a.Stage2.Process(ctx, convCtx, prepared)
 	if result.Error != nil {
 		// Record failure for routing demotion — use model name if available
@@ -634,23 +681,26 @@ func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.Conve
 					}
 				}
 				if result.Error != nil {
-					out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
-					return
+					err := fmt.Errorf("provider call failed: %w", result.Error)
+					out <- StreamEvent{Error: err}
+					return agentctx.StageActionYIELD, err
 				}
 			} else {
-				out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
-				return
+				err := fmt.Errorf("provider call failed: %w", result.Error)
+				out <- StreamEvent{Error: err}
+				return agentctx.StageActionYIELD, err
 			}
 		} else {
-			out <- StreamEvent{Error: fmt.Errorf("provider call failed: %w", result.Error)}
-			return
+			err := fmt.Errorf("provider call failed: %w", result.Error)
+			out <- StreamEvent{Error: err}
+			return agentctx.StageActionYIELD, err
 		}
 	}
 
 	parsed, err := a.Stage3.Process(ctx, result)
 	if err != nil {
 		out <- StreamEvent{Error: fmt.Errorf("response processing failed: %w", err)}
-		return
+		return agentctx.StageActionYIELD, err
 	}
 
 	// Emit text as a single chunk
@@ -660,5 +710,7 @@ func (a *Agent) runTurnNonStreaming(ctx context.Context, convCtx *agentctx.Conve
 
 	// Stage 4 & 5
 	dispatch := a.Stage4.Process(convCtx, parsed)
-	a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
+	action := a.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
+
+	return action, nil
 }
