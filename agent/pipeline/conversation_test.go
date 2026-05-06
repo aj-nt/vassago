@@ -188,7 +188,7 @@ func TestConversation_CrossToolLoop(t *testing.T) {
 
 // TestConversation_NormalThreeStepWorkflow simulates a legitimate
 // three-step workflow (search → read → execute) that should NOT be
-// broken by loop detection.
+// broken by loop detection, because each step produces text.
 func TestConversation_NormalThreeStepWorkflow(t *testing.T) {
 	stage := NewContextManagementStage(0)
 
@@ -196,11 +196,11 @@ func TestConversation_NormalThreeStepWorkflow(t *testing.T) {
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "find and fix the bug"},
-			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+			{Role: "assistant", Content: "Let me search for the bug.", ToolCalls: []agentctx.ToolCall{
 				{ID: "1", Name: "FileSearch", Arguments: args},
 			}},
 			{Role: "tool", Content: "found 3 files", ToolCallID: "1", Name: "FileSearch"},
-			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+			{Role: "assistant", Content: "Found the files. Let me read them.", ToolCalls: []agentctx.ToolCall{
 				{ID: "2", Name: "FileRead", Arguments: args},
 			}},
 			{Role: "tool", Content: "file contents...", ToolCallID: "2", Name: "FileRead"},
@@ -210,7 +210,7 @@ func TestConversation_NormalThreeStepWorkflow(t *testing.T) {
 	}
 
 	parsed := agentctx.ParsedResponse{
-		Text: "",
+		Text: "Now I'll run the tests.",
 		ToolCalls: []agentctx.ToolCall{
 			{ID: "3", Name: "Execute", Arguments: args},
 		},
@@ -223,7 +223,7 @@ func TestConversation_NormalThreeStepWorkflow(t *testing.T) {
 
 	action := stage.Process(convCtx, toolResults, parsed)
 	if action != agentctx.StageActionCONTINUE {
-		t.Errorf("Expected CONTINUE for normal 3-step workflow, got %v", action)
+		t.Errorf("Expected CONTINUE for normal 3-step workflow with text, got %v", action)
 	}
 }
 

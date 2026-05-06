@@ -97,8 +97,11 @@ func TestAgentLoop_emptyResponse(t *testing.T) {
 	if result.Response == nil {
 		t.Fatal("Expected a response even for empty text")
 	}
-	if result.Response.Text != "" {
-		t.Errorf("Expected empty text response, got %q", result.Response.Text)
+	// With NullMnemo (not connected), GetHotBlock returns "" which means
+	// no hot block content. The empty provider response triggers loop detection
+	// fallback which injects a helpful message instead of silence.
+	if result.Response.Text == "" {
+		t.Errorf("Expected non-empty response (loop detection should inject fallback), got empty text")
 	}
 }
 

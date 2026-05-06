@@ -207,18 +207,18 @@ func TestContextManagementStage_AggressiveTruncationSavesConversation(t *testing
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "tell me about sessions"},
-			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+			{Role: "assistant", Content: "Let me list them.", ToolCalls: []agentctx.ToolCall{
 				{ID: "call-1", Name: "ListSessions", Arguments: []byte(`{}`)},
 			}},
 			{Role: "tool", Content: bigResult, ToolCallID: "call-1", Name: "ListSessions"},
 		},
 		MaxIterations: 50,
-		Iteration:     1, // Only iteration 1, no loop detection issue
+		Iteration:     1,
 		HotBlockContent: "",
 	}
 
 	parsed := agentctx.ParsedResponse{
-		Text:         "",
+		Text:         "Let me search for more details.",
 		ToolCalls:    []agentctx.ToolCall{{ID: "call-2", Name: "SearchMemories", Arguments: []byte(`{"query":"test"}`)}},
 		FinishReason: "tool_use",
 	}

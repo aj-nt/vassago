@@ -277,7 +277,7 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 //	1. OverflowHandler     — compact/terminate on token overflow
 //	2. StuckHandler        — yield on consecutive errors/not-found
 //	3. RepetitiveLoopHandler — yield on same-tool loops (threshold defaults to 3)
-//	4. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 4)
+//	4. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 2)
 //	5. AppendAndContinueHandler — append messages + check limits, then CONTINUE
 type ContextManagementStage struct {
 	MaxContextTokens int
@@ -447,12 +447,13 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 			continue
 		}
 
-		// Text-only message breaks the loop
-		if len(msg.ToolCalls) == 0 && msg.Content != "" {
+		// An assistant message with text content means the agent is narrating
+		// its actions — this breaks the "silent tool loop" pattern.
+		if msg.Content != "" {
 			break
 		}
 
-		// Count consecutive iterations with tool calls
+		// Count consecutive iterations with tool calls and no text
 		if len(msg.ToolCalls) > 0 {
 			count++
 			if count >= threshold {

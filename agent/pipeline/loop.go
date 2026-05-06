@@ -136,6 +136,11 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 		// Handle action
 		switch action {
 		case agentctx.StageActionYIELD:
+			// If the LLM produced no text (only tool calls), inject a helpful message
+			// so the user doesn't see a silent exit with just tool icons.
+			if parsed.Text == "" {
+				parsed.Text = "I seem to be stuck in a tool loop. Let me try a different approach — could you rephrase your question?"
+			}
 			if cfg.PersistFunc != nil {
 				cfg.PersistFunc(sessionID)
 			}

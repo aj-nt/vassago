@@ -441,8 +441,8 @@ func TestDefaultThresholds(t *testing.T) {
 	if th.RepetitiveLoopThreshold != 3 {
 		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
 	}
-	if th.ConsecutiveLoopThreshold != 4 {
-		t.Errorf("Expected ConsecutiveLoopThreshold=4, got %d", th.ConsecutiveLoopThreshold)
+	if th.ConsecutiveLoopThreshold != 2 {
+		t.Errorf("Expected ConsecutiveLoopThreshold=2, got %d", th.ConsecutiveLoopThreshold)
 	}
 	if th.StuckMinFailures != 2 {
 		t.Errorf("Expected StuckMinFailures=2, got %d", th.StuckMinFailures)

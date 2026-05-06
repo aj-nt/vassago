@@ -376,6 +376,8 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		}
 		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 	case result.Action == agentctx.StageActionYIELD:
+		// The loop.go injects a fallback message if the LLM produced no text
+		// (loop detection with only tool calls). That message is in result.Parsed.Text.
 		out <- StreamEvent{Type: agentctx.StreamDone, Done: true}
 	case result.Action == agentctx.StageActionTERMINATE:
 		// Context overflow or max iterations — emit informative message

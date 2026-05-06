@@ -46,7 +46,7 @@ func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    3,
-		ConsecutiveLoopThreshold:    4,
+		ConsecutiveLoopThreshold:    2,
 		StuckMinFailures:            2,
 		StuckHistoryWindow:         3,
 		MaxConsecutiveErrors:        3,
