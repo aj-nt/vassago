@@ -212,6 +212,99 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 	return agentctx.StageActionCONTINUE, false
 }
 
+// NarrationNudgeHandler proactively injects a system message when the LLM
+// produces consecutive tool-only responses without narration. Unlike
+// ConsecutiveLoopHandler (which YIELDs/terminates), this handler nudges
+// the model to self-correct by injecting a hint into the conversation.
+// This is the root-cause fix for the "silent tool spiral" — it intervenes
+// before the YIELD threshold, giving the model a chance to start narrating.
+//
+// Must be placed BEFORE ConsecutiveLoopHandler in the chain.
+// Disabled when NarrationNudgeThreshold is 0.
+type NarrationNudgeHandler struct {
+	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
+}
+
+// Handle injects a narration nudge if consecutive tool-only iterations
+// are detected. Returns CONTINUE (not handled) so the chain continues
+// to ConsecutiveLoopHandler.
+func (h *NarrationNudgeHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Disabled?
+	if h.Thresholds.NarrationNudgeThreshold <= 0 {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Skip after compaction
+	if convCtx.CompactedThisTurn {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Only nudge if this is a tool-only response (no text)
+	if parsed.Text != "" {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Only nudge if we've hit the nudge threshold but NOT the YIELD threshold
+	consecutiveCount := countConsecutiveToolIterations(convCtx.Messages, parsed.ToolCalls)
+	if consecutiveCount < h.Thresholds.NarrationNudgeThreshold {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Already at or above YIELD threshold? Let ConsecutiveLoopHandler handle it.
+	if consecutiveCount >= h.Thresholds.ConsecutiveLoopThreshold {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Inject a gentle nudge into the conversation context.
+	// This goes into the messages so the LLM sees it on the next iteration.
+	convCtx.Messages = append(convCtx.Messages,
+		agentctx.Message{
+			Role:    "user",
+			Content: "[system: You've made " + fmt.Sprintf("%d", consecutiveCount) + " tool call(s) without narrating. Please briefly explain your actions using text before making additional tool calls.]",
+		},
+	)
+
+	emitEvent(h.EventBus, LoopDetectionEvent{
+		Kind:      "narration_nudge",
+		Iteration: convCtx.Iteration,
+		Message:   fmt.Sprintf("narration nudge injected after %d consecutive tool-only iterations", consecutiveCount),
+	})
+
+	// Return CONTINUE (not handled) — the chain continues.
+	// The nudge message is now in the conversation for the next LLM call.
+	return agentctx.StageActionCONTINUE, false
+}
+
+// countConsecutiveToolIterations counts how many consecutive tool-only
+// iterations exist ending at the current calls. This is similar to
+// isConsecutiveToolIterationLoop but returns the count instead of a bool.
+func countConsecutiveToolIterations(messages []agentctx.Message, currentCalls []agentctx.ToolCall) int {
+	count := 0
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role == "user" {
+			break
+		}
+		if msg.Role != "assistant" {
+			continue
+		}
+		if msg.Content != "" {
+			break
+		}
+		if len(msg.ToolCalls) > 0 {
+			count++
+		}
+	}
+
+	if len(currentCalls) > 0 {
+		count++
+	}
+
+	return count
+}
+
 // AppendAndContinueHandler appends assistant messages and tool results to the
 // conversation, then checks iteration and overflow limits. This is always
 // the last handler in the chain — it does the bookkeeping that allows the
@@ -276,11 +369,12 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 // that each check a specific condition. The first handler that "handles" the
 // request determines the action. The chain order is:
 //
-//	1. OverflowHandler     — compact/terminate on token overflow
-//	2. StuckHandler        — yield on consecutive errors/not-found
-//	3. RepetitiveLoopHandler — yield on same-tool loops (threshold defaults to 3)
-//	4. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 2)
-//	5. AppendAndContinueHandler — append messages + check limits, then CONTINUE
+//	1. OverflowHandler        — compact/terminate on token overflow
+//	2. StuckHandler           — yield on consecutive errors/not-found
+//	3. RepetitiveLoopHandler  — yield on same-tool loops (threshold defaults to 3)
+//	4. NarrationNudgeHandler  — inject system hint to encourage narration (threshold defaults to 1)
+//	5. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 2)
+//	6. AppendAndContinueHandler — append messages + check limits, then CONTINUE
 type ContextManagementStage struct {
 	MaxContextTokens int
 	Thresholds      PipelineThresholds
@@ -316,6 +410,7 @@ func (s *ContextManagementStage) defaultChain() *HandlerChain {
 		&OverflowHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&StuckHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&RepetitiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&NarrationNudgeHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&ConsecutiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
 	)

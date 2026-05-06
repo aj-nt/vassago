@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/eventbus"
 )
 
 func TestNewContextManagementStage(t *testing.T) {
@@ -779,4 +780,316 @@ func TestIsResultNotFound(t *testing.T) {
 			t.Errorf("IsResultNotFound(%q) = %v, expected %v", tt.content, result, tt.expected)
 		}
 	}
+}
+
+// --- NarrationNudgeHandler tests ---
+
+func TestNarrationNudgeHandler_InjectsNudgeOnToolOnlyIteration(t *testing.T) {
+	// After 2 consecutive tool-only iterations (NarrationNudgeThreshold=2, ConsecutiveLoopThreshold=3),
+	// the nudge should be injected, but the chain should CONTINUE (not YIELD).
+	thresholds := PipelineThresholds{
+		RepetitiveLoopThreshold:    3,
+		ConsecutiveLoopThreshold:   3,
+		NarrationNudgeThreshold:    2,
+		StuckMinFailures:           2,
+		StuckHistoryWindow:        3,
+		AggressiveSummaryThreshold: 500,
+		MaxConsecutiveErrors:       3,
+	}
+
+	handler := &NarrationNudgeHandler{Thresholds: thresholds}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "search for X"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+			{Role: "tool", Content: "result 1"},
+		},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "", // no text — tool-only iteration
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Error("NarrationNudgeHandler should NOT mark the request as handled (returns CONTINUE)")
+	}
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+	// Should have injected a nudge message
+	found := false
+	for _, msg := range convCtx.Messages {
+		if msg.Role == "user" && strings.Contains(msg.Content, "tool call(s) without narrating") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Expected nudge message to be injected into conversation")
+	}
+}
+
+func TestNarrationNudgeHandler_SkipsWhenModelHasText(t *testing.T) {
+	// If the model's response includes text, no nudge should be injected.
+	handler := &NarrationNudgeHandler{Thresholds: DefaultThresholds()}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "Let me search for that.",
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}},
+	}
+
+	msgCountBefore := len(convCtx.Messages)
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Error("Should not handle when model has text")
+	}
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+	if len(convCtx.Messages) != msgCountBefore {
+		t.Error("No messages should have been injected when model has text")
+	}
+}
+
+func TestNarrationNudgeHandler_SkipsWhenBelowThreshold(t *testing.T) {
+	// With NarrationNudgeThreshold=2, a single tool iteration should NOT nudge.
+	thresholds := DefaultThresholds()
+	thresholds.NarrationNudgeThreshold = 2
+	thresholds.ConsecutiveLoopThreshold = 4
+
+	handler := &NarrationNudgeHandler{Thresholds: thresholds}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "search"},
+		},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "",
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}},
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Error("Should not handle when below nudge threshold")
+	}
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+}
+
+func TestNarrationNudgeHandler_SkipsAtOrAboveYieldThreshold(t *testing.T) {
+	// When consecutive count >= ConsecutiveLoopThreshold, the nudge handler
+	// should defer to ConsecutiveLoopHandler (no nudge injected).
+	thresholds := DefaultThresholds()
+	thresholds.NarrationNudgeThreshold = 1
+	thresholds.ConsecutiveLoopThreshold = 2
+
+	handler := &NarrationNudgeHandler{Thresholds: thresholds}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "search"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+			{Role: "tool", Content: "result"},
+		},
+		MaxIterations: 10,
+		Iteration:     3,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "",
+		ToolCalls: []agentctx.ToolCall{{Name: "GetHotBlock", ID: "tc2"}},
+	}
+	// count = 1 (history) + 1 (current) = 2, which >= ConsecutiveLoopThreshold(2)
+	// => nudge should NOT fire
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	// Since count >= ConsecutiveLoopThreshold, nudge should NOT fire
+	if handled {
+		t.Error("Should not handle when at or above YIELD threshold")
+	}
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+}
+
+func TestNarrationNudgeHandler_SkipsAfterCompaction(t *testing.T) {
+	handler := &NarrationNudgeHandler{Thresholds: DefaultThresholds()}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{},
+		MaxIterations: 10,
+		Iteration:     1,
+		CompactedThisTurn: true,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "",
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}},
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Error("Should not handle after compaction")
+	}
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+}
+
+func TestNarrationNudgeHandler_DisabledWhenThresholdZero(t *testing.T) {
+	thresholds := DefaultThresholds()
+	thresholds.NarrationNudgeThreshold = 0 // disabled
+
+	handler := &NarrationNudgeHandler{Thresholds: thresholds}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "search"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+			{Role: "tool", Content: "result"},
+		},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "",
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+	}
+
+	_, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Error("Should not handle when nudge is disabled")
+	}
+	if len(convCtx.Messages) != 3 {
+		t.Error("No messages should be injected when nudge is disabled")
+	}
+}
+
+func TestCountConsecutiveToolIterations(t *testing.T) {
+	tests := []struct {
+		name         string
+		messages     []agentctx.Message
+		currentCalls []agentctx.ToolCall
+		expected     int
+	}{
+		{
+			name:         "no history, no current calls",
+			messages:     nil,
+			currentCalls: nil,
+			expected:     0,
+		},
+		{
+			name:         "no history, one current call",
+			messages:     nil,
+			currentCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}},
+			expected:     1,
+		},
+		{
+			name: "one tool-only assistant in history + current call",
+			messages: []agentctx.Message{
+				{Role: "user", Content: "search"},
+				{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+				{Role: "tool", Content: "result"},
+			},
+			currentCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+			expected:     2,
+		},
+		{
+			name: "text breaks the chain",
+			messages: []agentctx.Message{
+				{Role: "user", Content: "search"},
+				{Role: "assistant", Content: "Let me look that up.", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+				{Role: "tool", Content: "result"},
+			},
+			currentCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+			expected:     1, // text resets count
+		},
+		{
+			name: "user message resets the chain",
+			messages: []agentctx.Message{
+				{Role: "user", Content: "first question"},
+				{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+				{Role: "tool", Content: "result"},
+				{Role: "user", Content: "second question"},
+			},
+			currentCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+			expected:     1, // user message resets count
+		},
+		{
+			name: "three consecutive tool-only iterations",
+			messages: []agentctx.Message{
+				{Role: "user", Content: "search"},
+				{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+				{Role: "tool", Content: "result"},
+				{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "GetHotBlock", ID: "tc2"}}},
+				{Role: "tool", Content: "result"},
+			},
+			currentCalls: []agentctx.ToolCall{{Name: "FileRead", ID: "tc3"}},
+			expected:     3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count := countConsecutiveToolIterations(tt.messages, tt.currentCalls)
+			if count != tt.expected {
+				t.Errorf("countConsecutiveToolIterations() = %d, want %d", count, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNarrationNudgeHandler_EmitsEvent(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	thresholds := PipelineThresholds{
+		RepetitiveLoopThreshold:    3,
+		ConsecutiveLoopThreshold:   3,
+		NarrationNudgeThreshold:    2,
+		StuckMinFailures:           2,
+		StuckHistoryWindow:        3,
+		AggressiveSummaryThreshold: 500,
+		MaxConsecutiveErrors:       3,
+	}
+
+	// Subscribe to all events before handler runs
+	ch := bus.SubscribeAll()
+
+	handler := &NarrationNudgeHandler{Thresholds: thresholds, EventBus: bus}
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "search"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc1"}}},
+			{Role: "tool", Content: "result"},
+		},
+		MaxIterations: 10,
+		Iteration:     1,
+	}
+	parsed := agentctx.ParsedResponse{
+		Text:      "",
+		ToolCalls: []agentctx.ToolCall{{Name: "SearchMemories", ID: "tc2"}},
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE, got %v", action)
+	}
+	if handled {
+		t.Error("NarrationNudgeHandler should not mark the request as handled")
+	}
+
+	// Check that event was emitted
+	select {
+	case event := <-ch:
+		if event.Kind != "narration_nudge" {
+			t.Errorf("Expected 'narration_nudge' event, got %q", event.Kind)
+		}
+	default:
+		t.Error("Expected 'narration_nudge' event to be emitted")
+	}
+
+	bus.Close()
 }

@@ -57,7 +57,7 @@ Use "mnemosyne sessions <subcommand> --help" for more information.`)
 	}
 }
 
-func sessionsList(ctx context.Context, c *memoclient.Client, args []string) {
+func sessionsList(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	limit := 20
 	if len(args) > 0 {
 		fmt.Sscanf(args[0], "%d", &limit)
@@ -91,7 +91,7 @@ func sessionsList(ctx context.Context, c *memoclient.Client, args []string) {
 	fmt.Printf("\n%d session(s)\n", len(sessions))
 }
 
-func sessionsResume(ctx context.Context, c *memoclient.Client, args []string) {
+func sessionsResume(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne sessions resume <session-id>")
 		fmt.Fprintln(os.Stderr, "\nUse 'mnemosyne sessions list' to see session IDs.")
@@ -120,7 +120,7 @@ func sessionsResume(ctx context.Context, c *memoclient.Client, args []string) {
 	}
 }
 
-func sessionsGet(ctx context.Context, c *memoclient.Client, args []string) {
+func sessionsGet(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne sessions get <session-id>")
 		os.Exit(1)

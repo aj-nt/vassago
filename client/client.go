@@ -124,6 +124,17 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
     return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn), cron: pb.NewCronServiceClient(conn)}, nil
 }
 
+// ConnectMnemo creates a new client connection and returns the MnemoClient interface.
+// This is the preferred way to connect when you only need the MnemoClient interface
+// (which includes all commonly used operations).
+func ConnectMnemo(ctx context.Context, cfg Config) (MnemoClient, error) {
+	c, err := Connect(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 // Close closes the connection to the daemon.
 func (c *Client) Close() error {
 	if c.conn != nil {

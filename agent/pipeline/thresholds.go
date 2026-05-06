@@ -23,9 +23,15 @@ type PipelineThresholds struct {
 
 	// ConsecutiveLoopThreshold is the number of consecutive tool-call
 	// iterations (any tools) that triggers a cross-tool loop detection
-	// YIELD. Default: 4 (allows legitimate 3-step workflows like
-	// read→search→edit, breaks on 4+).
+	// YIELD. Default: 2 (breaks quickly to avoid silent tool spirals).
 	ConsecutiveLoopThreshold int
+
+	// NarrationNudgeThreshold is the number of consecutive tool-only
+	// iterations after which a system nudge is injected to encourage
+	// the model to narrate its actions. Must be < ConsecutiveLoopThreshold.
+	// Set to 0 to disable nudging. Default: 1 (nudge after first tool-only
+	// iteration, giving the model one chance to self-correct before YIELD).
+	NarrationNudgeThreshold int
 
 	// StuckMinFailures is the minimum number of consecutive tool failures
 	// (errors or "not found") required for stuck detection. Default: 2.
@@ -46,10 +52,11 @@ func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    3,
-		ConsecutiveLoopThreshold:    2,
-		StuckMinFailures:            2,
-		StuckHistoryWindow:         3,
-		MaxConsecutiveErrors:        3,
+		ConsecutiveLoopThreshold:   3,
+		NarrationNudgeThreshold:    2,
+		StuckMinFailures:           2,
+		StuckHistoryWindow:        3,
+		MaxConsecutiveErrors:       3,
 	}
 }
 
