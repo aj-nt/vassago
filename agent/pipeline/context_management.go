@@ -445,6 +445,13 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 	// Walk backwards through messages
 	for i := len(messages) - 1; i >= 0; i-- {
 		msg := messages[i]
+
+		// A new user message resets the loop context — tool calls
+		// from a previous question shouldn't count against the current one.
+		if msg.Role == "user" {
+			break
+		}
+
 		if msg.Role != "assistant" {
 			continue
 		}
