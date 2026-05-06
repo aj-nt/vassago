@@ -453,7 +453,7 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 			break
 		}
 
-		// Count consecutive iterations with tool calls and no text
+		// Count this as a tool-only iteration
 		if len(msg.ToolCalls) > 0 {
 			count++
 			if count >= threshold {

@@ -53,20 +53,28 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		}
 	}
 
+	// Response format — the most critical directive for models that skip text
+	parts = append(parts, "")
+	parts = append(parts, "## Response format")
+	parts = append(parts, "Every response MUST contain substantive text BEFORE any tool calls. Format:")
+	parts = append(parts, "1. Write your analysis, plan, or answer in plain text")
+	parts = append(parts, "2. Then make tool calls if needed (maximum 1-2 per response)")
+	parts = append(parts, "3. After receiving results, write your next text response before making more calls")
+	parts = append(parts, "")
+	parts = append(parts, "NEVER respond with only tool calls and no text. NEVER call 3+ tools in one response.")
+
 	// Tool guide — concise, action-oriented
 	parts = append(parts, "")
 	parts = append(parts, "## Tools")
 	parts = append(parts, "FileSearch → find files by name/pattern | FileRead → read file contents (need path first) | FileWrite → write/update files | Execute → run shell commands | SearchMemories → recall past info | AddMemory → save important facts")
 	parts = append(parts, "")
-	parts = append(parts, "Rules: Do NOT restate tool capabilities in responses. Do NOT call a tool if you already have the answer from a prior call. If a tool fails, try a different approach — never retry the same failing call.")
+	parts = append(parts, "Rules: Do NOT restate tool capabilities. Do NOT call a tool if you already have the answer. If a tool fails, try a different approach.")
 
 	// Anti-repetition directive
 	parts = append(parts, "")
 	parts = append(parts, "## Anti-repetition")
-	parts = append(parts, "- NEVER list or describe your tools/capabilities in responses. The user already knows what you can do.")
+	parts = append(parts, "- NEVER list or describe your tools/capabilities. The user already knows what you can do.")
 	parts = append(parts, "- NEVER say \"I can use X to Y\" or \"Let me use my Z tool\" — just USE the tool, or give the answer directly.")
-	parts = append(parts, "- ALWAYS include text in your response, even when making tool calls. Explain briefly what you're doing.")
-	parts = append(parts, "- Do NOT make more than 2 consecutive tool calls without generating text in between.")
 	parts = append(parts, "- Do NOT repeat information you already stated. Each response adds new info only.")
 	parts = append(parts, "- Do NOT prefix responses with self-identification (\"Claude\", \"I'm running on X\") unless asked.")
 	parts = append(parts, "- If you cannot complete a task after 2 attempts, describe what you tried and ask for clarification.")
@@ -74,6 +82,7 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 
 	// Hot Block
 	if ctx.HotBlockContent != "" {
+		parts = append(parts, "")
 		parts = append(parts, "[Memory — what you know about the user and environment]")
 		parts = append(parts, ctx.HotBlockContent)
 	}
