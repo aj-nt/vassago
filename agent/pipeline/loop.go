@@ -37,6 +37,7 @@ type LoopResult struct {
 	MaxIterationsHit bool
 	ContextOverflow  bool
 	StoppedOnError  bool
+	FallbackText     bool  // true if parsed.Text was injected by the loop (not from LLM)
 	Error            error
 }
 
@@ -136,10 +137,12 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 		// Handle action
 		switch action {
 		case agentctx.StageActionYIELD:
+			fallbackText := false
 			// If the LLM produced no text (only tool calls), inject a helpful message
 			// so the user doesn't see a silent exit with just tool icons.
 			if parsed.Text == "" {
 				parsed.Text = "I've been making too many tool calls without responding. Let me answer your question directly."
+				fallbackText = true
 			}
 			// Add a recovery message to the conversation history so subsequent turns
 			// don't repeat the same pattern. This teaches the model what went wrong.
@@ -151,9 +154,10 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 				cfg.PersistFunc(sessionID)
 			}
 			return &LoopResult{
-				Parsed:     parsed,
-				Action:     action,
-				Iterations: convCtx.Iteration,
+				Parsed:       parsed,
+				Action:       action,
+				Iterations:   convCtx.Iteration,
+				FallbackText: fallbackText,
 			}
 		case agentctx.StageActionTERMINATE:
 			if cfg.PersistFunc != nil {
