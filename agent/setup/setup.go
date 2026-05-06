@@ -279,7 +279,7 @@ func (r *AgentResult) Close() {
 	tools.CleanupBrowser()
 	tools.CleanupBackgroundProcesses()
 	r.Agent.Close()
-	if r.AgentSession.IsRegistered() {
+	if r.AgentSession != nil && r.AgentSession.IsRegistered() {
 		r.AgentSession.Close()
 	}
 	r.Mnemo.Close()

@@ -73,7 +73,9 @@ func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router 
 
 // Close cleans up agent resources.
 func (a *Agent) Close() {
-	a.EventBus.Close()
+	if a.EventBus != nil {
+		a.EventBus.Close()
+	}
 }
 
 // selectProvider picks the provider for this turn using the model router.

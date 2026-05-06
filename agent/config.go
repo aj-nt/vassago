@@ -180,6 +180,9 @@ func (c *AgentConfig) applyDefaults() {
 	if c.HotBlock.MemoryCharLimit == 0 {
 		c.HotBlock.MemoryCharLimit = 4000
 	}
+	if c.HotBlock.UserCharLimit == 0 {
+		c.HotBlock.UserCharLimit = 4000
+	}
 	if c.HotBlock.MinPriority == 0 {
 		c.HotBlock.MinPriority = 2
 	}
