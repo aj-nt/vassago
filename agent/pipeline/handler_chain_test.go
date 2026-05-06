@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/eventbus"
 )
 
 // --- OverflowHandler tests ---
@@ -462,6 +463,196 @@ func TestBlockingThresholds(t *testing.T) {
 	// Other thresholds should match defaults
 	if th.RepetitiveLoopThreshold != 3 {
 		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
+	}
+}
+
+// --- Observer event tests ---
+
+func TestStuckHandler_EmitsEvent(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	ch := bus.Subscribe("stuck")
+
+	handler := &StuckHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
+		MaxIterations: 10,
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "error 1", IsError: true},
+		{CallID: "2", Name: "Tool2", Result: "error 2", IsError: true},
+	}
+
+	action, handled := handler.Handle(convCtx, toolResults, parsedWithToolCalls())
+	if !handled || action != agentctx.StageActionYIELD {
+		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
+	}
+
+	select {
+	case evt := <-ch:
+		loopEvt, ok := evt.Data.(LoopDetectionEvent)
+		if !ok {
+			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
+		}
+		if loopEvt.Kind != "stuck" {
+			t.Errorf("Expected kind 'stuck', got %q", loopEvt.Kind)
+		}
+		if loopEvt.Iteration != 0 {
+			t.Errorf("Expected iteration 0, got %d", loopEvt.Iteration)
+		}
+	default:
+		t.Error("Expected to receive stuck event from EventBus")
+	}
+}
+
+func TestRepetitiveLoopHandler_EmitsEvent(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	ch := bus.Subscribe("repetitive_loop")
+
+	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "check memory"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
+		},
+		MaxIterations: 20,
+		Iteration:     3,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if !handled || action != agentctx.StageActionYIELD {
+		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
+	}
+
+	select {
+	case evt := <-ch:
+		loopEvt, ok := evt.Data.(LoopDetectionEvent)
+		if !ok {
+			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
+		}
+		if loopEvt.Kind != "repetitive_loop" {
+			t.Errorf("Expected kind 'repetitive_loop', got %q", loopEvt.Kind)
+		}
+		if loopEvt.ToolName != "GetHotBlock" {
+			t.Errorf("Expected tool name 'GetHotBlock', got %q", loopEvt.ToolName)
+		}
+	default:
+		t.Error("Expected to receive repetitive_loop event from EventBus")
+	}
+}
+
+func TestConsecutiveLoopHandler_EmitsEvent(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	ch := bus.Subscribe("consecutive_loop")
+
+	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	messages := []agentctx.Message{
+		{Role: "user", Content: "check this"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
+		{Role: "tool", Content: "found files", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)}}},
+		{Role: "tool", Content: "file contents", ToolCallID: "2"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)}}},
+		{Role: "tool", Content: "command output", ToolCallID: "3"},
+	}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      messages,
+		MaxIterations: 20,
+		Iteration:     4,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}},
+		FinishReason: "tool_use",
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if !handled || action != agentctx.StageActionYIELD {
+		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
+	}
+
+	select {
+	case evt := <-ch:
+		loopEvt, ok := evt.Data.(LoopDetectionEvent)
+		if !ok {
+			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
+		}
+		if loopEvt.Kind != "consecutive_loop" {
+			t.Errorf("Expected kind 'consecutive_loop', got %q", loopEvt.Kind)
+		}
+		if loopEvt.Iteration != 4 {
+			t.Errorf("Expected iteration 4, got %d", loopEvt.Iteration)
+		}
+	default:
+		t.Error("Expected to receive consecutive_loop event from EventBus")
+	}
+}
+
+func TestOverflowHandler_EmitsCompactEvent(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	ch := bus.Subscribe("overflow_compact")
+
+	handler := &OverflowHandler{MaxContextTokens: 200, Thresholds: DefaultThresholds(), EventBus: bus}
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "Tell me everything"},
+			{Role: "assistant", Content: "Let me search", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "SearchMemories", Arguments: args}}},
+			{Role: "tool", Content: strings.Repeat("result data ", 100), ToolCallID: "1", Name: "SearchMemories"},
+			{Role: "assistant", Content: "Based on my search..."},
+			{Role: "user", Content: "Thanks, now something else"},
+		},
+		MaxIterations: 10,
+		Iteration:     0,
+	}
+
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	// Compaction should succeed — passes through to next handler
+	if handled {
+		t.Errorf("Expected handler to pass through after successful compaction, got action=%v handled=%v", action, handled)
+	}
+
+	select {
+	case evt := <-ch:
+		loopEvt, ok := evt.Data.(LoopDetectionEvent)
+		if !ok {
+			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
+		}
+		if loopEvt.Kind != "overflow_compact" {
+			t.Errorf("Expected kind 'overflow_compact', got %q", loopEvt.Kind)
+		}
+	default:
+		t.Error("Expected to receive overflow_compact event from EventBus")
+	}
+}
+
+func TestHandlerNoEventBus_NoPanic(t *testing.T) {
+	// Verify handlers work correctly with nil EventBus (no events, no crashes)
+	handler := &StuckHandler{Thresholds: DefaultThresholds(), EventBus: nil}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
+		MaxIterations: 10,
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "1", Name: "Tool1", Result: "error 1", IsError: true},
+		{CallID: "2", Name: "Tool2", Result: "error 2", IsError: true},
+	}
+
+	// Should not panic
+	action, handled := handler.Handle(convCtx, toolResults, parsedWithToolCalls())
+	if !handled || action != agentctx.StageActionYIELD {
+		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
 	}
 }
 

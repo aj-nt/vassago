@@ -4,10 +4,33 @@
 package pipeline
 
 import (
+	"fmt"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/eventbus"
 )
+
+// LoopDetectionEvent is the data payload for loop detection events.
+// It provides structured information about why the pipeline stopped
+// or yielded, enabling observability and metrics.
+type LoopDetectionEvent struct {
+	// Kind identifies the detection type: "stuck", "repetitive_loop",
+	// "consecutive_loop", "overflow_compact", "overflow_terminate"
+	Kind string
+
+	// ToolName is the tool that triggered the detection (for repetitive loops).
+	ToolName string
+
+	// Iteration is the pipeline iteration when this was detected.
+	Iteration int
+
+	// TokenCount is the approximate token count at detection time (for overflow).
+	TokenCount int
+
+	// Message is a human-readable description of what happened.
+	Message string
+}
 
 // ContextHandler is a link in the Chain of Responsibility for context management.
 // Each handler checks a specific condition. If it handles the request (returns
@@ -42,6 +65,14 @@ func (c *HandlerChain) Handle(convCtx *agentctx.ConversationContext, toolResults
 	return agentctx.StageActionCONTINUE
 }
 
+// emitEvent is a helper to emit an event if the EventBus is non-nil.
+func emitEvent(bus *eventbus.EventBus, event LoopDetectionEvent) {
+	if bus == nil {
+		return
+	}
+	bus.Emit(eventbus.Event{Kind: event.Kind, Data: event})
+}
+
 // --- Concrete handlers ---
 
 // OverflowHandler checks if the context exceeds the token limit and
@@ -51,6 +82,7 @@ func (c *HandlerChain) Handle(convCtx *agentctx.ConversationContext, toolResults
 type OverflowHandler struct {
 	MaxContextTokens int
 	Thresholds      PipelineThresholds
+	EventBus        *eventbus.EventBus
 }
 
 // Handle checks context overflow.
@@ -66,13 +98,23 @@ func (h *OverflowHandler) Handle(convCtx *agentctx.ConversationContext, toolResu
 	if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
 		convCtx.SummarizeLargeToolResults(h.Thresholds.AggressiveSummaryThreshold)
 		if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+			emitEvent(h.EventBus, LoopDetectionEvent{
+				Kind:      "overflow_terminate",
+				Iteration: convCtx.Iteration,
+				TokenCount: convCtx.TokenCount(),
+				Message:   fmt.Sprintf("context overflow after compaction: %d tokens > %d limit", convCtx.TokenCount(), h.MaxContextTokens),
+			})
 			return agentctx.StageActionTERMINATE, true
 		}
 	}
 
 	// Compaction succeeded — let later handlers run with the smaller context.
-	// We track that compaction happened to suppress loop detection (the model
-	// needs a chance to operate on the newly compacted context).
+	emitEvent(h.EventBus, LoopDetectionEvent{
+		Kind:      "overflow_compact",
+		Iteration: convCtx.Iteration,
+		TokenCount: convCtx.TokenCount(),
+		Message:   fmt.Sprintf("context compacted: %d tokens (limit %d)", convCtx.TokenCount(), h.MaxContextTokens),
+	})
 	convCtx.CompactedThisTurn = true
 	return agentctx.StageActionCONTINUE, false
 }
@@ -81,6 +123,7 @@ func (h *OverflowHandler) Handle(convCtx *agentctx.ConversationContext, toolResu
 // results). It yields a helpful message to break the loop.
 type StuckHandler struct {
 	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
 }
 
 // Handle checks for stuck agent patterns.
@@ -89,6 +132,15 @@ func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults
 	stuckFromHistory := isStuckFromHistory(convCtx.Messages, h.Thresholds.StuckHistoryWindow, h.Thresholds.StuckMinFailures)
 
 	if stuckFromResults || stuckFromHistory {
+		source := "results"
+		if stuckFromHistory {
+			source = "history"
+		}
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "stuck",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("agent stuck: consecutive failures detected from %s", source),
+		})
 		convCtx.AddMessage(agentctx.Message{
 			Role:    "assistant",
 			Content: "I wasn't able to find what I was looking for after multiple attempts. Could you provide more detail or a different approach?",
@@ -103,6 +155,7 @@ func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults
 // N+ times consecutively). Skipped if the context was just compacted.
 type RepetitiveLoopHandler struct {
 	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
 }
 
 // Handle checks for repetitive tool loops.
@@ -114,6 +167,17 @@ func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, to
 	}
 
 	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.RepetitiveLoopThreshold) {
+		// Identify the looping tool name for observability
+		toolName := ""
+		if len(parsed.ToolCalls) > 0 {
+			toolName = parsed.ToolCalls[0].Name
+		}
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "repetitive_loop",
+			ToolName:  toolName,
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("repetitive loop detected: %s called %d+ times consecutively", toolName, h.Thresholds.RepetitiveLoopThreshold),
+		})
 		return agentctx.StageActionYIELD, true
 	}
 
@@ -124,6 +188,7 @@ func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, to
 // iterations regardless of tool name). Skipped after compaction.
 type ConsecutiveLoopHandler struct {
 	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
 }
 
 // Handle checks for consecutive iteration loops.
@@ -134,6 +199,11 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 	}
 
 	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "consecutive_loop",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("consecutive loop detected: %d+ tool iterations without text response", h.Thresholds.ConsecutiveLoopThreshold),
+		})
 		return agentctx.StageActionYIELD, true
 	}
 
@@ -147,6 +217,7 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 type AppendAndContinueHandler struct {
 	MaxContextTokens int
 	Thresholds      PipelineThresholds
+	EventBus        *eventbus.EventBus
 }
 
 // Handle appends messages and checks post-append limits.
@@ -164,6 +235,11 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 
 	// Check iteration limit
 	if convCtx.Iteration >= convCtx.MaxIterations {
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "max_iterations",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("max iterations reached: %d >= %d", convCtx.Iteration, convCtx.MaxIterations),
+		})
 		return agentctx.StageActionTERMINATE, true
 	}
 
@@ -175,6 +251,12 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 			// Aggressively truncate large tool results
 			convCtx.SummarizeLargeToolResults(h.Thresholds.AggressiveSummaryThreshold)
 			if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
+				emitEvent(h.EventBus, LoopDetectionEvent{
+					Kind:       "overflow_terminate",
+					Iteration:  convCtx.Iteration,
+					TokenCount: convCtx.TokenCount(),
+					Message:    fmt.Sprintf("context overflow after append: %d tokens > %d limit", convCtx.TokenCount(), h.MaxContextTokens),
+				})
 				return agentctx.StageActionTERMINATE, true
 			}
 		}
@@ -200,6 +282,7 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 type ContextManagementStage struct {
 	MaxContextTokens int
 	Thresholds      PipelineThresholds
+	EventBus        *eventbus.EventBus
 	chain            *HandlerChain
 }
 
@@ -218,14 +301,21 @@ func NewContextManagementStageWithThresholds(maxContextTokens int, thresholds Pi
 	return s
 }
 
+// SetEventBus sets the EventBus for all handlers. This must be called
+// before Process() if observability is desired.
+func (s *ContextManagementStage) SetEventBus(bus *eventbus.EventBus) {
+	s.EventBus = bus
+	s.chain = s.defaultChain()
+}
+
 // defaultChain builds the standard handler chain used in production.
 func (s *ContextManagementStage) defaultChain() *HandlerChain {
 	return NewHandlerChain(
-		&OverflowHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds},
-		&StuckHandler{Thresholds: s.Thresholds},
-		&RepetitiveLoopHandler{Thresholds: s.Thresholds},
-		&ConsecutiveLoopHandler{Thresholds: s.Thresholds},
-		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds},
+		&OverflowHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&StuckHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&RepetitiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&ConsecutiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
 	)
 }
 

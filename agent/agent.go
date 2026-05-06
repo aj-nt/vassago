@@ -79,6 +79,7 @@ func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.To
 	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
 	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
 	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
+	a.Stage5.SetEventBus(bus)
 
 	return a
 }
@@ -102,6 +103,7 @@ func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router 
 	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
 	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
 	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
+	a.Stage5.SetEventBus(bus)
 
 	return a
 }
