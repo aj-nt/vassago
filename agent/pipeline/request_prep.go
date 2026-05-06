@@ -53,24 +53,26 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		}
 	}
 
-	// Response format — the most critical directive for models that skip text
+	// CRITICAL: Response format — must produce text before tools
 	parts = append(parts, "")
-	parts = append(parts, "## Response format")
-	parts = append(parts, "Every response MUST contain substantive text BEFORE any tool calls. Format:")
-	parts = append(parts, "1. Write your analysis, plan, or answer in plain text")
-	parts = append(parts, "2. Then make tool calls if needed (maximum 1-2 per response)")
-	parts = append(parts, "3. After receiving results, write your next text response before making more calls")
+	parts = append(parts, "## CRITICAL: Always produce text")
+	parts = append(parts, "You MUST write a text response before making any tool calls. Every single response must contain visible text.")
 	parts = append(parts, "")
-	parts = append(parts, "NEVER respond with only tool calls and no text. NEVER call 3+ tools in one response.")
+	parts = append(parts, "GOOD: \"Let me search for that.\" → then call SearchMemories")
+	parts = append(parts, "GOOD: \"I'll check the recent sessions.\" → then call ListSessions")
+	parts = append(parts, "BAD:  (no text) → call SearchMemories → call GetSession → call ListSessions")
+	parts = append(parts, "BAD:  (no text) → call SearchMemories → call SearchMemories")
+	parts = append(parts, "")
+	parts = append(parts, "Maximum 2 tool calls per response. If you need more, say so first, get results, then continue.")
 
 	// Tool guide — concise, action-oriented
 	parts = append(parts, "")
 	parts = append(parts, "## Tools")
 	parts = append(parts, "FileSearch → find files by name/pattern | FileRead → read file contents (need path first) | FileWrite → write/update files | Execute → run shell commands | SearchMemories → recall past info | AddMemory → save important facts")
 	parts = append(parts, "")
-	parts = append(parts, "Rules: Do NOT restate tool capabilities. Do NOT call a tool if you already have the answer. If a tool fails, try a different approach.")
+	parts = append(parts, "Rules: Do NOT restate tool capabilities. Do NOT call a tool if you already have the answer. If a tool fails, try a different approach — never retry the same failing call.")
 
-	// Anti-repetition directive
+	// Anti-repetition
 	parts = append(parts, "")
 	parts = append(parts, "## Anti-repetition")
 	parts = append(parts, "- NEVER list or describe your tools/capabilities. The user already knows what you can do.")

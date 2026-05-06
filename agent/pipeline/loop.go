@@ -139,8 +139,14 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 			// If the LLM produced no text (only tool calls), inject a helpful message
 			// so the user doesn't see a silent exit with just tool icons.
 			if parsed.Text == "" {
-				parsed.Text = "I've been making too many tool calls without responding. Let me take a step back — could you ask your question again?"
+				parsed.Text = "I've been making too many tool calls without responding. Let me answer your question directly."
 			}
+			// Add a recovery message to the conversation history so subsequent turns
+			// don't repeat the same pattern. This teaches the model what went wrong.
+			convCtx.Messages = append(convCtx.Messages,
+				agentctx.Message{Role: "assistant", Content: parsed.Text},
+				agentctx.Message{Role: "user", Content: "[system: The assistant made multiple tool calls without generating text. Please respond with text before making any additional tool calls.]"},
+			)
 			if cfg.PersistFunc != nil {
 				cfg.PersistFunc(sessionID)
 			}

@@ -19,13 +19,22 @@ type ToolDispatchStage struct {
 	// Approver is called before executing a tool. Return false to skip.
 	// This is used by the CLI to prompt the user for approval of dangerous tools.
 	Approver func(toolName string, args map[string]interface{}) bool
+	// MaxParallelTools caps the number of tool calls executed per turn.
+	// When the LLM returns more than this, excess calls are skipped with an
+	// error message. This prevents models like GLM-5.1 from firing 5+
+	// tool calls without generating any text.
+	MaxParallelTools int
 	// callCounts tracks how many times each tool has been called in the current turn
 	callCounts map[string]int
 }
 
 // NewToolDispatchStage creates a new Stage 4.
 func NewToolDispatchStage(registry *tools.ToolRegistry, eventBus *eventbus.EventBus) *ToolDispatchStage {
-	return &ToolDispatchStage{Registry: registry, EventBus: eventBus}
+	return &ToolDispatchStage{
+		Registry:        registry,
+		EventBus:        eventBus,
+		MaxParallelTools: 2,
+	}
 }
 
 // Process executes tool calls and returns their results.
@@ -40,7 +49,24 @@ func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agen
 	}
 
 	var toolResults []agentctx.ToolResult
-	for _, tc := range parsed.ToolCalls {
+
+	// Cap parallel tool calls to prevent models from firing 5+ calls
+	// without generating text. Excess calls get an error result.
+	maxTools := s.MaxParallelTools
+	if maxTools <= 0 {
+		maxTools = 2 // default cap
+	}
+
+	for i, tc := range parsed.ToolCalls {
+		if i >= maxTools {
+			toolResults = append(toolResults, agentctx.ToolResult{
+				CallID:  tc.ID,
+				Name:    tc.Name,
+				Result:  fmt.Sprintf("Too many parallel tool calls (limit: %d). Respond with text first, then make your next tool call.", maxTools),
+				IsError: true,
+			})
+			continue
+		}
 		if s.EventBus != nil {
 			s.EventBus.Emit(eventbus.Event{Kind: "tool_call", Data: tc.Name})
 		}
