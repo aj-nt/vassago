@@ -14,7 +14,7 @@ import (
 // --- OverflowHandler tests ---
 
 func TestOverflowHandler_PassesWhenUnderLimit(t *testing.T) {
-	handler := &OverflowHandler{MaxContextTokens: 100000}
+	handler := &OverflowHandler{MaxContextTokens: 100000, Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations: 10,
@@ -26,7 +26,7 @@ func TestOverflowHandler_PassesWhenUnderLimit(t *testing.T) {
 }
 
 func TestOverflowHandler_TerminatesWhenOverLimitAndCannotCompact(t *testing.T) {
-	handler := &OverflowHandler{MaxContextTokens: 10} // very low limit
+	handler := &OverflowHandler{MaxContextTokens: 10, Thresholds: DefaultThresholds()} // very low limit
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: strings.Repeat("data ", 10000)}, // huge context
@@ -43,7 +43,7 @@ func TestOverflowHandler_TerminatesWhenOverLimitAndCannotCompact(t *testing.T) {
 }
 
 func TestOverflowHandler_CompactsAndContinuesWhenPossible(t *testing.T) {
-	handler := &OverflowHandler{MaxContextTokens: 200} // moderate limit
+	handler := &OverflowHandler{MaxContextTokens: 200, Thresholds: DefaultThresholds()} // moderate limit
 	// Build a compactable context
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
@@ -70,7 +70,7 @@ func TestOverflowHandler_CompactsAndContinuesWhenPossible(t *testing.T) {
 // --- StuckHandler tests ---
 
 func TestStuckHandler_PassesWhenNotStuck(t *testing.T) {
-	handler := &StuckHandler{}
+	handler := &StuckHandler{Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations: 10,
@@ -82,7 +82,7 @@ func TestStuckHandler_PassesWhenNotStuck(t *testing.T) {
 }
 
 func TestStuckHandler_YieldsOnConsecutiveErrors(t *testing.T) {
-	handler := &StuckHandler{}
+	handler := &StuckHandler{Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations: 10,
@@ -101,7 +101,7 @@ func TestStuckHandler_YieldsOnConsecutiveErrors(t *testing.T) {
 }
 
 func TestStuckHandler_YieldsOnConsecutiveNotFound(t *testing.T) {
-	handler := &StuckHandler{}
+	handler := &StuckHandler{Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations: 10,
@@ -122,7 +122,7 @@ func TestStuckHandler_YieldsOnConsecutiveNotFound(t *testing.T) {
 // --- RepetitiveLoopHandler tests ---
 
 func TestRepetitiveLoopHandler_DetectsLoop(t *testing.T) {
-	handler := &RepetitiveLoopHandler{}
+	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds()}
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
@@ -149,7 +149,7 @@ func TestRepetitiveLoopHandler_DetectsLoop(t *testing.T) {
 }
 
 func TestRepetitiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
-	handler := &RepetitiveLoopHandler{}
+	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds()}
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{
 		Messages:          []agentctx.Message{{Role: "user", Content: "hello"}},
@@ -169,7 +169,7 @@ func TestRepetitiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
 // --- ConsecutiveLoopHandler tests ---
 
 func TestConsecutiveLoopHandler_DetectsLoop(t *testing.T) {
-	handler := &ConsecutiveLoopHandler{}
+	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds()}
 	messages := []agentctx.Message{
 		{Role: "user", Content: "check this"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
@@ -198,7 +198,7 @@ func TestConsecutiveLoopHandler_DetectsLoop(t *testing.T) {
 }
 
 func TestConsecutiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
-	handler := &ConsecutiveLoopHandler{}
+	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:          []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations:     20,
@@ -217,7 +217,7 @@ func TestConsecutiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
 // --- AppendAndContinueHandler tests ---
 
 func TestAppendAndContinueHandler_AppendsMessages(t *testing.T) {
-	handler := &AppendAndContinueHandler{MaxContextTokens: 0}
+	handler := &AppendAndContinueHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "search memory"}},
 		MaxIterations: 5,
@@ -253,7 +253,7 @@ func TestAppendAndContinueHandler_AppendsMessages(t *testing.T) {
 }
 
 func TestAppendAndContinueHandler_TerminatesOnMaxIterations(t *testing.T) {
-	handler := &AppendAndContinueHandler{MaxContextTokens: 0}
+	handler := &AppendAndContinueHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()}
 	convCtx := &agentctx.ConversationContext{
 		Messages:      []agentctx.Message{{Role: "user", Content: "hello"}},
 		MaxIterations: 2,
@@ -271,7 +271,7 @@ func TestAppendAndContinueHandler_TerminatesOnMaxIterations(t *testing.T) {
 }
 
 func TestAppendAndContinueHandler_TerminatesOnOverflowAfterAppend(t *testing.T) {
-	handler := &AppendAndContinueHandler{MaxContextTokens: 10} // very low limit
+	handler := &AppendAndContinueHandler{MaxContextTokens: 10, Thresholds: DefaultThresholds()} // very low limit
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: strings.Repeat("data ", 1000)}, // already over limit
@@ -295,10 +295,10 @@ func TestAppendAndContinueHandler_TerminatesOnOverflowAfterAppend(t *testing.T) 
 func TestHandlerChain_CallsHandlersInOrder(t *testing.T) {
 	// Create a chain where the overflow handler stops the request
 	chain := NewHandlerChain(
-		&OverflowHandler{MaxContextTokens: 10}, // very low limit
-		&StuckHandler{},
-		&RepetitiveLoopHandler{},
-		&ConsecutiveLoopHandler{},
+		&OverflowHandler{MaxContextTokens: 10, Thresholds: DefaultThresholds()}, // very low limit
+		&StuckHandler{Thresholds: DefaultThresholds()},
+		&RepetitiveLoopHandler{Thresholds: DefaultThresholds()},
+		&ConsecutiveLoopHandler{Thresholds: DefaultThresholds()},
 		&AppendAndContinueHandler{},
 	)
 
@@ -317,11 +317,11 @@ func TestHandlerChain_CallsHandlersInOrder(t *testing.T) {
 
 func TestHandlerChain_PassesThroughWhenFirstHandlerDeclines(t *testing.T) {
 	chain := NewHandlerChain(
-		&OverflowHandler{MaxContextTokens: 0}, // no limit → passes through
-		&StuckHandler{},                        // no stuck results → passes through
-		&RepetitiveLoopHandler{},               // not repetitive → passes through
-		&ConsecutiveLoopHandler{},              // not consecutive → passes through
-		&AppendAndContinueHandler{MaxContextTokens: 0},
+		&OverflowHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()}, // no limit → passes through
+		&StuckHandler{Thresholds: DefaultThresholds()},                        // no stuck results → passes through
+		&RepetitiveLoopHandler{Thresholds: DefaultThresholds()},               // not repetitive → passes through
+		&ConsecutiveLoopHandler{Thresholds: DefaultThresholds()},              // not consecutive → passes through
+		&AppendAndContinueHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()},
 	)
 
 	convCtx := &agentctx.ConversationContext{
@@ -369,6 +369,99 @@ func TestContextManagementStage_ResetsCompactedFlag(t *testing.T) {
 	// CompactedThisTurn should have been reset
 	if convCtx.CompactedThisTurn {
 		t.Error("Expected CompactedThisTurn to be reset to false")
+	}
+}
+
+// --- Config override tests ---
+
+func TestPipelineThresholds_CustomRepetitiveThreshold(t *testing.T) {
+	// With a higher threshold (5), 3 identical calls should NOT trigger loop detection
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 5
+
+	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "check memory"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
+		},
+		MaxIterations: 20,
+		Iteration:     3,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if handled {
+		t.Errorf("Expected handler to pass with threshold=5 and only 3 calls, got action=%v handled=%v", action, handled)
+	}
+}
+
+func TestPipelineThresholds_CustomConsecutiveThreshold(t *testing.T) {
+	// With threshold=3, 3 consecutive iterations should trigger loop detection
+	thresholds := DefaultThresholds()
+	thresholds.ConsecutiveLoopThreshold = 3
+
+	handler := &ConsecutiveLoopHandler{Thresholds: thresholds}
+	messages := []agentctx.Message{
+		{Role: "user", Content: "check this"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
+		{Role: "tool", Content: "found files", ToolCallID: "1"},
+		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)}}},
+		{Role: "tool", Content: "file contents", ToolCallID: "2"},
+	}
+	convCtx := &agentctx.ConversationContext{
+		Messages:      messages,
+		MaxIterations: 20,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)}},
+		FinishReason: "tool_use",
+	}
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if !handled {
+		t.Error("Expected handler to detect loop with threshold=3 and 3 consecutive calls")
+	}
+	if action != agentctx.StageActionYIELD {
+		t.Errorf("Expected YIELD, got %v", action)
+	}
+}
+
+func TestDefaultThresholds(t *testing.T) {
+	th := DefaultThresholds()
+	if th.AggressiveSummaryThreshold != 500 {
+		t.Errorf("Expected AggressiveSummaryThreshold=500, got %d", th.AggressiveSummaryThreshold)
+	}
+	if th.RepetitiveLoopThreshold != 3 {
+		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
+	}
+	if th.ConsecutiveLoopThreshold != 4 {
+		t.Errorf("Expected ConsecutiveLoopThreshold=4, got %d", th.ConsecutiveLoopThreshold)
+	}
+	if th.StuckMinFailures != 2 {
+		t.Errorf("Expected StuckMinFailures=2, got %d", th.StuckMinFailures)
+	}
+	if th.StuckHistoryWindow != 3 {
+		t.Errorf("Expected StuckHistoryWindow=3, got %d", th.StuckHistoryWindow)
+	}
+	if th.MaxConsecutiveErrors != 3 {
+		t.Errorf("Expected MaxConsecutiveErrors=3, got %d", th.MaxConsecutiveErrors)
+	}
+}
+
+func TestBlockingThresholds(t *testing.T) {
+	th := BlockingThresholds()
+	if th.MaxConsecutiveErrors != 1 {
+		t.Errorf("Expected MaxConsecutiveErrors=1 for blocking mode, got %d", th.MaxConsecutiveErrors)
+	}
+	// Other thresholds should match defaults
+	if th.RepetitiveLoopThreshold != 3 {
+		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
 	}
 }
 

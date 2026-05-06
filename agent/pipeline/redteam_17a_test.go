@@ -58,7 +58,7 @@ func TestRT_Stuck_EmptyResult(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "Search"}}},
 		{Role: "tool", Content: "", ToolCallID: "2", Name: "Search"},
 	}
-	if !isStuckFromHistory(messages) {
+	if !isStuckFromHistory(messages, 3, 2) {
 		t.Error("Empty results in history should trigger stuck detection")
 	}
 }
@@ -76,7 +76,7 @@ func TestRT_Stuck_LongHistoryWithOneFailure(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "3", Name: "FileSearch"}}},
 		{Role: "tool", Content: "0 files found", ToolCallID: "3", Name: "FileSearch"},
 	}
-	if isStuckFromHistory(messages) {
+	if isStuckFromHistory(messages, 3, 2) {
 		t.Error("One failure after successes should NOT trigger stuck detection")
 	}
 }
@@ -109,7 +109,7 @@ func TestRT_Loop_FourDifferentTools(t *testing.T) {
 		{Role: "tool", Content: "saved", ToolCallID: "4"},
 	}
 	currentCalls := []agentctx.ToolCall{{ID: "5", Name: "FileSearch", Arguments: args}}
-	if !isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if !isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("5 consecutive tool iterations should be detected as a loop")
 	}
 }
@@ -125,7 +125,7 @@ func TestRT_Loop_ThreeDifferentTools(t *testing.T) {
 		{Role: "tool", Content: "contents", ToolCallID: "2"},
 	}
 	currentCalls := []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: args}}
-	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("3 consecutive tool iterations should be allowed (threshold is 4)")
 	}
 }
@@ -138,7 +138,7 @@ func TestRT_Loop_SameToolTwice(t *testing.T) {
 		{Role: "tool", Content: "hot block data", ToolCallID: "1"},
 	}
 	currentCalls := []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}
-	if isRepetitiveToolLoop(messages, currentCalls) {
+	if isRepetitiveToolLoop(messages, currentCalls, 3) {
 		t.Error("2 same-tool calls should NOT be detected as a loop (threshold is 3)")
 	}
 }
@@ -188,7 +188,7 @@ func TestRT_StuckFromHistory_InterleavedErrors(t *testing.T) {
 	}
 	// Only one "not found" in the last 2 results (most recent is "0 files found",
 	// second most recent is "found 5 items" which is success)
-	if isStuckFromHistory(messages) {
+	if isStuckFromHistory(messages, 3, 2) {
 		t.Error("Interleaved errors/successes should NOT trigger stuck detection")
 	}
 }
@@ -211,7 +211,7 @@ func TestRT_Loop_TextResponseBreaksCrossToolLoop(t *testing.T) {
 	}
 	// After text response, only 2 consecutive tool calls — not enough for loop
 	currentCalls := []agentctx.ToolCall{{ID: "5", Name: "Execute", Arguments: args}}
-	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("Text response should break cross-tool loop counter")
 	}
 }

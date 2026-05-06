@@ -50,6 +50,7 @@ func (c *HandlerChain) Handle(convCtx *agentctx.ConversationContext, toolResults
 // makes all other checks unreliable.
 type OverflowHandler struct {
 	MaxContextTokens int
+	Thresholds      PipelineThresholds
 }
 
 // Handle checks context overflow.
@@ -63,7 +64,7 @@ func (h *OverflowHandler) Handle(convCtx *agentctx.ConversationContext, toolResu
 
 	// If still over after compaction, aggressively summarize
 	if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
-		convCtx.SummarizeLargeToolResults(500)
+		convCtx.SummarizeLargeToolResults(h.Thresholds.AggressiveSummaryThreshold)
 		if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
 			return agentctx.StageActionTERMINATE, true
 		}
@@ -72,20 +73,20 @@ func (h *OverflowHandler) Handle(convCtx *agentctx.ConversationContext, toolResu
 	// Compaction succeeded — let later handlers run with the smaller context.
 	// We track that compaction happened to suppress loop detection (the model
 	// needs a chance to operate on the newly compacted context).
-	// This is surfaced by attaching compacted=true to the next handler's state.
-	// Instead of passing a flag, we store it on the context for the next handler.
 	convCtx.CompactedThisTurn = true
 	return agentctx.StageActionCONTINUE, false
 }
 
 // StuckHandler detects if the agent is stuck (consecutive errors or "not found"
 // results). It yields a helpful message to break the loop.
-type StuckHandler struct{}
+type StuckHandler struct {
+	Thresholds PipelineThresholds
+}
 
 // Handle checks for stuck agent patterns.
 func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
 	stuckFromResults := isStuck(toolResults)
-	stuckFromHistory := isStuckFromHistory(convCtx.Messages)
+	stuckFromHistory := isStuckFromHistory(convCtx.Messages, h.Thresholds.StuckHistoryWindow, h.Thresholds.StuckMinFailures)
 
 	if stuckFromResults || stuckFromHistory {
 		convCtx.AddMessage(agentctx.Message{
@@ -99,8 +100,10 @@ func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults
 }
 
 // RepetitiveLoopHandler detects same-tool loops (e.g., GetHotBlock called
-// 3+ times consecutively). Skipped if the context was just compacted.
-type RepetitiveLoopHandler struct{}
+// N+ times consecutively). Skipped if the context was just compacted.
+type RepetitiveLoopHandler struct {
+	Thresholds PipelineThresholds
+}
 
 // Handle checks for repetitive tool loops.
 func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
@@ -110,16 +113,18 @@ func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, to
 		return agentctx.StageActionCONTINUE, false
 	}
 
-	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls) {
+	if isRepetitiveToolLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.RepetitiveLoopThreshold) {
 		return agentctx.StageActionYIELD, true
 	}
 
 	return agentctx.StageActionCONTINUE, false
 }
 
-// ConsecutiveLoopHandler detects cross-tool loops (4+ consecutive tool
+// ConsecutiveLoopHandler detects cross-tool loops (N+ consecutive tool
 // iterations regardless of tool name). Skipped after compaction.
-type ConsecutiveLoopHandler struct{}
+type ConsecutiveLoopHandler struct {
+	Thresholds PipelineThresholds
+}
 
 // Handle checks for consecutive iteration loops.
 func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
@@ -128,7 +133,7 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 		return agentctx.StageActionCONTINUE, false
 	}
 
-	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls) {
+	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
 		return agentctx.StageActionYIELD, true
 	}
 
@@ -141,6 +146,7 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 // loop to continue.
 type AppendAndContinueHandler struct {
 	MaxContextTokens int
+	Thresholds      PipelineThresholds
 }
 
 // Handle appends messages and checks post-append limits.
@@ -167,7 +173,7 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 
 		if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
 			// Aggressively truncate large tool results
-			convCtx.SummarizeLargeToolResults(500)
+			convCtx.SummarizeLargeToolResults(h.Thresholds.AggressiveSummaryThreshold)
 			if convCtx.IsOverTokenLimit(h.MaxContextTokens) {
 				return agentctx.StageActionTERMINATE, true
 			}
@@ -188,17 +194,26 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 //
 //	1. OverflowHandler     — compact/terminate on token overflow
 //	2. StuckHandler        — yield on consecutive errors/not-found
-//	3. RepetitiveLoopHandler — yield on same-tool loops (3+ repeats)
-//	4. ConsecutiveLoopHandler — yield on cross-tool loops (4+ iterations)
+//	3. RepetitiveLoopHandler — yield on same-tool loops (threshold defaults to 3)
+//	4. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 4)
 //	5. AppendAndContinueHandler — append messages + check limits, then CONTINUE
 type ContextManagementStage struct {
 	MaxContextTokens int
+	Thresholds      PipelineThresholds
 	chain            *HandlerChain
 }
 
 // NewContextManagementStage creates a new Stage 5 with the default handler chain.
 func NewContextManagementStage(maxContextTokens int) *ContextManagementStage {
-	s := &ContextManagementStage{MaxContextTokens: maxContextTokens}
+	return NewContextManagementStageWithThresholds(maxContextTokens, DefaultThresholds())
+}
+
+// NewContextManagementStageWithThresholds creates a new Stage 5 with custom thresholds.
+func NewContextManagementStageWithThresholds(maxContextTokens int, thresholds PipelineThresholds) *ContextManagementStage {
+	s := &ContextManagementStage{
+		MaxContextTokens: maxContextTokens,
+		Thresholds:       thresholds,
+	}
 	s.chain = s.defaultChain()
 	return s
 }
@@ -206,11 +221,11 @@ func NewContextManagementStage(maxContextTokens int) *ContextManagementStage {
 // defaultChain builds the standard handler chain used in production.
 func (s *ContextManagementStage) defaultChain() *HandlerChain {
 	return NewHandlerChain(
-		&OverflowHandler{MaxContextTokens: s.MaxContextTokens},
-		&StuckHandler{},
-		&RepetitiveLoopHandler{},
-		&ConsecutiveLoopHandler{},
-		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens},
+		&OverflowHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds},
+		&StuckHandler{Thresholds: s.Thresholds},
+		&RepetitiveLoopHandler{Thresholds: s.Thresholds},
+		&ConsecutiveLoopHandler{Thresholds: s.Thresholds},
+		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds},
 	)
 }
 
@@ -235,11 +250,9 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 // --- Helper functions that remain local to pipeline ---
 
 // isStuckFromHistory checks conversation messages for recent tool failures.
-// It looks at the last N tool results in the conversation history for consecutive
-// errors or "not found" patterns. This is more robust than checking the toolResults
-// parameter because it works even when loop detection fires before tool results
-// are appended to the context.
-func isStuckFromHistory(messages []agentctx.Message) bool {
+// It looks at the last `window` tool results in the conversation history for
+// `minFailures` or more consecutive errors or "not found" patterns.
+func isStuckFromHistory(messages []agentctx.Message, window int, minFailures int) bool {
 	// Collect the last few tool results from history
 	var recentResults []struct {
 		content string
@@ -254,17 +267,17 @@ func isStuckFromHistory(messages []agentctx.Message) bool {
 				content string
 				isError bool
 			}{msg.Content, isErr})
-			if len(recentResults) >= 3 {
-				break // Check last 3 tool results
+			if len(recentResults) >= window {
+				break
 			}
 		}
 	}
 
-	if len(recentResults) < 2 {
+	if len(recentResults) < minFailures {
 		return false
 	}
 
-	// Check if the last 2+ tool results all indicate failure
+	// Check if the last N tool results all indicate failure
 	failureCount := 0
 	for _, r := range recentResults {
 		if r.isError || agentctx.IsResultNotFound(r.content) {
@@ -272,8 +285,8 @@ func isStuckFromHistory(messages []agentctx.Message) bool {
 		}
 	}
 
-	// Stuck if all recent results are failures (at least 2)
-	return failureCount >= 2 && failureCount == len(recentResults)
+	// Stuck if all recent results are failures (at least minFailures)
+	return failureCount >= minFailures && failureCount == len(recentResults)
 }
 
 // isStuck detects if the agent is stuck by checking if the last 2 tool results
@@ -301,8 +314,9 @@ func isStuck(results []agentctx.ToolResult) bool {
 }
 
 // isRepetitiveToolLoop detects if the same tool is being called repeatedly
-// without a meaningful text response between iterations.
-func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
+// without a meaningful text response between iterations. The threshold
+// parameter controls how many consecutive same-tool calls trigger a loop.
+func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall, threshold int) bool {
 	for _, call := range currentCalls {
 		count := 1 // current call
 		for i := len(messages) - 1; i >= 0; i-- {
@@ -323,16 +337,17 @@ func isRepetitiveToolLoop(messages []agentctx.Message, currentCalls []agentctx.T
 			}
 			// tool and user messages don't affect the count
 		}
-		if count >= 3 {
+		if count >= threshold {
 			return true
 		}
 	}
 	return false
 }
 
-// isConsecutiveToolIterationLoop checks if there have been 4+ consecutive iterations
-// with ANY tool calls. This catches cross-tool loops that isRepetitiveToolLoop misses.
-func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall) bool {
+// isConsecutiveToolIterationLoop checks if there have been `threshold` or more
+// consecutive iterations with ANY tool calls. This catches cross-tool loops
+// that isRepetitiveToolLoop misses.
+func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []agentctx.ToolCall, threshold int) bool {
 	count := 0
 
 	// Walk backwards through messages
@@ -350,7 +365,7 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 		// Count consecutive iterations with tool calls
 		if len(msg.ToolCalls) > 0 {
 			count++
-			if count >= 4 {
+			if count >= threshold {
 				return true
 			}
 		}
@@ -359,7 +374,7 @@ func isConsecutiveToolIterationLoop(messages []agentctx.Message, currentCalls []
 	// Include current calls in the count
 	if len(currentCalls) > 0 {
 		count++
-		if count >= 4 {
+		if count >= threshold {
 			return true
 		}
 	}

@@ -236,7 +236,7 @@ func TestIsRepetitiveToolLoop_NoHistory(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "1", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 	}
-	if isRepetitiveToolLoop(nil, currentCalls) {
+	if isRepetitiveToolLoop(nil, currentCalls, 3) {
 		t.Error("First tool call should not be detected as a loop")
 	}
 }
@@ -252,7 +252,7 @@ func TestIsRepetitiveToolLoop_TwoCalls(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "2", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 	}
-	if isRepetitiveToolLoop(messages, currentCalls) {
+	if isRepetitiveToolLoop(messages, currentCalls, 3) {
 		t.Error("Two consecutive same-tool calls should not be detected as a loop")
 	}
 }
@@ -272,7 +272,7 @@ func TestIsRepetitiveToolLoop_ThreeCalls_BreaksLoop(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 	}
-	if !isRepetitiveToolLoop(messages, currentCalls) {
+	if !isRepetitiveToolLoop(messages, currentCalls, 3) {
 		t.Error("Three consecutive same-tool calls should be detected as a loop")
 	}
 }
@@ -297,7 +297,7 @@ func TestIsRepetitiveToolLoop_TextBreaksLoop(t *testing.T) {
 	}
 	// Count walks backwards: finds #2 in messages, then hits text-only assistant
 	// → breaks. Count = 2 (current + #2), NOT 3+ → not a loop.
-	if isRepetitiveToolLoop(messages, currentCalls) {
+	if isRepetitiveToolLoop(messages, currentCalls, 3) {
 		t.Error("Text-only response between iterations should break the loop counter")
 	}
 }
@@ -321,7 +321,7 @@ func TestIsRepetitiveToolLoop_TextWithToolDoesNotBreakLoop(t *testing.T) {
 		{ID: "3", Name: "GetHotBlock", Arguments: json.RawMessage(`{}`)},
 	}
 	// 3 consecutive GetHotBlock calls (with text between) = loop detected
-	if !isRepetitiveToolLoop(messages, currentCalls) {
+	if !isRepetitiveToolLoop(messages, currentCalls, 3) {
 		t.Error("Text+tool pattern should still be detected as a repeating loop")
 	}
 }
@@ -481,7 +481,7 @@ func TestIsConsecutiveToolIterationLoop_DifferentTools(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)},
 	}
-	if !isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if !isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("4+ consecutive tool iterations with different tools should be detected as a loop")
 	}
 }
@@ -502,7 +502,7 @@ func TestIsConsecutiveToolIterationLoop_ThreeIterationsAllowed(t *testing.T) {
 	currentCalls := []agentctx.ToolCall{
 		{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)},
 	}
-	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("3 consecutive tool iterations should be allowed (threshold is 4)")
 	}
 }
@@ -529,7 +529,7 @@ func TestIsConsecutiveToolLoop_TextBreaksLoop(t *testing.T) {
 	}
 
 	// Should NOT detect a loop because text response broke it
-	if isConsecutiveToolIterationLoop(messages, currentCalls) {
+	if isConsecutiveToolIterationLoop(messages, currentCalls, 4) {
 		t.Error("Expected text-only response to break the loop")
 	}
 }
@@ -591,7 +591,7 @@ func TestIsStuckFromHistory_TwoErrors(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FindTool"}}},
 		{Role: "tool", Content: "Error: still no access", ToolCallID: "2", Name: "FindTool"},
 	}
-	if !isStuckFromHistory(messages) {
+	if !isStuckFromHistory(messages, 3, 2) {
 		t.Error("Expected isStuckFromHistory to return true for two consecutive errors")
 	}
 }
@@ -604,7 +604,7 @@ func TestIsStuckFromHistory_TwoNotFound(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileSearch"}}},
 		{Role: "tool", Content: "no results", ToolCallID: "2", Name: "FileSearch"},
 	}
-	if !isStuckFromHistory(messages) {
+	if !isStuckFromHistory(messages, 3, 2) {
 		t.Error("Expected isStuckFromHistory to return true for two 'not found' results")
 	}
 }
@@ -617,7 +617,7 @@ func TestIsStuckFromHistory_SuccessAfterError(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileSearch"}}},
 		{Role: "tool", Content: "found: 3 files", ToolCallID: "2", Name: "FileSearch"},
 	}
-	if isStuckFromHistory(messages) {
+	if isStuckFromHistory(messages, 3, 2) {
 		t.Error("Expected isStuckFromHistory to return false when success follows error")
 	}
 }
@@ -629,7 +629,7 @@ func TestIsStuckFromHistory_InsufficientHistory(t *testing.T) {
 		{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch"}}},
 		{Role: "tool", Content: "Error: not found", ToolCallID: "1", Name: "FileSearch"},
 	}
-	if isStuckFromHistory(messages) {
+	if isStuckFromHistory(messages, 3, 2) {
 		t.Error("Expected isStuckFromHistory to return false with insufficient history")
 	}
 }
