@@ -63,49 +63,12 @@ type HotBlockConfig struct {
 
 // NewAgent creates a new agent with the given configuration.
 func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *Agent {
-	bus := eventbus.NewEventBus()
-
-	a := &Agent{
-		Config:       cfg,
-		Registry:     registry,
-		ToolRegistry: toolReg,
-		EventBus:     bus,
-		Mnemo:        mnemo,
-	}
-
-	// Wire pipeline stages
-	a.Stage1 = pipeline.NewRequestPrepStage(cfg.Personality)
-	a.Stage2 = pipeline.NewProviderCallStage(registry)
-	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
-	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
-	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
-	a.Stage5.SetEventBus(bus)
-
-	return a
+	return NewAgentBuilder(cfg, registry, toolReg, mnemo).Build()
 }
 
 // NewAgentWithRouter creates a new agent with model routing.
 func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router *provider.ModelRouter, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *Agent {
-	bus := eventbus.NewEventBus()
-
-	a := &Agent{
-		Config:       cfg,
-		Registry:     registry,
-		Router:       router,
-		ToolRegistry: toolReg,
-		EventBus:     bus,
-		Mnemo:        mnemo,
-	}
-
-	// Wire pipeline stages
-	a.Stage1 = pipeline.NewRequestPrepStage(cfg.Personality)
-	a.Stage2 = pipeline.NewProviderCallStageWithRouter(registry, router)
-	a.Stage3 = pipeline.NewResponseProcessingStage(registry)
-	a.Stage4 = pipeline.NewToolDispatchStage(toolReg, bus)
-	a.Stage5 = pipeline.NewContextManagementStage(cfg.MaxContextTokens)
-	a.Stage5.SetEventBus(bus)
-
-	return a
+	return NewAgentBuilder(cfg, registry, toolReg, mnemo).WithRouter(router).Build()
 }
 
 // Close cleans up agent resources.

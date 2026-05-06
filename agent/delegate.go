@@ -42,13 +42,12 @@ func (r *SubAgentRunnerImpl) RunSubAgent(prompt string, agentID string, maxTurns
 		},
 	}
 
-	// Create sub-agent
-	var subAgent *Agent
+	// Create sub-agent via builder (single wiring path, no duplication)
+	builder := NewAgentBuilder(subCfg, r.Registry, subToolReg, r.Mnemo)
 	if r.Router != nil {
-		subAgent = NewAgentWithRouter(subCfg, r.Registry, r.Router, subToolReg, r.Mnemo)
-	} else {
-		subAgent = NewAgent(subCfg, r.Registry, subToolReg, r.Mnemo)
+		builder = builder.WithRouter(r.Router)
 	}
+	subAgent := builder.Build()
 
 	// Register sub-agent with daemon
 	if r.Mnemo != nil {
