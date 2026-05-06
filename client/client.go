@@ -492,6 +492,9 @@ func (c *Client) RemoveTodo(ctx context.Context, id string) error {
 }
 
 func protoTodoToItem(pb *pb.TodoItem) *TodoItem {
+	if pb == nil {
+		return nil
+	}
 	return &TodoItem{
 		ID:          pb.Id,
 		Content:     pb.Content,
