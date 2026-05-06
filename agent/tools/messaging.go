@@ -11,11 +11,11 @@ import (
 )
 
 // RegisterMessagingTools adds messaging tool handlers to the registry.
-func RegisterMessagingTools(registry *ToolRegistry, mnemo *client.Client, agentID string) {
+func RegisterMessagingTools(registry *ToolRegistry, mnemo client.MnemoClient, agentID string) {
 	registry.Register("SendMessage", makeSendMessage(mnemo, agentID), SendMessageSchema)
 }
 
-func makeSendMessage(mnemo *client.Client, agentID string) ToolHandler {
+func makeSendMessage(mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		platform := strArg(args, "platform", "")
 		target := strArg(args, "target", "")

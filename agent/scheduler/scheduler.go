@@ -27,14 +27,14 @@ type TaskFunc func(ctx context.Context) error
 // Scheduler runs periodic tasks at configured intervals.
 type Scheduler struct {
 	tasks     []Task
-	mnemo     *memoclient.Client
+	mnemo memoclient.MnemoClient
 	mu        sync.Mutex
 	running   bool
 	cancellers []context.CancelFunc
 }
 
 // NewScheduler creates a new scheduler with the daemon client.
-func NewScheduler(mnemo *memoclient.Client) *Scheduler {
+func NewScheduler(mnemo memoclient.MnemoClient) *Scheduler {
 	return &Scheduler{
 		mnemo: mnemo,
 	}

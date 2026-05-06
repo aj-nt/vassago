@@ -4,6 +4,7 @@
 package agent
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"testing"
 
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
@@ -22,7 +23,7 @@ func TestNewAgentBuilder_Default(t *testing.T) {
 	registry := setupTestRegistry()
 	toolReg := setupTestToolReg()
 
-	agent := NewAgentBuilder(cfg, registry, toolReg, nil).Build()
+	agent := NewAgentBuilder(cfg, registry, toolReg, &memoclient.NullMnemo{}).Build()
 	if agent == nil {
 		t.Fatal("Expected non-nil agent from builder")
 	}
@@ -62,7 +63,7 @@ func TestNewAgentBuilder_WithRouter(t *testing.T) {
 	toolReg := setupTestToolReg()
 
 	// Test that WithRouter stores the router
-	builder := NewAgentBuilder(cfg, registry, toolReg, nil)
+	builder := NewAgentBuilder(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	if builder == nil {
 		t.Fatal("Expected non-nil builder")
 	}
@@ -91,7 +92,7 @@ func TestNewAgentBuilder_StageOverrides(t *testing.T) {
 
 	// Override Stage5 with a custom one
 	customStage5 := pipeline.NewContextManagementStage(999)
-	agent := NewAgentBuilder(cfg, registry, toolReg, nil).
+	agent := NewAgentBuilder(cfg, registry, toolReg, &memoclient.NullMnemo{}).
 		WithStage5(customStage5).
 		Build()
 
@@ -114,7 +115,7 @@ func TestNewAgentBuilder_WithEventBus(t *testing.T) {
 
 	// Use a shared event bus
 	bus := eventbus.NewEventBus()
-	agent := NewAgentBuilder(cfg, registry, toolReg, nil).
+	agent := NewAgentBuilder(cfg, registry, toolReg, &memoclient.NullMnemo{}).
 		WithEventBus(bus).
 		Build()
 

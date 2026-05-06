@@ -17,14 +17,14 @@ func TestAgent_HotBlockCache_ReturnsCached(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Set up cache with initial content
 	cache := memoclient.NewHotBlockCache("memory", "test-agent", "[env] python: 3.11", 20, 1)
 	a.SetHotBlockCache(cache)
 
-	// With nil Mnemo and fresh cache, GetHotBlock should return cached content
+	// With NullMnemo and fresh cache, GetHotBlock should return cached content
 	hb, err := a.GetHotBlock(context.Background())
 	if err != nil {
 		t.Fatalf("GetHotBlock failed: %v", err)
@@ -40,7 +40,7 @@ func TestAgent_HotBlockCache_StaleFallsThrough(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Set up cache with initial content
@@ -50,14 +50,14 @@ func TestAgent_HotBlockCache_StaleFallsThrough(t *testing.T) {
 	// Invalidate the cache
 	a.InvalidateHotBlock()
 
-	// With nil Mnemo and stale cache, GetHotBlock should return empty (no daemon to refetch)
+	// With NullMnemo and stale cache, GetHotBlock should return empty (no daemon to refetch)
 	hb, err := a.GetHotBlock(context.Background())
 	if err != nil {
 		t.Fatalf("GetHotBlock failed: %v", err)
 	}
-	// Since Mnemo is nil, the stale path falls through to nil check and returns ""
+	// Since Mnemo is NullMnemo (not connected), stale path falls through to GetHotBlock → returns ""
 	if hb != "" {
-		t.Errorf("Expected empty result with nil Mnemo and stale cache, got %q", hb)
+		t.Errorf("Expected empty result with NullMnemo and stale cache, got %q", hb)
 	}
 }
 
@@ -67,7 +67,7 @@ func TestAgent_InvalidateHotBlock_SetsStaleFlag(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Initially not stale
@@ -88,16 +88,16 @@ func TestAgent_HotBlockCache_NoCache_NilMnemo(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
-	// No cache, nil Mnemo — should return empty string
+	// No cache, NullMnemo — should return empty string
 	hb, err := a.GetHotBlock(context.Background())
 	if err != nil {
 		t.Fatalf("GetHotBlock failed: %v", err)
 	}
 	if hb != "" {
-		t.Errorf("Expected empty result with no cache and nil Mnemo, got %q", hb)
+		t.Errorf("Expected empty result with no cache and NullMnemo, got %q", hb)
 	}
 }
 
@@ -107,14 +107,14 @@ func TestAgent_HotBlockCache_EmptyCache_FallsThrough(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Set up cache with empty content
 	cache := memoclient.NewHotBlockCache("memory", "test-agent", "", 0, 0)
 	a.SetHotBlockCache(cache)
 
-	// Empty content in cache should fall through to Mnemo (nil) → returns ""
+	// Empty content in cache should fall through to Mnemo (not connected) → returns ""
 	hb, err := a.GetHotBlock(context.Background())
 	if err != nil {
 		t.Fatalf("GetHotBlock failed: %v", err)
@@ -130,7 +130,7 @@ func TestAgent_HotBlockCache_MultipleInvalidations(t *testing.T) {
 		AgentName: "test",
 		AgentRole: "dev",
 	}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	cache := memoclient.NewHotBlockCache("memory", "test-agent", "initial content", 16, 1)
@@ -148,13 +148,13 @@ func TestAgent_HotBlockCache_MultipleInvalidations(t *testing.T) {
 	// Invalidate once
 	a.InvalidateHotBlock()
 
-	// After invalidation with nil Mnemo: falls through to nil check → ""
+	// After invalidation with NullMnemo: falls through to GetHotBlock on NullMnemo → ""
 	hb, err = a.GetHotBlock(context.Background())
 	if err != nil {
 		t.Fatalf("GetHotBlock failed: %v", err)
 	}
 	if hb != "" {
-		t.Errorf("Expected empty after stale+nil Mnemo, got %q", hb)
+		t.Errorf("Expected empty after stale+NullMnemo, got %q", hb)
 	}
 
 	// Invalidate again — still stale

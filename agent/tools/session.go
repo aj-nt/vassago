@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterSessionTools adds session-related tool handlers to the registry.
-func RegisterSessionTools(registry *ToolRegistry, mnemo *client.Client) {
+func RegisterSessionTools(registry *ToolRegistry, mnemo client.MnemoClient) {
 	registry.Register("SearchSessions", makeSearchSessions(mnemo), SearchSessionsSchema)
 	registry.Register("ListSessions", makeListSessions(mnemo), ListSessionsSchema)
 	registry.Register("GetSession", makeGetSession(mnemo), GetSessionSchema)
@@ -19,7 +19,7 @@ func RegisterSessionTools(registry *ToolRegistry, mnemo *client.Client) {
 
 // --- SearchSessions ---
 
-func makeSearchSessions(mnemo *client.Client) ToolHandler {
+func makeSearchSessions(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		query := strArg(args, "query", "")
 		limit := intArg(args, "limit", 10)
@@ -58,7 +58,7 @@ func makeSearchSessions(mnemo *client.Client) ToolHandler {
 
 // --- ListSessions ---
 
-func makeListSessions(mnemo *client.Client) ToolHandler {
+func makeListSessions(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		limit := intArg(args, "limit", 10)
 
@@ -92,7 +92,7 @@ func makeListSessions(mnemo *client.Client) ToolHandler {
 
 // --- GetSession ---
 
-func makeGetSession(mnemo *client.Client) ToolHandler {
+func makeGetSession(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		sessionID := strArg(args, "session_id", "")
 		includeMessages := boolArg(args, "include_messages", true)

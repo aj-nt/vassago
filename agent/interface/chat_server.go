@@ -23,7 +23,7 @@ import (
 type ChatServer struct {
 	pb.UnimplementedAgentChatServer
 	agent         *agent.Agent
-	mnemo         *memoclient.Client
+	mnemo memoclient.MnemoClient
 	sessions      sync.Map // sessionID -> *chatSession
 	sessionCounter atomic.Int64
 }
@@ -36,7 +36,7 @@ type chatSession struct {
 }
 
 // NewChatServer creates a new ChatServer.
-func NewChatServer(a *agent.Agent, mnemo *memoclient.Client) *ChatServer {
+func NewChatServer(a *agent.Agent, mnemo memoclient.MnemoClient) *ChatServer {
 	return &ChatServer{
 		agent: a,
 		mnemo: mnemo,
@@ -197,63 +197,59 @@ func (cs *ChatServer) getOrCreateSession(ctx context.Context, sessionID, agentID
 		}
 
 		// Try to resume from the daemon
-		if cs.mnemo != nil {
-			detail, err := cs.mnemo.GetSession(ctx, sessionID)
-			if err == nil && detail != nil {
-				msgs := make([]agentctx.Message, 0, len(detail.Messages))
-				for _, m := range detail.Messages {
-					msgs = append(msgs, agentctx.Message{Role: m.Role, Content: m.Content})
-				}
-				sess := &chatSession{
-					sessionID: sessionID,
-			agentID:   agentID,
-					messages:  msgs,
-				}
-				cs.sessions.Store(sessionID, sess)
-				return sess, nil
-			}
-			// Session not found on daemon — create a new one
-			newID, createErr := cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
-			if createErr != nil {
-				log.Printf("ChatStream: failed to create session for unknown ID %s: %v", sessionID, createErr)
-				// Fall back to using the provided ID locally
-				sess := &chatSession{
-					sessionID: sessionID,
-			agentID:   agentID,
-					messages:  nil,
-				}
-				cs.sessions.Store(sessionID, sess)
-				return sess, nil
+		detail, err := cs.mnemo.GetSession(ctx, sessionID)
+		if err == nil && detail != nil {
+			msgs := make([]agentctx.Message, 0, len(detail.Messages))
+			for _, m := range detail.Messages {
+				msgs = append(msgs, agentctx.Message{Role: m.Role, Content: m.Content})
 			}
 			sess := &chatSession{
-				sessionID: newID,
+				sessionID: sessionID,
+				agentID:   agentID,
+				messages:  msgs,
+			}
+			cs.sessions.Store(sessionID, sess)
+			return sess, nil
+		}
+		// Session not found — create a new one
+		newID, createErr := cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
+		if createErr != nil {
+			log.Printf("ChatStream: failed to create session for unknown ID %s: %v", sessionID, createErr)
+			// Fall back to using the provided ID locally
+			sess := &chatSession{
+				sessionID: sessionID,
 				agentID:   agentID,
 				messages:  nil,
 			}
-			cs.sessions.Store(newID, sess)
+			cs.sessions.Store(sessionID, sess)
 			return sess, nil
 		}
-
-		// No daemon — use the provided session ID locally
+		if newID == "" {
+			// NullMnemo: use the provided ID locally
+			sess := &chatSession{
+				sessionID: sessionID,
+				agentID:   agentID,
+				messages:  nil,
+			}
+			cs.sessions.Store(sessionID, sess)
+			return sess, nil
+		}
 		sess := &chatSession{
-			sessionID: sessionID,
+			sessionID: newID,
 			agentID:   agentID,
 			messages:  nil,
 		}
-		cs.sessions.Store(sessionID, sess)
+		cs.sessions.Store(newID, sess)
 		return sess, nil
 	}
 
 	// Create a new session
-	var newSessionID string
-	if cs.mnemo != nil {
-		var err error
-		newSessionID, err = cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
-		if err != nil {
-			return nil, fmt.Errorf("create session: %w", err)
-		}
-	} else {
-		// No daemon — generate a local session ID
+	newSessionID, err := cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
+	if err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
+	if newSessionID == "" {
+		// Not connected to daemon — generate a local session ID
 		counter := cs.sessionCounter.Add(1)
 		newSessionID = fmt.Sprintf("local-%d", counter)
 	}

@@ -4,6 +4,7 @@
 package agent
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"context"
 	"fmt"
 	"testing"
@@ -65,7 +66,7 @@ func TestRunStreaming_ContextOverflowStopsLoop(t *testing.T) {
 		MaxTurns:         50, // high limit — should terminate via error, not iterations
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Use RunStreaming to get events
@@ -143,7 +144,7 @@ func TestRunWithContext_ContextOverflowReturnsError(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Non-streaming path: RunWithContext should return an error
@@ -193,7 +194,7 @@ func TestRunStreaming_ContextLimitYields(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 10, // Extremely low — any message exceeds this
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Create a context with messages that exceed the token limit

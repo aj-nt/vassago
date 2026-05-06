@@ -32,7 +32,7 @@ import (
 type AgentResult struct {
 	Agent         *agent.Agent
 	Config        *agent.AgentConfig
-	Mnemo         *memoclient.Client
+	Mnemo memoclient.MnemoClient
 	AgentSession  *memoclient.AgentSession
 	GRPCServer    *grpc.Server
 	Bridge        *iface.MessageBridge
@@ -49,10 +49,11 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Connect to Mnemosyne daemon
+	// Connect to Mnemosyne daemon (fall back to NullMnemo if unavailable)
 	mnemo, err := connectToDaemon(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Mnemosyne daemon: %w", err)
+		log.Printf("Warning: could not connect to Mnemosyne daemon (%v); running without persistence", err)
+		mnemo = &memoclient.NullMnemo{}
 	}
 
 	// Register agent with daemon
@@ -109,14 +110,14 @@ func loadAgentConfig(configPath string) (*agent.AgentConfig, error) {
 }
 
 // connectToDaemon connects to the Mnemosyne daemon
-func connectToDaemon(ctx context.Context, cfg *agent.AgentConfig) (*memoclient.Client, error) {
+func connectToDaemon(ctx context.Context, cfg *agent.AgentConfig) (memoclient.MnemoClient, error) {
 	return memoclient.Connect(ctx, memoclient.Config{
 		Address: cfg.Mnemosyne.Address,
 	})
 }
 
 // registerAgentWithDaemon registers the agent with the daemon
-func registerAgentWithDaemon(ctx context.Context, mnemo *memoclient.Client, cfg *agent.AgentConfig) (*memoclient.AgentSession, error) {
+func registerAgentWithDaemon(ctx context.Context, mnemo memoclient.MnemoClient, cfg *agent.AgentConfig) (*memoclient.AgentSession, error) {
 	agentSession := memoclient.NewAgentSession(mnemo, memoclient.AgentConfig{
 		ID:   cfg.Agent.ID,
 		Name: cfg.Agent.Name,
@@ -126,7 +127,7 @@ func registerAgentWithDaemon(ctx context.Context, mnemo *memoclient.Client, cfg 
 }
 
 // createSubAgentRunner creates a sub-agent runner
-func createSubAgentRunner(mnemo *memoclient.Client, registry *provider.ProviderRegistry) *agent.SubAgentRunnerImpl {
+func createSubAgentRunner(mnemo memoclient.MnemoClient, registry *provider.ProviderRegistry) *agent.SubAgentRunnerImpl {
 	return &agent.SubAgentRunnerImpl{
 		Mnemo:    mnemo,
 		Registry: registry,
@@ -135,7 +136,7 @@ func createSubAgentRunner(mnemo *memoclient.Client, registry *provider.ProviderR
 }
 
 // createToolRegistry creates the tool registry
-func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRunner *agent.SubAgentRunnerImpl, registry *provider.ProviderRegistry) *tools.ToolRegistry {
+func createToolRegistry(cfg *agent.AgentConfig, mnemo memoclient.MnemoClient, subRunner *agent.SubAgentRunnerImpl, registry *provider.ProviderRegistry) *tools.ToolRegistry {
 	return Tools(ToolsConfig{
 		ToolsSection:             &cfg.Tools,
 		DelegationSection:        &cfg.Delegation,
@@ -156,7 +157,7 @@ func createToolRegistry(cfg *agent.AgentConfig, mnemo *memoclient.Client, subRun
 }
 
 // createAgentWithRouter creates an agent with router if configured
-func createAgentWithRouter(agentCfg *agent.Config, cfg *agent.AgentConfig, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) (*agent.Agent, *provider.ModelRouter) {
+func createAgentWithRouter(agentCfg *agent.Config, cfg *agent.AgentConfig, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo memoclient.MnemoClient) (*agent.Agent, *provider.ModelRouter) {
 	var a *agent.Agent
 	var router *provider.ModelRouter
 	if len(cfg.Routing.Models) > 0 {
@@ -204,7 +205,7 @@ func setupTelepathySubscription(ctx context.Context, a *agent.Agent, agentSessio
 }
 
 // startScheduler starts the scheduler
-func startScheduler(ctx context.Context, cfg *agent.AgentConfig, mnemo *memoclient.Client) *scheduler.Scheduler {
+func startScheduler(ctx context.Context, cfg *agent.AgentConfig, mnemo memoclient.MnemoClient) *scheduler.Scheduler {
 	if !cfg.Scheduler.Enabled || mnemo == nil {
 		return nil
 	}
@@ -219,7 +220,7 @@ func startScheduler(ctx context.Context, cfg *agent.AgentConfig, mnemo *memoclie
 }
 
 // startGRPCChatServer starts the gRPC chat server
-func startGRPCChatServer(cfg *agent.AgentConfig, a *agent.Agent, mnemo *memoclient.Client) (*grpc.Server, error) {
+func startGRPCChatServer(cfg *agent.AgentConfig, a *agent.Agent, mnemo memoclient.MnemoClient) (*grpc.Server, error) {
 	if cfg.Mnemosyne.ChatListen == "" {
 		return nil, nil
 	}
@@ -245,7 +246,7 @@ func startGRPCChatServer(cfg *agent.AgentConfig, a *agent.Agent, mnemo *memoclie
 }
 
 // startMessageBridge starts the MessageBridge
-func startMessageBridge(ctx context.Context, cfg *agent.AgentConfig, a *agent.Agent, mnemo *memoclient.Client) *iface.MessageBridge {
+func startMessageBridge(ctx context.Context, cfg *agent.AgentConfig, a *agent.Agent, mnemo memoclient.MnemoClient) *iface.MessageBridge {
 	if !cfg.Messaging.Discord.Enabled {
 		return nil
 	}
@@ -281,9 +282,7 @@ func (r *AgentResult) Close() {
 	if r.AgentSession.IsRegistered() {
 		r.AgentSession.Close()
 	}
-	if r.Mnemo != nil {
-		r.Mnemo.Close()
-	}
+	r.Mnemo.Close()
 }
 
 // WaitForSignal blocks until SIGINT or SIGTERM is received.
@@ -342,7 +341,7 @@ type ToolsConfig struct {
 	MemorySafetySection    *agent.MemorySafetySection
 	BackgroundProcessSection *agent.BackgroundProcessSection
 	CodeExecSection        *agent.CodeExecSection
-	MnemoClient            *memoclient.Client
+	MnemoClient memoclient.MnemoClient
 	AgentID             string
 	AgentName           string
 	AgentRole           string

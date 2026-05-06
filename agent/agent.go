@@ -25,7 +25,7 @@ type Agent struct {
 	Router     *provider.ModelRouter // Optional: nil = always-primary (backward compatible)
 	ToolRegistry *tools.ToolRegistry
 	EventBus    *eventbus.EventBus
-	Mnemo       *memoclient.Client
+	Mnemo memoclient.MnemoClient
 
 	// Hot block cache — updated by Telepathy events, used by GetHotBlock()
 	hotBlockCache *memoclient.HotBlockCache
@@ -62,12 +62,12 @@ type HotBlockConfig struct {
 }
 
 // NewAgent creates a new agent with the given configuration.
-func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *Agent {
+func NewAgent(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo memoclient.MnemoClient) *Agent {
 	return NewAgentBuilder(cfg, registry, toolReg, mnemo).Build()
 }
 
 // NewAgentWithRouter creates a new agent with model routing.
-func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router *provider.ModelRouter, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *Agent {
+func NewAgentWithRouter(cfg Config, registry *provider.ProviderRegistry, router *provider.ModelRouter, toolReg *tools.ToolRegistry, mnemo memoclient.MnemoClient) *Agent {
 	return NewAgentBuilder(cfg, registry, toolReg, mnemo).WithRouter(router).Build()
 }
 
@@ -150,11 +150,8 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 	}
 
 	// Create session with auto-generated title from first message
-	var sessionID string
-	if a.Mnemo != nil {
-		title := autoTitle(userMessage)
-		sessionID, _ = a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", title)
-	}
+	title := autoTitle(userMessage)
+	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", title)
 
 	// Build conversation context
 	interrupt := agentctx.NewInterruptSignal()
@@ -178,7 +175,7 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 // This is the main loop — it runs the 5-stage pipeline until YIELD or TERMINATE.
 func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.ConversationContext) (*agentctx.PipelineResult, error) {
 	var sessionID string
-	if a.Mnemo != nil && convCtx.SessionID != "" {
+	if convCtx.SessionID != "" {
 		sessionID = convCtx.SessionID
 	}
 
@@ -236,10 +233,6 @@ func (a *Agent) GetHotBlock(ctx context.Context) (string, error) {
 		}
 	}
 
-	if a.Mnemo == nil {
-		return "", nil
-	}
-
 	// Fetch fresh hot block from daemon
 	result, err := a.Mnemo.GetHotBlock(
 		ctx,
@@ -287,7 +280,7 @@ func (a *Agent) BuildToolDefinitions() []agentctx.ToolDefinition {
 
 // persistSession saves the conversation to the daemon.
 func (a *Agent) persistSession(ctx context.Context, sessionID string, convCtx *agentctx.ConversationContext) {
-	if a.Mnemo == nil || sessionID == "" {
+	if sessionID == "" {
 		return
 	}
 	msgs := make([]memoclient.Message, len(convCtx.Messages))
@@ -345,7 +338,7 @@ type StreamEvent struct {
 func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.ConversationContext, out chan<- StreamEvent) {
 	defer close(out)
 	var sessionID string
-	if a.Mnemo != nil && convCtx.SessionID != "" {
+	if convCtx.SessionID != "" {
 		sessionID = convCtx.SessionID
 	}
 

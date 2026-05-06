@@ -26,7 +26,7 @@ type AgentBuilder struct {
 	registry *provider.ProviderRegistry
 	router   *provider.ModelRouter // optional
 	toolReg  *tools.ToolRegistry
-	mnemo    *memoclient.Client
+	mnemo memoclient.MnemoClient
 	bus      *eventbus.EventBus // optional: created if not set
 
 	// Stage overrides for testing
@@ -38,7 +38,7 @@ type AgentBuilder struct {
 }
 
 // NewAgentBuilder starts building an Agent with the required dependencies.
-func NewAgentBuilder(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo *memoclient.Client) *AgentBuilder {
+func NewAgentBuilder(cfg Config, registry *provider.ProviderRegistry, toolReg *tools.ToolRegistry, mnemo memoclient.MnemoClient) *AgentBuilder {
 	return &AgentBuilder{
 		cfg:      cfg,
 		registry: registry,

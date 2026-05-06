@@ -16,7 +16,7 @@ import (
 
 // SubAgentRunnerImpl implements tools.SubAgentRunner using the Agent package.
 type SubAgentRunnerImpl struct {
-	Mnemo    *memoclient.Client
+	Mnemo memoclient.MnemoClient
 	Registry *provider.ProviderRegistry
 	Router   *provider.ModelRouter // may be nil
 }
@@ -49,14 +49,14 @@ func (r *SubAgentRunnerImpl) RunSubAgent(prompt string, agentID string, maxTurns
 	}
 	subAgent := builder.Build()
 
-	// Register sub-agent with daemon
-	if r.Mnemo != nil {
+	// Register sub-agent with daemon (no-op if not connected)
+	{
 		regCtx, regCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		registeredID, _, err := r.Mnemo.RegisterAgent(regCtx, agentID, subCfg.AgentName, "delegate")
 		regCancel()
 		if err != nil {
 			log.Printf("Delegate: sub-agent registration failed: %v", err)
-		} else {
+		} else if registeredID != "" {
 			subCfg.AgentID = registeredID
 		}
 	}

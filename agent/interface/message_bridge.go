@@ -29,7 +29,7 @@ import (
 //	→ text response → daemon SendMessage → Discord
 type MessageBridge struct {
 	agent      *agent.Agent
-	mnemo      *memoclient.Client
+	mnemo memoclient.MnemoClient
 	config     BridgeConfig
 
 	// Per-channel session state. Key = "platform:channelID"
@@ -79,7 +79,7 @@ func DefaultBridgeConfig() BridgeConfig {
 }
 
 // NewMessageBridge creates a new MessageBridge.
-func NewMessageBridge(a *agent.Agent, mnemo *memoclient.Client, cfg BridgeConfig) *MessageBridge {
+func NewMessageBridge(a *agent.Agent, mnemo memoclient.MnemoClient, cfg BridgeConfig) *MessageBridge {
 	return &MessageBridge{
 		agent:  a,
 		mnemo:  mnemo,
@@ -137,7 +137,13 @@ func (mb *MessageBridge) Stop() {
 // subscribe opens a gRPC stream to the daemon's SubscribeToMessages and
 // processes each incoming message.
 func (mb *MessageBridge) subscribe(ctx context.Context) error {
-	stream, err := mb.mnemo.SubscribeToMessages(ctx, mb.config.AgentID)
+	// SubscribeToMessages is on ClientInterface, not MnemoClient.
+	// If connected to a real daemon, use it; otherwise, skip messaging.
+	realClient, ok := mb.mnemo.(*memoclient.Client)
+	if !ok {
+		return fmt.Errorf("subscribe: messaging requires daemon connection")
+	}
+	stream, err := realClient.SubscribeToMessages(ctx, mb.config.AgentID)
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}

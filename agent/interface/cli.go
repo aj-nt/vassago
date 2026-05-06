@@ -110,13 +110,9 @@ func setupSignalHandling() chan os.Signal {
 
 // initializeSession creates a new session if Mnemo is available.
 func initializeSession(ctx context.Context, c *CLI) string {
-	var sessionID string
-	if c.Agent.Mnemo != nil {
-		var err error
-		sessionID, err = c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "Interactive session")
-		if err != nil {
-			fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("could not create session: %v", err)))
-		}
+	sessionID, err := c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "Interactive session")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, formatWarning(fmt.Sprintf("could not create session: %v", err)))
 	}
 	return sessionID
 }
@@ -152,7 +148,7 @@ func handleUserInput(scanner *bufio.Scanner, pasteCollapse *PasteCollapse, agent
 func processCommand(input string, c *CLI, ctx context.Context, sessionID *string, messages *[]agentctx.Message, hotBlock string) bool {
 	switch input {
 	case "/quit", "/exit":
-		if c.Agent.Mnemo != nil && *sessionID != "" {
+		if *sessionID != "" {
 			_ = c.Agent.Mnemo.EndSession(ctx, *sessionID)
 		}
 		fmt.Println(formatGoodbye(&SessionStats{}))
@@ -319,7 +315,7 @@ func displayResponse(responseText strings.Builder, agentName string, convCtx *ag
 
 // cleanupAndExit ensures the session is persisted and displays goodbye message.
 func cleanupAndExit(c *CLI, ctx context.Context, sessionID string, messages []agentctx.Message, stats *SessionStats) {
-	if c.Agent.Mnemo != nil && sessionID != "" && len(messages) > 0 {
+	if sessionID != "" && len(messages) > 0 {
 		persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		msgs := make([]client.Message, 0, len(messages))
@@ -346,23 +342,23 @@ func displayHistory(messages []agentctx.Message) {
 
 // listSessions lists recent sessions.
 func listSessions(ctx context.Context, c *CLI) {
-	if c.Agent.Mnemo != nil {
-		sessions, err := c.Agent.Mnemo.ListRecentSessions(ctx, 10)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("listing sessions: %w", err)))
-		} else if len(sessions) == 0 {
-			fmt.Println(colorize(dim, "  [No sessions found]"))
-		} else {
-			for _, s := range sessions {
-				title := s.Title
-				if title == "" {
-					title = "(untitled)"
-				}
-				fmt.Println(formatSessionLine(s.ID[:25], title, int(s.MessageCount), s.Source))
-			}
-		}
-	} else {
+	if !c.Agent.Mnemo.IsConnected() {
 		fmt.Println(colorize(dim, "  [Not connected to daemon]"))
+		return
+	}
+	sessions, err := c.Agent.Mnemo.ListRecentSessions(ctx, 10)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("listing sessions: %w", err)))
+	} else if len(sessions) == 0 {
+		fmt.Println(colorize(dim, "  [No sessions found]"))
+	} else {
+		for _, s := range sessions {
+			title := s.Title
+			if title == "" {
+				title = "(untitled)"
+			}
+			fmt.Println(formatSessionLine(s.ID[:25], title, int(s.MessageCount), s.Source))
+		}
 	}
 }
 
@@ -373,7 +369,7 @@ func resumeSession(ctx context.Context, c *CLI, sessionID *string, messages *[]a
 		fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("usage: /resume <session-id>")))
 		return
 	}
-	if c.Agent.Mnemo == nil {
+	if !c.Agent.Mnemo.IsConnected() {
 		fmt.Fprintln(os.Stderr, formatError(fmt.Errorf("not connected to daemon")))
 		return
 	}
@@ -405,10 +401,7 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	}
 
 	// Create session
-	var sessionID string
-	if c.Agent.Mnemo != nil {
-		sessionID, _ = c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "")
-	}
+	sessionID, _ := c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "")
 
 	// Build context
 	convCtx := &agentctx.ConversationContext{

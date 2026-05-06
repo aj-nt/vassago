@@ -4,6 +4,7 @@
 package agent
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"context"
 	"fmt"
 	"testing"
@@ -35,7 +36,7 @@ func TestAgentLoop_interrupt(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// RunWithContext with interrupt set — the agent should yield immediately
@@ -86,7 +87,7 @@ func TestAgentLoop_emptyResponse(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "hello")
@@ -118,7 +119,7 @@ func TestAgentLoop_providerError(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	_, err := a.Run(context.Background(), "hello")
@@ -148,7 +149,7 @@ func TestAgentLoop_noHotBlock(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil) // nil Mnemo client
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{}) // nil Mnemo client
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "hello")
@@ -198,7 +199,7 @@ func TestAgentLoop_toolCallThenText(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "echo test")
@@ -231,7 +232,7 @@ func TestAgentBuildToolDefinitions(t *testing.T) {
 	})
 
 	cfg := Config{AgentID: "test"}
-	a := NewAgent(cfg, nil, toolReg, nil)
+	a := NewAgent(cfg, nil, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	defs := a.BuildToolDefinitions()
@@ -253,7 +254,7 @@ func TestAgentBuildToolDefinitions(t *testing.T) {
 
 func TestAgentGetHotBlock_NilClient(t *testing.T) {
 	cfg := Config{AgentID: "test"}
-	a := NewAgent(cfg, nil, nil, nil)
+	a := NewAgent(cfg, nil, nil, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Should return empty string with nil client, not panic
@@ -303,7 +304,7 @@ func TestAgentLoop_multipleToolCalls(t *testing.T) {
 		MaxTurns:         10,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "search and save")
@@ -342,7 +343,7 @@ func TestAgentStreaming_FallbackOnStreamError(t *testing.T) {
 		MaxTurns:         10,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Run should succeed with fallback

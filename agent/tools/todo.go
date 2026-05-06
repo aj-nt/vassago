@@ -10,14 +10,14 @@ import (
 )
 
 // RegisterTodoTools adds todo management tool handlers to the registry.
-func RegisterTodoTools(registry *ToolRegistry, mnemo *client.Client, agentID string) {
+func RegisterTodoTools(registry *ToolRegistry, mnemo client.MnemoClient, agentID string) {
 	registry.Register("AddTodo", makeAddTodo(mnemo, agentID), AddTodoSchema)
 	registry.Register("ListTodos", makeListTodos(mnemo), ListTodosSchema)
 	registry.Register("CompleteTodo", makeCompleteTodo(mnemo), CompleteTodoSchema)
 	registry.Register("RemoveTodo", makeRemoveTodo(mnemo), RemoveTodoSchema)
 }
 
-func makeAddTodo(mnemo *client.Client, agentID string) ToolHandler {
+func makeAddTodo(mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		content := strArg(args, "content", "")
 		priority := intArg(args, "priority", 3)
@@ -42,7 +42,7 @@ func makeAddTodo(mnemo *client.Client, agentID string) ToolHandler {
 	}
 }
 
-func makeListTodos(mnemo *client.Client) ToolHandler {
+func makeListTodos(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		includeCompleted := boolArg(args, "include_completed", false)
 
@@ -69,7 +69,7 @@ func makeListTodos(mnemo *client.Client) ToolHandler {
 	}
 }
 
-func makeCompleteTodo(mnemo *client.Client) ToolHandler {
+func makeCompleteTodo(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		id := strArg(args, "id", "")
 		if id == "" {
@@ -88,7 +88,7 @@ func makeCompleteTodo(mnemo *client.Client) ToolHandler {
 	}
 }
 
-func makeRemoveTodo(mnemo *client.Client) ToolHandler {
+func makeRemoveTodo(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		id := strArg(args, "id", "")
 		if id == "" {

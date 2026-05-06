@@ -13,7 +13,7 @@ import (
 
 // RegisterMemoryTools adds all memory tool handlers to the registry.
 // If mutationLimit is not nil, AddMemory calls are rate-limited per session.
-func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID string, mutationLimit *MutationRateLimit) {
+func RegisterMemoryTools(registry *ToolRegistry, mnemo client.MnemoClient, agentID string, mutationLimit *MutationRateLimit) {
 	registry.Register("AddMemory", makeAddMemory(mnemo, agentID, mutationLimit), AddMemorySchema)
 	registry.Register("SearchMemories", makeSearchMemories(mnemo), SearchMemoriesSchema)
 	registry.Register("ReplaceMemory", makeReplaceMemory(mnemo, agentID), ReplaceMemorySchema)
@@ -22,7 +22,7 @@ func RegisterMemoryTools(registry *ToolRegistry, mnemo *client.Client, agentID s
 	registry.Register("GetHotBlock", makeGetHotBlock(mnemo, agentID), GetHotBlockSchema)
 }
 
-func makeAddMemory(mnemo *client.Client, agentID string, mutationLimit *MutationRateLimit) ToolHandler {
+func makeAddMemory(mnemo client.MnemoClient, agentID string, mutationLimit *MutationRateLimit) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		// Check mutation rate limit first
 		if mutationLimit != nil && !mutationLimit.Allow() {
@@ -55,7 +55,7 @@ func makeAddMemory(mnemo *client.Client, agentID string, mutationLimit *Mutation
 	}
 }
 
-func makeSearchMemories(mnemo *client.Client) ToolHandler {
+func makeSearchMemories(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		query := strArg(args, "query", "")
 		target := strArg(args, "target", "")
@@ -89,7 +89,7 @@ func makeSearchMemories(mnemo *client.Client) ToolHandler {
 	}
 }
 
-func makeReplaceMemory(mnemo *client.Client, agentID string) ToolHandler {
+func makeReplaceMemory(mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		target := strArg(args, "target", "memory")
 		category := strArg(args, "category", "environment")
@@ -111,7 +111,7 @@ func makeReplaceMemory(mnemo *client.Client, agentID string) ToolHandler {
 	}
 }
 
-func makeRemoveMemory(mnemo *client.Client) ToolHandler {
+func makeRemoveMemory(mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		id := strArg(args, "id", "")
 		if id == "" {
@@ -127,7 +127,7 @@ func makeRemoveMemory(mnemo *client.Client) ToolHandler {
 	}
 }
 
-func makeConsolidate(mnemo *client.Client, agentID string) ToolHandler {
+func makeConsolidate(mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		scopeStr := strArg(args, "scope", "expired")
 		batchSize := int32(intArg(args, "batch_size", 100))
@@ -156,7 +156,7 @@ func makeConsolidate(mnemo *client.Client, agentID string) ToolHandler {
 	}
 }
 
-func makeGetHotBlock(mnemo *client.Client, agentID string) ToolHandler {
+func makeGetHotBlock(mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		target := strArg(args, "target", "memory")
 		charLimit := int32(intArg(args, "char_limit", 4000))

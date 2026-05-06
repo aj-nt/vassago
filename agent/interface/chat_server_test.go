@@ -4,6 +4,7 @@
 package iface
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"context"
 	"net"
 	"testing"
@@ -28,10 +29,10 @@ func TestChatServerPing(t *testing.T) {
 		AgentID:   "test-agent",
 		AgentName: "test",
 		MaxTurns:  5,
-	}, registry, toolReg, nil)
+	}, registry, toolReg, &memoclient.NullMnemo{})
 
 	// Create chat server
-	cs := NewChatServer(a, nil)
+	cs := NewChatServer(a, &memoclient.NullMnemo{})
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -70,10 +71,10 @@ func TestChatServerSessionManagement(t *testing.T) {
 		AgentID:   "test-agent",
 		AgentName: "test",
 		MaxTurns:  5,
-	}, registry, toolReg, nil)
+	}, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
-	cs := NewChatServer(a, nil)
+	cs := NewChatServer(a, &memoclient.NullMnemo{})
 
 	// Test creating a session without daemon (local session ID)
 	sess, err := cs.getOrCreateSession(context.Background(), "", "test-agent")
@@ -114,10 +115,10 @@ func TestChatServerAutoApprove(t *testing.T) {
 		AgentID:   "test-agent",
 		AgentName: "test",
 		MaxTurns:  5,
-	}, registry, toolReg, nil)
+	}, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
-	cs := NewChatServer(a, nil)
+	cs := NewChatServer(a, &memoclient.NullMnemo{})
 
 	// Set the approver (this happens in ChatStream)
 	cs.agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
@@ -144,10 +145,10 @@ func TestChatServerConversationContext(t *testing.T) {
 		MaxTurns:  5,
 	}
 	toolReg := tools.NewToolRegistry()
-	a := agent.NewAgent(cfg, registry, toolReg, nil)
+	a := agent.NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
-	cs := NewChatServer(a, nil)
+	cs := NewChatServer(a, &memoclient.NullMnemo{})
 
 	// Create a session and add messages
 	sess, _ := cs.getOrCreateSession(context.Background(), "", "test-agent")
@@ -175,10 +176,10 @@ func TestChatServerChatStreamWithTimeout(t *testing.T) {
 		AgentID:   "test-agent",
 		AgentName: "test",
 		MaxTurns:  1,
-	}, registry, toolReg, nil)
+	}, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
-	cs := NewChatServer(a, nil)
+	cs := NewChatServer(a, &memoclient.NullMnemo{})
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

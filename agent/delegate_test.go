@@ -4,6 +4,7 @@
 package agent
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -25,7 +26,7 @@ func TestSubAgentRunnerImpl_Success(t *testing.T) {
 	registry.SetPrimary("mock")
 
 	runner := &SubAgentRunnerImpl{
-		Mnemo:    nil, // no daemon
+		Mnemo:    &memoclient.NullMnemo{}, // no daemon
 		Registry: registry,
 		Router:   nil,
 	}
@@ -57,7 +58,7 @@ func TestSubAgentRunnerImpl_GeneratesAgentID(t *testing.T) {
 	registry.SetPrimary("mock")
 
 	runner := &SubAgentRunnerImpl{
-		Mnemo:    nil,
+		Mnemo:    &memoclient.NullMnemo{},
 		Registry: registry,
 		Router:   nil,
 	}
@@ -87,7 +88,7 @@ func TestSubAgentRunnerImpl_SubAgentHasMemoryTools(t *testing.T) {
 	registry.SetPrimary("mock")
 
 	runner := &SubAgentRunnerImpl{
-		Mnemo:    nil,
+		Mnemo:    &memoclient.NullMnemo{},
 		Registry: registry,
 		Router:   nil,
 	}
@@ -107,7 +108,7 @@ func TestSubAgentRunnerImpl_ProviderError(t *testing.T) {
 	// Don't register any provider — primary lookup will fail
 
 	runner := &SubAgentRunnerImpl{
-		Mnemo:    nil,
+		Mnemo:    &memoclient.NullMnemo{},
 		Registry: registry,
 		Router:   nil,
 	}

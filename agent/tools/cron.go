@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterCronTools registers the ScheduleCron tool.
-func RegisterCronTools(reg *ToolRegistry, mnemo *memoclient.Client, agentID string) {
+func RegisterCronTools(reg *ToolRegistry, mnemo memoclient.MnemoClient, agentID string) {
 	reg.Register("ScheduleCron", handleScheduleCron(mnemo, agentID), ScheduleCronSchema)
 }
 
@@ -53,7 +53,7 @@ var ScheduleCronSchema = map[string]interface{}{
 	"additionalProperties": false,
 }
 
-func handleScheduleCron(mnemo *memoclient.Client, agentID string) ToolHandler {
+func handleScheduleCron(mnemo memoclient.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		action := strArg(args, "action", "")
 		if action == "" {
@@ -75,7 +75,7 @@ func handleScheduleCron(mnemo *memoclient.Client, agentID string) ToolHandler {
 	}
 }
 
-func cronCreate(mnemo *memoclient.Client, agentID string, args map[string]interface{}) (string, bool) {
+func cronCreate(mnemo memoclient.MnemoClient, agentID string, args map[string]interface{}) (string, bool) {
 	name := strArg(args, "name", "")
 	schedule := strArg(args, "schedule", "")
 	message := strArg(args, "message", "")
@@ -113,7 +113,7 @@ func cronCreate(mnemo *memoclient.Client, agentID string, args map[string]interf
 		job.Name, job.ID, job.Schedule, job.Message, status), false
 }
 
-func cronList(mnemo *memoclient.Client, agentID string, args map[string]interface{}) (string, bool) {
+func cronList(mnemo memoclient.MnemoClient, agentID string, args map[string]interface{}) (string, bool) {
 	includeDisabled := boolArg(args, "include_disabled", false)
 
 	ctx, cancel := withTimeout(DefaultTimeout)
@@ -148,7 +148,7 @@ func cronList(mnemo *memoclient.Client, agentID string, args map[string]interfac
 	return result, false
 }
 
-func cronUpdate(mnemo *memoclient.Client, args map[string]interface{}) (string, bool) {
+func cronUpdate(mnemo memoclient.MnemoClient, args map[string]interface{}) (string, bool) {
 	jobID := strArg(args, "job_id", "")
 	if jobID == "" {
 		return "job_id is required for update action", true
@@ -190,7 +190,7 @@ func cronUpdate(mnemo *memoclient.Client, args map[string]interface{}) (string, 
 		job.Name, job.ID, job.Schedule, job.Message, status), false
 }
 
-func cronDelete(mnemo *memoclient.Client, args map[string]interface{}) (string, bool) {
+func cronDelete(mnemo memoclient.MnemoClient, args map[string]interface{}) (string, bool) {
 	jobID := strArg(args, "job_id", "")
 	if jobID == "" {
 		return "job_id is required for delete action", true

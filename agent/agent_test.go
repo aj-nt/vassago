@@ -4,6 +4,7 @@
 package agent
 
 import (
+	memoclient "github.com/aj-nt/mnemosyne/client"
 	"context"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestAgentLoop_textOnly(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens:  128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	// Override Mnemo methods by not calling them (hot block will fail gracefully)
@@ -96,7 +97,7 @@ func TestAgentLoop_toolCall(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens:  128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "Remember this: testing")
@@ -133,7 +134,7 @@ func TestAgentLoop_maxIterations(t *testing.T) {
 		MaxTurns:         3,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgent(cfg, registry, toolReg, nil)
+	a := NewAgent(cfg, registry, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	result, err := a.Run(context.Background(), "loop test")
@@ -185,7 +186,7 @@ func TestAgentWithRouter(t *testing.T) {
 		MaxTurns:         50,
 		MaxContextTokens: 128000,
 	}
-	a := NewAgentWithRouter(cfg, registry, router, toolReg, nil)
+	a := NewAgentWithRouter(cfg, registry, router, toolReg, &memoclient.NullMnemo{})
 	defer a.Close()
 
 	if a.Router == nil {
