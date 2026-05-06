@@ -72,7 +72,7 @@ Use "mnemosyne memory <subcommand> --help" for more information.`)
 	}
 }
 
-func memAdd(ctx context.Context, c *memoclient.Client, args []string) {
+func memAdd(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 4 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne memory add <target> <category> <key> <content> [priority]")
 		os.Exit(1)
@@ -92,7 +92,7 @@ func memAdd(ctx context.Context, c *memoclient.Client, args []string) {
 		entry.Id, entry.Target, entry.Category, entry.Key, entry.Priority)
 }
 
-func memGet(ctx context.Context, c *memoclient.Client, args []string) {
+func memGet(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne memory get <id>")
 		os.Exit(1)
@@ -114,7 +114,7 @@ func memGet(ctx context.Context, c *memoclient.Client, args []string) {
 	fmt.Printf("Content:\n%s\n", entry.Content)
 }
 
-func memSearch(ctx context.Context, c *memoclient.Client, args []string) {
+func memSearch(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne memory search <query> [target]")
 		os.Exit(1)
@@ -143,7 +143,7 @@ func memSearch(ctx context.Context, c *memoclient.Client, args []string) {
 	}
 }
 
-func memList(ctx context.Context, c *memoclient.Client, args []string) {
+func memList(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	target := "memory"
 	if len(args) > 0 {
 		target = args[0]
@@ -165,7 +165,7 @@ func memList(ctx context.Context, c *memoclient.Client, args []string) {
 	}
 }
 
-func memRemove(ctx context.Context, c *memoclient.Client, args []string) {
+func memRemove(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: mnemosyne memory remove <id>")
 		os.Exit(1)
@@ -178,12 +178,12 @@ func memRemove(ctx context.Context, c *memoclient.Client, args []string) {
 	fmt.Printf("Removed memory %s\n", args[0])
 }
 
-func memConsolidate(ctx context.Context, c *memoclient.Client, args []string) {
+func memConsolidate(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	fmt.Fprintln(os.Stderr, "Consolidation requires gRPC raw API — use mnemosyne-cli consolidate")
 	os.Exit(1)
 }
 
-func memStats(ctx context.Context, c *memoclient.Client) {
+func memStats(ctx context.Context, c memoclient.MnemoClient) {
 	memEntries, err := c.ListMemories(ctx, "memory", nil, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing memories: %v\n", err)
