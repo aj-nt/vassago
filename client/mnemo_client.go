@@ -12,6 +12,9 @@ import (
 
 // MnemoClient is an interface for interacting with the Mnemosyne daemon.
 type MnemoClient interface {
+	// IsConnected returns true if connected to the daemon.
+	IsConnected() bool
+
 	// RegisterAgent registers the agent with the daemon.
 	RegisterAgent(ctx context.Context, agentID, name, role string) (returnedAgentID string, isNew bool, err error)
 
