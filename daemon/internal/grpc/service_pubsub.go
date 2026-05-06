@@ -23,6 +23,10 @@ func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_Subscr
 		return status.Error(codes.InvalidArgument, "agent_id is required")
 	}
 
+	if s.hub == nil {
+		return status.Error(codes.Unavailable, "pubsub not available — daemon started without hub")
+	}
+
 	// Build subscription
 	targets := make(map[string]bool)
 	for _, t := range req.Targets {
