@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -199,6 +200,7 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 	}
 
 	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
+		log.Printf("ConsecutiveLoopHandler: YIELD — %d+ tool iterations without text response (iteration %d)", h.Thresholds.ConsecutiveLoopThreshold, convCtx.Iteration)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "consecutive_loop",
 			Iteration: convCtx.Iteration,
