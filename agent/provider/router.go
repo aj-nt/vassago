@@ -84,14 +84,15 @@ type ModelRouter struct {
 	mu       sync.RWMutex
 	models   map[string]*ModelConfig // name -> config
 	primary  string                  // Primary model name
-	strategy RoutingStrategy
+	strategy SelectionStrategy
+	strategyName RoutingStrategy // kept for API compatibility
 
 	// Failure tracking for demotion
 	failures    map[string]int // model name -> consecutive failure count
 	lastFailure map[string]time.Time
 
 	// Cost tracking
-	costMu  sync.Mutex
+	costMu      sync.Mutex
 	sessionCosts []TurnCost
 }
 
@@ -105,16 +106,17 @@ type TurnCost struct {
 	Timestamp      time.Time
 }
 
-// NewModelRouter creates a new model router.
+// NewModelRouter creates a new model router with the given strategy.
 func NewModelRouter(strategy RoutingStrategy) *ModelRouter {
 	if strategy == "" {
 		strategy = StrategyAlwaysPrimary
 	}
 	return &ModelRouter{
-		models:      make(map[string]*ModelConfig),
-		strategy:    strategy,
-		failures:    make(map[string]int),
-		lastFailure: make(map[string]time.Time),
+		models:       make(map[string]*ModelConfig),
+		strategy:     strategyFromName(strategy),
+		strategyName: strategy,
+		failures:     make(map[string]int),
+		lastFailure:  make(map[string]time.Time),
 	}
 }
 
@@ -166,6 +168,7 @@ func (r *ModelRouter) List() []string {
 }
 
 // Select chooses the best model for the current turn.
+// Delegates to the configured SelectionStrategy.
 func (r *ModelRouter) Select(ctx RoutingContext) (*ModelConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -174,22 +177,7 @@ func (r *ModelRouter) Select(ctx RoutingContext) (*ModelConfig, error) {
 		return nil, fmt.Errorf("no models registered")
 	}
 
-	switch r.strategy {
-	case StrategyAlwaysPrimary:
-		return r.selectPrimary()
-
-	case StrategyCostOptimized:
-		return r.selectCheapest(ctx)
-
-	case StrategyQualityOptimized:
-		return r.selectBest(ctx)
-
-	case StrategySmart:
-		return r.selectSmart(ctx)
-
-	default:
-		return r.selectPrimary()
-	}
+	return r.strategy.Select(ctx, r)
 }
 
 // selectPrimary returns the configured primary model (not demoted).
@@ -552,9 +540,9 @@ func (r *ModelRouter) ResetSession() {
 	r.sessionCosts = nil
 }
 
-// Strategy returns the current routing strategy.
+// Strategy returns the current routing strategy name.
 func (r *ModelRouter) Strategy() RoutingStrategy {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.strategy
+	return r.strategyName
 }
