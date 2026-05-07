@@ -4,15 +4,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-)
 
-// cmdStart handles "mnemosyne start" — starts daemon and agent services.
+	memoclient "github.com/aj-nt/mnemosyne/client"
+)
 func cmdStart(args []string) {
 	daemonOnly := false
 	agentOnly := false
@@ -39,26 +40,77 @@ Description:
 		}
 	}
 
+	// Pre-flight: check configs exist
 	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".mnemosyne")
+	daemonConfig := filepath.Join(dir, "config.yaml")
+	agentConfig := filepath.Join(dir, "agent.yaml")
+
+	if !fileExists(daemonConfig) || !fileExists(agentConfig) {
+		fmt.Fprintf(os.Stderr, "Error: Configuration not found. Run 'mnemosyne init' first.\n")
+		os.Exit(1)
+	}
 
 	if isMacOS() {
 		launchdDir := filepath.Join(home, "Library", "LaunchAgents")
 
-	if !agentOnly {
-		startDaemon(home, launchdDir)
+		if !agentOnly {
+			startDaemon(home, launchdDir)
+		}
+
+		if !daemonOnly {
+			if !agentOnly {
+				fmt.Println("Waiting for daemon to be ready...")
+				if !waitForDaemonWithConfig(dir, 10*time.Second) {
+					fmt.Fprintf(os.Stderr, "  ⚠ Daemon didn't respond within 10s. Check logs:\n")
+					fmt.Fprintf(os.Stderr, "    cat %s/daemon.err\n", dir)
+					os.Exit(1)
+				}
+				fmt.Println("  ✓ Daemon is healthy")
+			}
+			startAgent(home, launchdDir)
+		}
 	}
 
-	if !daemonOnly {
-		if !agentOnly {
-			fmt.Println("Waiting for daemon to be ready...")
-			waitForDaemon(5 * time.Second)
+	// Verify services are running
+	fmt.Println()
+	fmt.Println("Verifying services...")
+	time.Sleep(500 * time.Millisecond) // brief settle
+
+	allGood := true
+	if !agentOnly {
+		if isDaemonRunning() {
+			fmt.Println("  ✓ Daemon running")
+		} else {
+			fmt.Println("  ✗ Daemon not running")
+			allGood = false
 		}
-		startAgent(home, launchdDir)
 	}
+	if !daemonOnly {
+		if isAgentRunning() {
+			fmt.Println("  ✓ Agent running")
+		} else {
+			fmt.Println("  ✗ Agent not running")
+			allGood = false
+		}
+	}
+
+	// gRPC health check
+	grpcURL := findGRPCURL(dir)
+	if checkGRPCHealth(grpcURL) {
+		fmt.Println("  ✓ gRPC healthy")
+	} else {
+		fmt.Println("  ✗ gRPC unreachable")
+		allGood = false
 	}
 
 	fmt.Println()
-	fmt.Println("Services started. Use 'mnemosyne status' to verify.")
+	if allGood {
+		fmt.Println("All services started. Try: mnemosyne chat")
+	} else {
+		fmt.Fprintf(os.Stderr, "Some services failed to start. Check logs in %s/\n", dir)
+		os.Exit(1)
+	}
 }
 
 // cmdStop handles "mnemosyne stop" — stops daemon and agent services.
@@ -272,10 +324,18 @@ func isProcessRunning(pattern string, matchArg ...string) bool {
 }
 
 func checkGRPCHealth(addr string) bool {
-	cmd := exec.Command("grpcurl", "-plaintext", "-max-time", "2", addr, "list")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run() == nil
+	// Try native gRPC connection first (no external dependency)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	c, err := memoclient.Connect(ctx, memoclient.Config{Address: addr})
+	if err != nil {
+		return false
+	}
+	defer c.Close()
+	if err := c.HealthCheck(ctx); err != nil {
+		return false
+	}
+	return true
 }
 
 func waitForDaemon(timeout time.Duration) {
@@ -287,6 +347,19 @@ func waitForDaemon(timeout time.Duration) {
 		time.Sleep(200 * time.Millisecond)
 	}
 	fmt.Println("  ⚠ Daemon didn't respond within timeout (may still be starting)")
+}
+
+// waitForDaemonWithConfig waits for the daemon to respond, reading the address from config.
+func waitForDaemonWithConfig(dir string, timeout time.Duration) bool {
+	grpcURL := findGRPCURL(dir)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if checkGRPCHealth(grpcURL) {
+			return true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
 }
 
 func findGRPCURL(dir string) string {

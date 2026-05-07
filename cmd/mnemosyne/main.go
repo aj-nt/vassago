@@ -64,7 +64,7 @@ Usage:
   mnemosyne <command> [arguments]
 
 Commands:
-  init            First-run setup (create dirs, configs, personality)
+  init            First-run setup (create dirs, configs)
   start           Start daemon and agent services
   stop            Stop daemon and agent services
   status          Show daemon and agent status
@@ -82,7 +82,7 @@ Commands:
   help            Show this help message
 
 Getting Started:
-  mnemosyne init          # Set up directories, configs, and personality
+  mnemosyne init          # Set up directories and configs
   mnemosyne start         # Start the daemon and agent
   mnemosyne chat          # Start chatting
 

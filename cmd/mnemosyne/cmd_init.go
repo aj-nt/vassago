@@ -124,7 +124,6 @@ Description:
   2. Provider & API key configuration
   3. Model selection
   4. Tool enable/disable
-  5. Personality selection
 
   Use --non-interactive to accept all defaults without prompts.
   Use --force to regenerate configs that already exist.`)

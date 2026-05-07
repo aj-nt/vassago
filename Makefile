@@ -1,15 +1,21 @@
-.PHONY: build test test-race lint proto clean generate all deploy setup check-licenses
+.PHONY: build test test-race lint proto clean generate all deploy setup check-licenses install
 
 # Binary output directory
 BINARY_DIR=bin
 
+# Build variables
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.1.0-dev")
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILDDATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS  = -X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildDate=$(BUILDDATE)
+
 # Build all binaries
 build:
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY_DIR)/mnemosyne ./cmd/mnemosyne
 	go build -o $(BINARY_DIR)/mnemosyne-daemon ./daemon/cmd/mnemosyne-daemon
 	go build -o $(BINARY_DIR)/mnemosyne-cli ./daemon/cmd/mnemosyne-cli
 	go build -o $(BINARY_DIR)/mnemosyne-agent ./agent/cmd/mnemosyne-agent
 	go build -o $(BINARY_DIR)/mnemosyne-import ./daemon/cmd/mnemosyne-import
-	go build -o $(BINARY_DIR)/mnemosyne ./cmd/mnemosyne
 
 # Run all tests
 test:
@@ -32,6 +38,16 @@ generate:
 	protoc --go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I proto proto/mnemosyne.proto proto/messaging.proto
+
+# Generate Python gRPC stubs from proto (for examples/python/)
+proto-python:
+	pip3 install -q grpcio-tools 2>/dev/null
+	python3 -m grpc_tools.protoc \
+		-I proto \
+		--python_out=proto \
+		--grpc_python_out=proto \
+		proto/mnemosyne.proto proto/messaging.proto
+	@echo "✓ Python stubs generated in proto/"
 
 # Clean build artifacts
 clean:
@@ -57,6 +73,14 @@ deploy: build
 	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/bin/
 	@echo "✓ Binaries deployed to $(HOME)/bin/"
+
+# Install: build + deploy + add to PATH hint
+install: deploy
+	@echo ""
+	@echo "✓ Installed. Make sure ~/bin is in your PATH:"
+	@echo "  export PATH=\"$$HOME/bin:$$PATH\""
+	@echo ""
+	@echo "Then run: mnemosyne init"
 
 # Deploy to Studio over SSH
 deploy-studio: build
