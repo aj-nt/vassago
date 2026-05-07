@@ -78,7 +78,7 @@ deploy: build
 install: deploy
 	@echo ""
 	@echo "✓ Installed. Make sure ~/bin is in your PATH:"
-	@echo "  export PATH=\"$$HOME/bin:$$PATH\""
+	@echo '  export PATH="$$HOME/bin:$$PATH"'
 	@echo ""
 	@echo "Then run: mnemosyne init"
 
