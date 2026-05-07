@@ -7,7 +7,7 @@
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
 [![Tests](https://img.shields.io/badge/tests-1175%20%2B-race-brightgreen)]()
 
-> **v0.1.0** — Core daemon + hot block + telepathy working. 1175+ tests, race-clean. First-run experience shipped.
+> **v0.1.0** — Core daemon + hot block + telepathy working. 1175+ tests, race-clean.
 
 Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
 
@@ -19,29 +19,37 @@ Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***sha
 
 ## Try it in 5 minutes
 
+**Prerequisites:** Go 1.21+, an LLM API key (Anthropic or OpenAI), and `make`.
+
 ```bash
 git clone https://github.com/aj-nt/mnemosyne.git && cd mnemosyne
-make all                  # build + test + lint
-mnemosyne init            # create dirs, configs, launchd plists
-mnemosyne start           # start daemon + agent
+make install              # build + install to ~/bin
+export PATH="$HOME/bin:$PATH"
+mnemosyne init            # interactive setup (configs, API key, tools)
+mnemosyne start           # start daemon + agent (with health verification)
 mnemosyne chat            # talk to your agent
 ```
 
 That's it. You're now running an agent with persistent memory. Try:
 
-```bash
-# Tell it something
+```
 > Remember that the deploy server is at 192.168.1.100
 
-# Ask in a new session (it remembers)
-> What's the deploy server address?
+> What's the deploy server address?     ← it remembers across sessions
 
-# Check what it knows
-mnemosyne hot-block        # show computed context window
-mnemosyne memory list      # show all memories
+> /quit                                 ← exit and come back later
 ```
 
-The agent will automatically save important facts to memory and retrieve them in future sessions. No prompt engineering required.
+Outside the chat, you can inspect memory directly:
+
+```bash
+mnemosyne hot-block        # show computed context window
+mnemosyne memory list      # show all memories
+mnemosyne memory search "deploy"   # full-text search
+mnemosyne health           # daemon health check
+```
+
+The agent automatically saves important facts to memory and retrieves them in future sessions. No prompt engineering required.
 
 ## What you get
 
@@ -86,15 +94,15 @@ Everything through one binary:
 | Command | What it does |
 |---------|-------------|
 | `mnemosyne init` | First-run setup (dirs, configs, launchd) |
-| `mnemosyne start` | Start daemon + agent |
+| `mnemosyne start` | Start daemon + agent (with health verification) |
 | `mnemosyne stop` | Stop services |
-| `mnemosyne chat` | Interactive chat |
-| `mnemosyne status` | Service health |
+| `mnemosyne chat` | Interactive chat (type `/quit` to exit, `/hot` for context) |
+| `mnemosyne status` | Service health + database info |
 | `mnemosyne memory` | Memory CRUD + search + stats |
 | `mnemosyne hot-block` | Show computed context window |
 | `mnemosyne health` | Daemon health check |
 | `mnemosyne config` | Validate / show / edit config |
-| `mnemosyne version` | Build info |
+| `mnemosyne version` | Build info with commit hash |
 
 Legacy binaries (`mnemosyne-daemon`, `mnemosyne-agent`, `mnemosyne-cli`) also work.
 
@@ -151,8 +159,8 @@ tools:
 
 ```bash
 mnemosyne init      # creates LaunchAgent plists
-mnemosyne start     # launchctl start
-mnemosyne status    # verify
+mnemosyne start     # launchctl start + health verification
+mnemosyne status    # check all services
 ```
 
 **Linux (systemd):**
@@ -175,8 +183,19 @@ WantedBy=multi-user.target
 
 ```bash
 make deploy           # build + copy to ~/bin/
-make deploy-studio    # build + scp to remote host
+make deploy-studio   # build + scp to remote host
 ```
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `mnemosyne: command not found` | `export PATH="$HOME/bin:$PATH"` or run `./bin/mnemosyne` directly |
+| `Error: Configuration not found` | Run `mnemosyne init` first |
+| `gRPC unreachable` after `start` | Check logs: `cat ~/.mnemosyne/daemon.err` |
+| `Cannot connect to Mnemosyne daemon` | Run `mnemosyne start` before `mnemosyne chat` |
+| Agent says "I don't have access to tools" | Check `tools.enabled` in `~/.mnemosyne/agent.yaml` |
+| API key not detected | Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in your shell profile |
 
 ## Import from Hermes
 

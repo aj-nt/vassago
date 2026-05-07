@@ -1,5 +1,5 @@
 // This file is part of Mnemosyne.
-// See LICENSE-APache-2.0 for license information.
+// See LICENSE-Apache-2.0 for license information.
 
 package client
 

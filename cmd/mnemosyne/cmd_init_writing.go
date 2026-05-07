@@ -122,10 +122,8 @@ func printSetupSummary(dir, daemonConfigPath, agentConfigPath, primaryProvider, 
 	}
 	fmt.Println()
 	fmt.Println("  Next steps:")
-	fmt.Println("    1. Validate configs:        mnemosyne config validate")
-	fmt.Println("    2. Start services:        mnemosyne start")
-	fmt.Println("    3. Verify health:         mnemosyne health")
-	fmt.Println("    4. Start chatting:        mnemosyne chat")
+	fmt.Println("    1. Start services:  mnemosyne start")
+	fmt.Println("    2. Start chatting: mnemosyne chat")
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
 }

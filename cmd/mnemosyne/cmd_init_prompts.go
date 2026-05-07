@@ -114,7 +114,7 @@ func promptForAnthropicAPIKey(reader *bufio.Reader) string {
 	if input != "" {
 		fmt.Println("  ✓ API key saved for this session")
 		fmt.Println("  ⚠ To persist, add to your shell profile:")
-			fmt.Printf("    export ANTHROPIC_API_KEY=%s\n", maskKey(input))
+		fmt.Printf("    export ANTHROPIC_API_KEY=%s\n", maskKey(input))
 	} else {
 		fmt.Println("  ⊘ Skipped — agent will not be able to use Anthropic")
 	}

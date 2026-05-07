@@ -8,9 +8,18 @@ import (
 	"runtime"
 )
 
+// Build variables set via ldflags during compilation.
+var (
+	Version   = "v0.1.0-dev"
+	Commit    = "unknown"
+	BuildDate = "unknown"
+)
+
 // cmdVersion handles "mnemosyne version".
 func cmdVersion(args []string) {
-	fmt.Println("Mnemosyne v0.19.0")
+	fmt.Printf("Mnemosyne %s\n", Version)
+	fmt.Printf("  Commit: %s\n", Commit)
+	fmt.Printf("  Built:  %s\n", BuildDate)
 	fmt.Printf("  Go:     %s\n", runtime.Version())
 	fmt.Printf("  OS:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }

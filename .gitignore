@@ -24,3 +24,8 @@ coverage.out
 
 # Generated proto (re-run protoc to regenerate)
 # proto/ files ARE tracked — generated Go files match the .proto source
+
+# Generated Python gRPC stubs (run make proto-python to regenerate)
+proto/*_pb2.py
+proto/*_pb2_grpc.py
+proto/*_pb2.pyi
