@@ -197,9 +197,9 @@ func TestConversation_CrossToolLoop(t *testing.T) {
 
 	// FileSearch appears in the history but with "success" result, and the
 	// current call is FileSearch with "success" — this IS a duplicate of
-	// the first history entry. After 3 consecutive duplicates (configured by
-	// ProgressYieldThreshold=3), it would YIELD. But here DuplicateProgressCount
-	// is only 1 (first duplicate), so it should get a nudge and CONTINUE.
+	// the first history entry. After enough consecutive duplicates (configured by
+	// ProgressYieldThreshold, default 5), it would YIELD. But here DuplicateProgressCount
+	// is only 1 (first duplicate), so it should CONTINUE without any nudge.
 	if action != agentctx.StageActionCONTINUE {
 		t.Errorf("Expected CONTINUE (first duplicate gets nudge, not YIELD), got %v", action)
 	}

@@ -291,18 +291,15 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 // It tracks "progress signatures" (tool names + result tag) across iterations.
 // If an iteration's signature duplicates a recent one, the handler increments
 // a duplicate counter. After ProgressYieldThreshold duplicates, it YIELDs.
-// It also detects oscillation: if the same tool appears 3+ times across the
-// last 6 signatures (even in different combinations), that's a spiral too.
 //
-// This is smarter than counting consecutive tool calls because it distinguishes:
-//   - PROGRESS: different tools, different results → signature is novel → counter resets
-//   - REPETITION: same tools, same results → signature duplicates → counter increments
-//   - SPIRAL: oscillating patterns (A→B→A→B) → partial overlap → counter increments
-//   - WANDERING: many different tools without converging → oscillation detection
+// Key design insight: A code review reading 10 files is NOT a spiral (each
+// FileRead has novel content, but the signature is FileRead/success — this is
+// a false positive we accept because the result content differs). A genuine
+// spiral is SearchMemories/not_found repeated 3+ times — same tool, same
+// result pattern, no forward progress.
 //
-// A narration nudge is injected after 2+ consecutive duplicates or when
-// oscillation is detected (but before YIELD), giving the model a chance to
-// self-correction.
+// The nudge is intentionally soft: it's a progress check, not a reprimand.
+// The agent should feel free to continue if it has new information.
 type ProgressDetectionHandler struct {
 	Thresholds PipelineThresholds
 	EventBus   *eventbus.EventBus
@@ -338,35 +335,32 @@ func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext,
 		convCtx.DuplicateProgressCount = 0
 	}
 
-	// Detect oscillation: same tool appearing 3+ times in last 6 signatures
-	// even if exact signatures differ (e.g., SearchMemories→FileSearch→SearchMemories→FileSearch)
-	isOscillating := agentctx.IsOscillatingProgress(convCtx.ProgressHistory)
-
-	// Nudge zone: 2+ consecutive duplicates OR oscillation detected
-	// Nudge regardless of whether text was produced — "Let me check..." doesn't count
-	if (convCtx.DuplicateProgressCount >= 2 || isOscillating) && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold {
+	// Nudge zone: 3+ consecutive duplicates (same tool, same result pattern)
+	// The nudge is a gentle progress check, not a reprimand.
+	// The agent should feel free to continue if it has new information.
+	if convCtx.DuplicateProgressCount >= 3 && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold {
 		convCtx.Messages = append(convCtx.Messages,
 			agentctx.Message{
 				Role:    "user",
-				Content: fmt.Sprintf("[system: You've made %d tool calls without converging. Stop searching and summarize what you've found so far, or ask the user for clarification.]", convCtx.Iteration+1),
+				Content: fmt.Sprintf("[system: You've called the same tools with the same results %d times. If you have new information, continue. Otherwise, summarize what you know and ask for guidance.]", convCtx.DuplicateProgressCount),
 			},
 		)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "progress_nudge",
 			Iteration: convCtx.Iteration,
-			Message:   fmt.Sprintf("progress nudge: %d iterations without convergence (duplicate=%d, oscillating=%v)", convCtx.Iteration+1, convCtx.DuplicateProgressCount, isOscillating),
+			Message:   fmt.Sprintf("progress nudge: %d duplicate iterations (tools: %s, results: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag),
 		})
 		return agentctx.StageActionCONTINUE, false
 	}
 
-	// Yield zone: ProgressYieldThreshold or more duplicates, or oscillation past threshold
-	if convCtx.DuplicateProgressCount >= h.Thresholds.ProgressYieldThreshold || (isOscillating && convCtx.DuplicateProgressCount >= 1) {
-		log.Printf("ProgressDetectionHandler: YIELD — no convergence (iteration %d, duplicate=%d, oscillating=%v, signature: %s/%s)",
-			convCtx.Iteration, convCtx.DuplicateProgressCount, isOscillating, sig.ToolNames, sig.ResultTag)
+	// Yield zone: ProgressYieldThreshold or more consecutive duplicates
+	if convCtx.DuplicateProgressCount >= h.Thresholds.ProgressYieldThreshold {
+		log.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s)",
+			convCtx.DuplicateProgressCount, convCtx.Iteration, sig.ToolNames, sig.ResultTag)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "progress_stall",
 			Iteration: convCtx.Iteration,
-			Message:   fmt.Sprintf("progress stall: iteration %d, duplicate=%d, oscillating=%v (tools: %s, results: %s)", convCtx.Iteration, convCtx.DuplicateProgressCount, isOscillating, sig.ToolNames, sig.ResultTag),
+			Message:   fmt.Sprintf("progress stall: %d consecutive no-progress iterations (tools: %s, results: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag),
 		})
 		return agentctx.StageActionYIELD, true
 	}

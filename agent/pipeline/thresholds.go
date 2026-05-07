@@ -23,12 +23,10 @@ type PipelineThresholds struct {
 
 	// ProgressYieldThreshold is the number of consecutive no-progress
 	// iterations (same tool names, same result pattern) before yielding.
-	// A "no-progress" iteration is one where the progress signature
-	// duplicates a recent one in the history. Default: 3.
-	// This replaces ConsecutiveLoopThreshold and NarrationNudgeThreshold
-	// with a smarter detection that distinguishes legitimate multi-step
-	// tool use (different tools, different results) from actual spirals
-	// (same tool, same result, no forward progress).
+	// Default: 5. Reading 3 files in sequence produces 3 identical
+	// FileRead/success signatures, but that's legitimate work. Only
+	// yield after 5+ identical signatures — a genuine spiral like
+	// SearchMemories/not_found repeated 5 times.
 	ProgressYieldThreshold int
 
 	// ConsecutiveLoopThreshold is the LEGACY threshold for consecutive
@@ -60,12 +58,12 @@ func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    3,
-		ProgressYieldThreshold:     3,
-		ConsecutiveLoopThreshold:   0, // disabled — ProgressDetection replaces it
-		NarrationNudgeThreshold:    0, // disabled — ProgressDetection replaces it
-		StuckMinFailures:           2,
-		StuckHistoryWindow:         3,
-		MaxConsecutiveErrors:       3,
+		ProgressYieldThreshold:    5, // need 5+ consecutive identical signatures to YIELD
+		ConsecutiveLoopThreshold:  0, // disabled — ProgressDetection replaces it
+		NarrationNudgeThreshold:   0, // disabled — ProgressDetection replaces it
+		StuckMinFailures:          2,
+		StuckHistoryWindow:        3,
+		MaxConsecutiveErrors:      3,
 	}
 }
 

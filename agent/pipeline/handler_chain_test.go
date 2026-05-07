@@ -443,8 +443,8 @@ func TestDefaultThresholds(t *testing.T) {
 	if th.RepetitiveLoopThreshold != 3 {
 		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
 	}
-	if th.ProgressYieldThreshold != 3 {
-		t.Errorf("Expected ProgressYieldThreshold=3, got %d", th.ProgressYieldThreshold)
+	if th.ProgressYieldThreshold != 5 {
+		t.Errorf("Expected ProgressYieldThreshold=5, got %d", th.ProgressYieldThreshold)
 	}
 	if th.ConsecutiveLoopThreshold != 0 {
 		t.Errorf("Expected ConsecutiveLoopThreshold=0 (disabled, superseded by ProgressYieldThreshold), got %d", th.ConsecutiveLoopThreshold)
