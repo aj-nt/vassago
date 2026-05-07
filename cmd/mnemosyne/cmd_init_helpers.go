@@ -128,7 +128,7 @@ type ProviderSectionYAML struct {
 
 type MnemosyneSectionYAML struct {
 	Address    string `yaml:"address"`
-	ChatListen string `yaml:"chat_listen,omitempty"`
+	ChatListen string `yaml:"chat_listen"`
 }
 
 type HotBlockSectionYAML struct {
@@ -203,7 +203,8 @@ func generateAgentConfig(dir, provider, model string) *AgentConfigYAML {
 			AnthropicAPIKeyEnv: "ANTHROPIC_API_KEY",
 		},
 		Mnemosyne: MnemosyneSectionYAML{
-			Address: "localhost:50051",
+			Address:    "localhost:50051",
+			ChatListen: "localhost:50052",
 		},
 		HotBlock: HotBlockSectionYAML{
 			MemoryCharLimit: 8000,
