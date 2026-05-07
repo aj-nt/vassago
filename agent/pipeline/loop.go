@@ -138,17 +138,18 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 		switch action {
 		case agentctx.StageActionYIELD:
 			fallbackText := false
-			// If the LLM produced no text (only tool calls), inject a helpful message
-			// so the user doesn't see a silent exit with just tool icons.
+			// If the LLM produced no text (only tool calls), inject a neutral
+			// status message so the user sees something instead of silence.
 			if parsed.Text == "" {
-				parsed.Text = "I've been making too many tool calls without responding. Let me answer your question directly."
+				parsed.Text = "Pausing to review progress before continuing."
 				fallbackText = true
 			}
-			// Add a recovery message to the conversation history so subsequent turns
-			// don't repeat the same pattern. This teaches the model what went wrong.
+			// Add a context message so subsequent turns know a YIELD happened.
+			// This is informational, not a reprimand — the agent should feel
+			// free to continue tool use if it has new information.
 			convCtx.Messages = append(convCtx.Messages,
 				agentctx.Message{Role: "assistant", Content: parsed.Text},
-				agentctx.Message{Role: "user", Content: "[system: The assistant made multiple tool calls without generating text. Please respond with text before making any additional tool calls.]"},
+				agentctx.Message{Role: "user", Content: "[system: A progress check was triggered. Continue if you have new information. Otherwise, summarize what you've found.]"},
 			)
 			if cfg.PersistFunc != nil {
 				cfg.PersistFunc(sessionID)
