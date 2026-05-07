@@ -696,3 +696,94 @@ func TestNullMnemo_AllReadMethods(t *testing.T) {
 		t.Errorf("Heartbeat: unexpected error %v", err)
 	}
 }
+
+// --- Skill tests ---
+
+func TestClientGRPC_AddSkill(t *testing.T) {
+	c, _, _ := setupMockServer(t)
+	ctx := context.Background()
+
+	skill, err := c.AddSkill(ctx, "Test Skill", "A test skill", []string{"test", "demo"}, "devops", "Test content", "test-agent", 3)
+	if err != nil {
+		t.Fatalf("AddSkill failed: %v", err)
+	}
+	if skill.Id == "" {
+		t.Error("Expected skill ID to be set")
+	}
+	if skill.Name != "Test Skill" {
+		t.Errorf("Expected name 'Test Skill', got %q", skill.Name)
+	}
+	if skill.Category != "devops" {
+		t.Errorf("Expected category 'devops', got %q", skill.Category)
+	}
+	if skill.Priority != 3 {
+		t.Errorf("Expected priority 3, got %d", skill.Priority)
+	}
+}
+
+func TestClientGRPC_GetSkill(t *testing.T) {
+	c, _, _ := setupMockServer(t)
+	ctx := context.Background()
+
+	created, err := c.AddSkill(ctx, "Get Skill", "A skill to test get", []string{"get"}, "test", "Get content", "test-agent", 2)
+	if err != nil {
+		t.Fatalf("AddSkill failed: %v", err)
+	}
+
+	got, err := c.GetSkill(ctx, created.Id)
+	if err != nil {
+		t.Fatalf("GetSkill failed: %v", err)
+	}
+	if got.Name != "Get Skill" {
+		t.Errorf("Expected name 'Get Skill', got %q", got.Name)
+	}
+}
+
+func TestClientGRPC_ListSkills(t *testing.T) {
+	c, _, _ := setupMockServer(t)
+	ctx := context.Background()
+
+	c.AddSkill(ctx, "List Skill 1", "First", []string{"l1"}, "cat1", "C1", "agent1", 1)
+	c.AddSkill(ctx, "List Skill 2", "Second", []string{"l2"}, "cat2", "C2", "agent2", 2)
+
+	skills, err := c.ListSkills(ctx, "", "", 20)
+	if err != nil {
+		t.Fatalf("ListSkills failed: %v", err)
+	}
+	if len(skills) != 2 {
+		t.Errorf("Expected 2 skills, got %d", len(skills))
+	}
+}
+
+func TestClientGRPC_SearchSkills(t *testing.T) {
+	c, _, _ := setupMockServer(t)
+	ctx := context.Background()
+
+	c.AddSkill(ctx, "DB Debug", "Debug database issues", []string{"db"}, "devops", "Database debugging steps", "ops-agent", 3)
+
+	skills, err := c.SearchSkills(ctx, "database", "", 10)
+	if err != nil {
+		t.Fatalf("SearchSkills failed: %v", err)
+	}
+	if len(skills) == 0 {
+		t.Error("Expected at least one result for 'database'")
+	}
+}
+
+func TestClientGRPC_RemoveSkill(t *testing.T) {
+	c, _, _ := setupMockServer(t)
+	ctx := context.Background()
+
+	created, err := c.AddSkill(ctx, "ToRemove", "Will be removed", []string{"rm"}, "test", "x", "test-agent", 1)
+	if err != nil {
+		t.Fatalf("AddSkill failed: %v", err)
+	}
+
+	success, err := c.RemoveSkill(ctx, created.Id)
+	if err != nil {
+		t.Fatalf("RemoveSkill failed: %v", err)
+	}
+	if !success {
+		t.Error("Expected success=true for RemoveSkill")
+	}
+}
