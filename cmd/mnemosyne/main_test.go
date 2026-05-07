@@ -166,15 +166,7 @@ func TestAgentConfigVision(t *testing.T) {
 	}
 }
 
-func TestAgentConfigPersonalityFile(t *testing.T) {
-	dir := "/home/user/.mnemosyne"
-	cfg := generateAgentConfig(dir, "anthropic", "claude-sonnet-4-6")
 
-	expectedPath := filepath.Join(dir, "personalities", "bartimaeus.md")
-	if cfg.Agent.PersonalityFile != expectedPath {
-		t.Errorf("Expected personality path %s, got %s", expectedPath, cfg.Agent.PersonalityFile)
-	}
-}
 
 func TestYAMLOutputComplete(t *testing.T) {
 	dir := "/tmp/test-yaml-output"

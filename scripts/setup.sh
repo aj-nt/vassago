@@ -130,7 +130,6 @@ agent:
   name: "mnemosyne"
   role: "assistant"
   personality: "direct, dry-witted collaborator"
-  personality_file: "$MNEMO_DIR/personalities/bartimaeus.md"
   max_turns: 30
 
 provider:

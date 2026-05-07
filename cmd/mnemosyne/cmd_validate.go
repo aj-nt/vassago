@@ -152,7 +152,7 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 	}
 
 	// --- Extra checks beyond Validate() ---
-	issues = append(issues, validatePersonalityFile(cfg)...)
+	// Personality file validation removed - personality is now embedded in config
 	issues = append(issues, validateProviderAPIKeys(cfg)...)
 	issues = append(issues, validateToolNames(cfg)...)
 	issues = append(issues, validateAllowedDirs(cfg)...)
@@ -165,19 +165,7 @@ func validateAgentConfigDeep(path string) []ValidationIssue {
 	return issues
 }
 
-// validatePersonalityFile checks if personality file exists
-func validatePersonalityFile(cfg *agent.AgentConfig) []ValidationIssue {
-	var issues []ValidationIssue
-	if cfg.Agent.PersonalityFile != "" {
-		if !fileExists(cfg.Agent.PersonalityFile) {
-			issues = append(issues, ValidationIssue{
-				"warning",
-				fmt.Sprintf("Personality file not found: %s", cfg.Agent.PersonalityFile),
-			})
-		}
-	}
-	return issues
-}
+
 
 // validateProviderAPIKeys checks if provider API keys are available
 func validateProviderAPIKeys(cfg *agent.AgentConfig) []ValidationIssue {
