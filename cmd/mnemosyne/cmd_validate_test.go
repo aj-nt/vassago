@@ -217,7 +217,7 @@ tools:
 		path := filepath.Join(tmpDir, "bad-personality.yaml")
 		os.WriteFile(path, []byte(`agent:
   id: test
-  personality_file: /nonexistent/personality.md
+
 provider:
   name: openai
   model: test

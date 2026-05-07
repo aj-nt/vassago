@@ -111,7 +111,6 @@ type AgentSectionYAML struct {
 	Name           string `yaml:"name"`
 	Role           string `yaml:"role"`
 	Personality    string `yaml:"personality"`
-	PersonalityFile string `yaml:"personality_file"`
 	MaxTurns       int    `yaml:"max_turns"`
 }
 
@@ -188,8 +187,8 @@ func generateAgentConfig(dir, provider, model string) *AgentConfigYAML {
 			ID:             "mnemosyne",
 			Name:           "mnemosyne",
 			Role:           "assistant",
-			Personality:    "direct, dry-witted collaborator",
-			PersonalityFile: filepath.Join(dir, "personalities", "bartimaeus.md"),
+			Personality:    defaultPersonality,
+
 			MaxTurns:       30,
 		},
 		Provider: ProviderSectionYAML{
