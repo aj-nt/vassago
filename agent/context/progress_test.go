@@ -161,3 +161,87 @@ func TestProgressDetection_AllowsDifferentToolSequence(t *testing.T) {
 		t.Error("Different tool sequence should not be a duplicate")
 	}
 }
+
+// --- Oscillation Detection Tests ---
+
+func TestIsOscillatingProgress_TooFewHistory(t *testing.T) {
+	// Need at least 4 history entries for oscillation detection
+	history := []ProgressSignature{
+		{ToolNames: "SearchMemories", ResultTag: "success"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+	}
+	if IsOscillatingProgress(history) {
+		t.Error("Short history should not oscillate")
+	}
+}
+
+func TestIsOscillatingProgress_NoOscillation(t *testing.T) {
+	// Each tool appears once — legitimate multi-step work
+	history := []ProgressSignature{
+		{ToolNames: "FileRead", ResultTag: "success"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "GetSession", ResultTag: "success"},
+		{ToolNames: "Execute", ResultTag: "success"},
+	}
+	if IsOscillatingProgress(history) {
+		t.Error("Different tools with no repetition should not oscillate")
+	}
+}
+
+func TestIsOscillatingProgress_OscillatingPattern(t *testing.T) {
+	// SearchMemories appears 4 times in 6 signatures — oscillation!
+	history := []ProgressSignature{
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		{ToolNames: "Execute", ResultTag: "success"},
+	}
+	if !IsOscillatingProgress(history) {
+		t.Error("SearchMemories appears 3+ times — should detect oscillation")
+	}
+}
+
+func TestIsOscillatingProgress_SameToolThreeTimes(t *testing.T) {
+	// Same tool 3 times = oscillation
+	history := []ProgressSignature{
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		{ToolNames: "FileRead", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		{ToolNames: "Execute", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+	}
+	if !IsOscillatingProgress(history) {
+		t.Error("SearchMemories appears 3 times — should detect oscillation")
+	}
+}
+
+func TestIsOscillatingProgress_JustUnderThreshold(t *testing.T) {
+	// Each tool appears only 2 times — not oscillation
+	history := []ProgressSignature{
+		{ToolNames: "SearchMemories", ResultTag: "success"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "success"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+	}
+	if IsOscillatingProgress(history) {
+		t.Error("Each tool appears only 2 times — should not oscillate (need 3+)")
+	}
+}
+
+func TestIsOscillatingProgress_MultiToolSignature(t *testing.T) {
+	// Signatures with multiple tools (e.g., "FileRead,SearchMemories")
+	// Each individual tool in the signature counts
+	history := []ProgressSignature{
+		{ToolNames: "FileRead,SearchMemories", ResultTag: "mixed"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "FileRead,SearchMemories", ResultTag: "mixed"},
+		{ToolNames: "FileSearch", ResultTag: "success"},
+		{ToolNames: "SearchMemories", ResultTag: "not_found"},
+	}
+	// SearchMemories appears 3 times (in 2 multi-tool sigs + 1 solo)
+	if !IsOscillatingProgress(history) {
+		t.Error("SearchMemories appears 3 times across signatures — should oscillate")
+	}
+}

@@ -360,3 +360,44 @@ func IsDuplicateProgress(sig ProgressSignature, history []ProgressSignature) boo
 	}
 	return false
 }
+
+// IsOscillatingProgress detects if the agent is oscillating between tools
+// without converging. It counts how many times each individual tool name
+// appears across recent progress signatures. If any single tool appears
+// 3+ times in the last 6 signatures, the agent is likely going in circles.
+//
+// This catches patterns like: SearchMemories→FileSearch→SearchMemories→FileSearch→Execute→SearchMemories
+// where the exact signatures differ (different tool combinations) but the
+// same tools keep reappearing.
+func IsOscillatingProgress(history []ProgressSignature) bool {
+	if len(history) < 4 {
+		return false
+	}
+
+	// Check last 6 signatures
+	start := len(history) - 6
+	if start < 0 {
+		start = 0
+	}
+
+	// Count how many times each tool appears across recent signatures
+	// A signature's ToolNames field is "Tool1,Tool2" (comma-separated sorted names)
+	toolCounts := make(map[string]int)
+	for i := start; i < len(history); i++ {
+		tools := strings.Split(history[i].ToolNames, ",")
+		for _, tool := range tools {
+			tool = strings.TrimSpace(tool)
+			if tool != "" {
+				toolCounts[tool]++
+			}
+		}
+	}
+
+	// If any single tool appears 3+ times in recent history, we're oscillating
+	for _, count := range toolCounts {
+		if count >= 3 {
+			return true
+		}
+	}
+	return false
+}
