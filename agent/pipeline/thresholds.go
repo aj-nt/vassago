@@ -41,6 +41,14 @@ type PipelineThresholds struct {
 	// DEPRECATED: superseded by ProgressDetectionHandler. Set to 0 to disable.
 	NarrationNudgeThreshold int
 
+	// IntentLoopThreshold is the number of times the same intent bucket
+	// (e.g., "search", "read", "execute") must appear in recent progress
+	// history to trigger an intent nudge. This catches cross-tool loops
+	// where the agent switches tools but pursues the same goal.
+	// Default: 3 (3 iterations of "search" even if using FileSearch,
+	// SearchMemories, and Execute).
+	IntentLoopThreshold int
+
 	// StuckMinFailures is the minimum number of consecutive tool failures
 	// (errors or "not found") required for stuck detection. Default: 2.
 	StuckMinFailures int
@@ -60,12 +68,13 @@ func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    0,  // disabled — ProgressDetection replaces it
-		ProgressYieldThreshold:    5, // need 5+ consecutive identical signatures to YIELD
-		ConsecutiveLoopThreshold:  0, // disabled — ProgressDetection replaces it
-		NarrationNudgeThreshold:   0, // disabled — ProgressDetection replaces it
-		StuckMinFailures:          2,
-		StuckHistoryWindow:        3,
-		MaxConsecutiveErrors:      3,
+		ProgressYieldThreshold:     5,  // need 5+ consecutive identical signatures to YIELD
+		IntentLoopThreshold:        3,  // 3+ same-intent iterations triggers nudge
+		ConsecutiveLoopThreshold:   0,  // disabled — ProgressDetection replaces it
+		NarrationNudgeThreshold:   0,  // disabled — ProgressDetection replaces it
+		StuckMinFailures:           2,
+		StuckHistoryWindow:         3,
+		MaxConsecutiveErrors:       3,
 	}
 }
 

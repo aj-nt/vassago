@@ -202,6 +202,7 @@ func refreshHotBlock(ctx context.Context, c *CLI, hotBlock string) string {
 // buildConversationContext builds the conversation context.
 func buildConversationContext(ctx context.Context, c *CLI, sessionID string, messages []agentctx.Message, toolDefs []agentctx.ToolDefinition, hotBlock string) *agentctx.ConversationContext {
 	interrupt := agentctx.NewInterruptSignal()
+	skillBlock := c.Agent.GetSkillBlock(ctx)
 	return &agentctx.ConversationContext{
 		SessionID:       sessionID,
 		AgentID:         c.Agent.Config.AgentID,
@@ -212,6 +213,7 @@ func buildConversationContext(ctx context.Context, c *CLI, sessionID string, mes
 		Iteration:       0,
 		Interrupt:       interrupt,
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     c.Agent.Config.Temperature,
 	}
 }
@@ -404,6 +406,7 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 	sessionID, _ := c.Agent.Mnemo.CreateSession(ctx, c.Agent.Config.AgentID, "cli", "")
 
 	// Build context
+	skillBlock := c.Agent.GetSkillBlock(ctx)
 	convCtx := &agentctx.ConversationContext{
 		SessionID:       sessionID,
 		AgentID:         c.Agent.Config.AgentID,
@@ -414,6 +417,7 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 		Iteration:       0,
 		Interrupt:       agentctx.NewInterruptSignal(),
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     c.Agent.Config.Temperature,
 	}
 

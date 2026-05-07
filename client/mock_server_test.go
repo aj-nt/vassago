@@ -28,6 +28,7 @@ type mockMnemosyneServer struct {
 	agents   map[string]*pb.RegisterAgentResponse
 	todos    map[string]*pb.TodoItem
 	cronJobs map[string]*pb.CronJob
+	skills   map[string]*pb.SkillEntry
 	nextID   int
 }
 
@@ -38,6 +39,7 @@ func newMockMnemosyneServer() *mockMnemosyneServer {
 		agents:   make(map[string]*pb.RegisterAgentResponse),
 		todos:    make(map[string]*pb.TodoItem),
 		cronJobs: make(map[string]*pb.CronJob),
+		skills:   make(map[string]*pb.SkillEntry),
 		nextID:   1,
 	}
 }
@@ -260,6 +262,70 @@ func (m *mockMnemosyneServer) Ping(ctx context.Context, req *pb.HealthCheckReque
 // mockMessagingServer implements pb.MessagingServer with controllable responses.
 type mockMessagingServer struct {
 	pb.UnimplementedMessagingServer
+}
+
+// Add skill methods to mockMnemosyneServer
+func (m *mockMnemosyneServer) AddSkill(ctx context.Context, req *pb.AddSkillRequest) (*pb.SkillEntry, error) {
+	id := m.genID()
+	priority := int32(3)
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+	skill := &pb.SkillEntry{
+		Id:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		Triggers:    req.Triggers,
+		Category:    req.Category,
+		Content:     req.Content,
+		SourceAgent: req.SourceAgent,
+		Priority:    priority,
+	}
+	m.mu.Lock()
+	m.skills[id] = skill
+	m.mu.Unlock()
+	return skill, nil
+}
+
+func (m *mockMnemosyneServer) GetSkill(ctx context.Context, req *pb.GetSkillRequest) (*pb.SkillEntry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	skill, ok := m.skills[req.Id]
+	if !ok {
+		return nil, fmt.Errorf("skill not found: %s", req.Id)
+	}
+	return skill, nil
+}
+
+func (m *mockMnemosyneServer) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.SkillList, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var skills []*pb.SkillEntry
+	for _, skill := range m.skills {
+		if (req.Category == "" || skill.Category == req.Category) && (req.SourceAgent == "" || skill.SourceAgent == req.SourceAgent) {
+			skills = append(skills, skill)
+		}
+	}
+	return &pb.SkillList{Skills: skills}, nil
+}
+
+func (m *mockMnemosyneServer) RemoveSkill(ctx context.Context, req *pb.RemoveSkillRequest) (*pb.RemoveSkillResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.skills, req.Id)
+	return &pb.RemoveSkillResponse{Success: true}, nil
+}
+
+func (m *mockMnemosyneServer) SearchSkills(ctx context.Context, req *pb.SearchSkillsRequest) (*pb.SkillList, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var skills []*pb.SkillEntry
+	for _, skill := range m.skills {
+		if req.Category == "" || skill.Category == req.Category {
+			skills = append(skills, skill)
+		}
+	}
+	return &pb.SkillList{Skills: skills}, nil
 }
 
 func (m *mockMessagingServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest) (*pb.SendMessageResponse, error) {

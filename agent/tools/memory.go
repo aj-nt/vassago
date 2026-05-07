@@ -196,6 +196,24 @@ func intArg(args map[string]interface{}, key string, defaultVal int) int {
 	return defaultVal
 }
 
+func listArg(args map[string]interface{}, key string, defaultVal []string) []string {
+	if v, ok := args[key]; ok {
+		switch items := v.(type) {
+		case []string:
+			return items
+		case []interface{}:
+			result := make([]string, 0, len(items))
+			for _, item := range items {
+				if s, ok := item.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return defaultVal
+}
+
 func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s

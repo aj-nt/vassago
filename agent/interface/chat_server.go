@@ -82,6 +82,7 @@ func (cs *ChatServer) ChatStream(req *pb.ChatRequest, stream pb.AgentChat_ChatSt
 
 	// Build conversation context
 	toolDefs := cs.agent.BuildToolDefinitions()
+	skillBlock := cs.agent.GetSkillBlock(ctx)
 	convCtx := &agentctx.ConversationContext{
 		SessionID:       sess.sessionID,
 		AgentID:         cs.agent.Config.AgentID,
@@ -92,6 +93,7 @@ func (cs *ChatServer) ChatStream(req *pb.ChatRequest, stream pb.AgentChat_ChatSt
 		Iteration:       0,
 		Interrupt:       agentctx.NewInterruptSignal(),
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     cs.agent.Config.Temperature,
 	}
 

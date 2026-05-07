@@ -234,6 +234,7 @@ func (mb *MessageBridge) runAgent(ctx context.Context, sess *bridgeSession, user
 
 	// Build conversation context
 	toolDefs := mb.agent.BuildToolDefinitions()
+	skillBlock := mb.agent.GetSkillBlock(ctx)
 	convCtx := &agentctx.ConversationContext{
 		SessionID:       sess.sessionID,
 		AgentID:         mb.config.AgentID,
@@ -244,6 +245,7 @@ func (mb *MessageBridge) runAgent(ctx context.Context, sess *bridgeSession, user
 		Iteration:       0,
 		Interrupt:       agentctx.NewInterruptSignal(),
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     mb.agent.Config.Temperature,
 	}
 

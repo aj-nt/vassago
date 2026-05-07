@@ -25,12 +25,14 @@ const (
 )
 
 // ProgressSignature is a compact fingerprint of what happened in a pipeline
-// iteration. It captures which tools were called and whether they succeeded,
-// enabling detection of repetitive (no-progress) loops vs. legitimate
-// multi-step chains.
+// iteration. It captures which tools were called, whether they succeeded,
+// AND why they were called (the LLM's stated intent). This enables detection
+// of repetitive loops — both same-tool loops and cross-tool intent loops
+// where the agent switches tools but pursues the same goal.
 type ProgressSignature struct {
 	ToolNames string // sorted, comma-joined tool names from this iteration
 	ResultTag string // "success", "error", "not_found", "empty", "mixed"
+	IntentTag string // intent bucket from LLM text: "search", "read", "execute", etc.
 }
 
 // ConversationContext holds the full state for a conversation loop.
@@ -43,6 +45,7 @@ type ConversationContext struct {
 	Iteration       int
 	Interrupt       *InterruptSignal
 	HotBlockContent string
+	SkillContent    string
 	AgentID         string
 	Temperature     float64
 
@@ -300,8 +303,8 @@ func joinNames(names []string) string {
 }
 
 // ComputeProgressSignature creates a progress signature for the current iteration
-// based on the tool calls made and their results.
-func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult) ProgressSignature {
+// based on the tool calls made, their results, and the LLM's stated intent.
+func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult, intentText string) ProgressSignature {
 	// Build sorted tool names
 	names := make([]string, 0, len(toolCalls))
 	for _, tc := range toolCalls {
@@ -339,14 +342,142 @@ func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult) Progre
 	return ProgressSignature{
 		ToolNames: toolNames,
 		ResultTag: resultTag,
+		IntentTag: ComputeIntentTag(toolNames, intentText),
 	}
+}
+
+// intentKeywords maps verbs commonly used in LLM narration to intent buckets.
+// The intent bucket captures WHY the agent is making tool calls, not just WHICH
+// tools. This lets us detect "scanning... scanning... scanning..." loops even
+// when the agent switches between FileSearch, Execute, and FileRead.
+var intentKeywords = map[string]string{
+	// Search/discovery
+	"search":    "search",
+	"find":      "search",
+	"look":      "search",
+	"check":     "search",
+	"scan":      "search",
+	"explore":   "search",
+	"investigate": "search",
+	"locate":    "search",
+
+	// Reading/inspection
+	"read":      "read",
+	"view":      "read",
+	"examine":   "read",
+	"inspect":   "read",
+	"review":    "read",
+	"see":       "read",
+	"show":      "read",
+	"look at":   "read",
+	"display":   "read",
+	"cat":       "read",
+	"open":      "read",
+
+	// Execution/action
+	"run":       "execute",
+	"execute":   "execute",
+	"build":     "execute",
+	"compile":   "execute",
+	"test":      "execute",
+	"install":   "execute",
+	"deploy":    "execute",
+	"start":     "execute",
+	"launch":    "execute",
+
+	// Writing/creation
+	"write":     "write",
+	"create":    "write",
+	"save":      "write",
+	"update":    "write",
+	"edit":      "write",
+	"fix":       "write",
+	"modify":    "write",
+	"add":       "write",
+	"patch":     "write",
+
+	// Memory/recall
+	"remember":  "memory",
+	"recall":    "memory",
+	"memorize":  "memory",
+	"save.*memory": "memory",
+	"store":     "memory",
+}
+
+// intentKeywordsSorted is the deterministic ordering of non-regex intent keywords,
+// sorted by length descending so that longer/more-specific keywords are checked first.
+// This prevents "see" in "seeing" from matching before "remember" in "I remember".
+var intentKeywordsSorted []string
+
+func init() {
+	for keyword := range intentKeywords {
+		if !strings.Contains(keyword, ".*") {
+			intentKeywordsSorted = append(intentKeywordsSorted, keyword)
+		}
+	}
+	sort.Slice(intentKeywordsSorted, func(i, j int) bool {
+		return len(intentKeywordsSorted[i]) > len(intentKeywordsSorted[j])
+	})
+}
+
+// ComputeIntentTag extracts an intent bucket from the LLM's narration text.
+// If the LLM said "Let me search for..." the intent is "search".
+// If it said "Now I'll run..." the intent is "execute".
+// If no narration, the intent is derived from the tool names themselves.
+func ComputeIntentTag(toolNames string, intentText string) string {
+	// Prefer intent from narration text — it captures WHY, not just WHAT.
+	if intentText != "" {
+		lower := strings.ToLower(intentText)
+		// Check keywords in deterministic order: longest first for specificity.
+		for _, keyword := range intentKeywordsSorted {
+			if strings.Contains(lower, keyword) {
+				return intentKeywords[keyword]
+			}
+		}
+		// Regex patterns
+		for keyword, bucket := range intentKeywords {
+			if strings.Contains(keyword, ".*") {
+				pattern := strings.ReplaceAll(keyword, ".*", "")
+				if strings.Contains(lower, pattern) {
+					return bucket
+				}
+			}
+		}
+	}
+
+	// Fallback: derive intent from tool names
+	toolIntents := map[string]string{
+		"SearchMemories": "search",
+		"FileSearch":     "search",
+		"ListTodos":      "search",
+		"ListSessions":   "search",
+		"FileRead":       "read",
+		"GetHotBlock":    "read",
+		"GetSession":     "read",
+		"Execute":        "execute",
+		"FileWrite":      "write",
+		"AddMemory":      "memory",
+		"Delegate":       "execute",
+	}
+
+	// Use the first recognized tool's intent
+	for _, name := range strings.Split(toolNames, ",") {
+		if intent, ok := toolIntents[strings.TrimSpace(name)]; ok {
+			return intent
+		}
+	}
+
+	// Ultimate fallback
+	return "other"
 }
 
 // IsDuplicateProgress checks if the given signature duplicates any of the
 // recent signatures in the history. A signature is considered duplicate if
 // it has the same ToolNames AND the same ResultTag as a recent entry.
-// This catches actual repetition (same tool, same outcome) while allowing
-// legitimate multi-step chains (different tools or different outcomes).
+// IntentTag is NOT included in duplicate detection — different intent with
+// the same tools/results is still meaningful repetition (the agent admits
+// it's doing the same thing again). Intent is used separately by
+// IsIntentLoop to catch cross-tool spirals with the same stated purpose.
 func IsDuplicateProgress(sig ProgressSignature, history []ProgressSignature) bool {
 	// Check last 3 signatures for matching patterns
 	start := len(history) - 3
@@ -355,6 +486,41 @@ func IsDuplicateProgress(sig ProgressSignature, history []ProgressSignature) boo
 	}
 	for i := start; i < len(history); i++ {
 		if sig.ToolNames == history[i].ToolNames && sig.ResultTag == history[i].ResultTag {
+			return true
+		}
+	}
+	return false
+}
+
+// IsIntentLoop detects when the agent is pursuing the same high-level goal
+// across multiple iterations despite switching tools. If the same IntentTag
+// appears 3+ times in recent history, the agent is likely going in circles
+// with different tools but the same purpose.
+//
+// This catches patterns like:
+//   - "Let me search..." → FileSearch/success
+//   - "I'll check..." → Execute/success
+//   - "Let me look for..." → FileSearch/success
+// Where different tools are used but the agent keeps trying to discover
+// the same information without converging.
+func IsIntentLoop(history []ProgressSignature, threshold int) bool {
+	if threshold <= 0 || len(history) < threshold {
+		return false
+	}
+
+	// Count intent occurrences in recent history (last 6 iterations)
+	recentStart := len(history) - 6
+	if recentStart < 0 {
+		recentStart = 0
+	}
+	intentCounts := make(map[string]int)
+	for i := recentStart; i < len(history); i++ {
+		intentCounts[history[i].IntentTag]++
+	}
+
+	// If any single intent bucket exceeds the threshold, it's an intent loop
+	for _, count := range intentCounts {
+		if count >= threshold {
 			return true
 		}
 	}

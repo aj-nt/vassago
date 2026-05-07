@@ -151,6 +151,8 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		hotBlock = ""
 	}
 
+	skillBlock := a.GetSkillBlock(ctx)
+
 	// Create session with auto-generated title from first message
 	title := autoTitle(userMessage)
 	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", title)
@@ -167,6 +169,7 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 		Iteration:       0,
 		Interrupt:       interrupt,
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     a.Config.Temperature,
 	}
 
@@ -256,6 +259,30 @@ func (a *Agent) GetHotBlock(ctx context.Context) (string, error) {
 	atomic.StoreInt32(&a.hotBlockStale, 0)
 
 	return result, nil
+}
+
+// GetSkillBlock retrieves high-priority skills from the daemon and formats
+// them for the system prompt. Skills are procedural knowledge — reusable
+// approaches that any agent instance can follow.
+func (a *Agent) GetSkillBlock(ctx context.Context) string {
+	skills, err := a.Mnemo.SearchSkills(ctx, "", "", 50)
+	if err != nil || len(skills) == 0 {
+		return ""
+	}
+
+	var buf strings.Builder
+	for _, s := range skills {
+		fmt.Fprintf(&buf, "## %s (%s)\n", s.Name, s.Category)
+		if s.Description != "" {
+			fmt.Fprintf(&buf, "%s\n", s.Description)
+		}
+		if len(s.Triggers) > 0 {
+			fmt.Fprintf(&buf, "Triggers: %s\n", strings.Join(s.Triggers, ", "))
+		}
+		buf.WriteString(s.Content)
+		buf.WriteString("\n\n")
+	}
+	return buf.String()
 }
 
 // BuildToolDefinitions creates ToolDefinitions from the registry schemas.

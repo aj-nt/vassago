@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -128,6 +128,34 @@ var SchemaStmts = []string{
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_agent_id ON cron_jobs(agent_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled)`,
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_fire ON cron_jobs(next_fire_at)`,
+
+	// --- Skills ---
+	`CREATE TABLE IF NOT EXISTS skills (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    triggers TEXT NOT NULL DEFAULT '[]',
+    category TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_agent TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category)`,
+	`CREATE INDEX IF NOT EXISTS idx_skills_source_agent ON skills(source_agent)`,
+	`CREATE INDEX IF NOT EXISTS idx_skills_priority ON skills(priority)`,
+
+	// --- Skills FTS5 virtual table ---
+	`CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts USING fts5(name, description, content, triggers, category, content=skills, content_rowid=rowid, tokenize='unicode61')`,
+
+	// --- Skills FTS5 sync triggers ---
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_insert AFTER INSERT ON skills BEGIN INSERT INTO skills_fts(rowid, name, description, content, triggers, category) VALUES (new.rowid, new.name, new.description, new.content, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_update AFTER UPDATE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); INSERT INTO skills_fts(rowid, name, description, content, triggers, category) VALUES (new.rowid, new.name, new.description, new.content, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_delete AFTER DELETE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); END`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -166,4 +194,29 @@ var Migrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_agent_id ON cron_jobs(agent_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled)`,
 	`CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_fire ON cron_jobs(next_fire_at)`,
+
+	// Migration 3: Add skills table (Phase 18A)
+	`CREATE TABLE IF NOT EXISTS skills (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    triggers TEXT NOT NULL DEFAULT '[]',
+    category TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_agent TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category)`,
+	`CREATE INDEX IF NOT EXISTS idx_skills_source_agent ON skills(source_agent)`,
+	`CREATE INDEX IF NOT EXISTS idx_skills_priority ON skills(priority)`,
+
+	`CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts USING fts5(name, description, content, triggers, category, content=skills, content_rowid=rowid, tokenize='unicode61')`,
+
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_insert AFTER INSERT ON skills BEGIN INSERT INTO skills_fts(rowid, name, description, content, triggers, category) VALUES (new.rowid, new.name, new.description, new.content, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_update AFTER UPDATE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); INSERT INTO skills_fts(rowid, name, description, content, triggers, category) VALUES (new.rowid, new.name, new.description, new.content, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS skills_fts_delete AFTER DELETE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); END`,
 }
