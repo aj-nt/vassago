@@ -185,39 +185,13 @@ func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, to
 	return agentctx.StageActionCONTINUE, false
 }
 
-// ConsecutiveLoopHandler detects cross-tool loops (N+ consecutive tool
-// iterations regardless of tool name). Skipped after compaction.
-type ConsecutiveLoopHandler struct {
-	Thresholds PipelineThresholds
-	EventBus   *eventbus.EventBus
-}
-
-// Handle checks for consecutive iteration loops.
-func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
-	// Skip loop detection after compaction
-	if convCtx.CompactedThisTurn {
-		return agentctx.StageActionCONTINUE, false
-	}
-
-	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
-		log.Printf("ConsecutiveLoopHandler: YIELD — %d+ tool iterations without text response (iteration %d)", h.Thresholds.ConsecutiveLoopThreshold, convCtx.Iteration)
-		emitEvent(h.EventBus, LoopDetectionEvent{
-			Kind:      "consecutive_loop",
-			Iteration: convCtx.Iteration,
-			Message:   fmt.Sprintf("consecutive loop detected: %d+ tool iterations without text response", h.Thresholds.ConsecutiveLoopThreshold),
-		})
-		return agentctx.StageActionYIELD, true
-	}
-
-	return agentctx.StageActionCONTINUE, false
-}
-
-// NarrationNudgeHandler proactively injects a system message when the LLM
-// produces consecutive tool-only responses without narration. Unlike
-// ConsecutiveLoopHandler (which YIELDs/terminates), this handler nudges
-// the model to self-correct by injecting a hint into the conversation.
-// This is the root-cause fix for the "silent tool spiral" — it intervenes
-// before the YIELD threshold, giving the model a chance to start narrating.
+// NarrationNudgeHandler injects a system message when the LLM produces
+// consecutive tool-only responses without narration.
+//
+// DEPRECATED: This handler is superseded by ProgressDetectionHandler which
+// uses progress signatures instead of consecutive counts. It remains in the
+// codebase for backward compatibility (set NarrationNudgeThreshold > 0 to
+// re-enable), but is NOT part of the default handler chain.
 //
 // Must be placed BEFORE ConsecutiveLoopHandler in the chain.
 // Disabled when NarrationNudgeThreshold is 0.
@@ -276,33 +250,122 @@ func (h *NarrationNudgeHandler) Handle(convCtx *agentctx.ConversationContext, to
 	return agentctx.StageActionCONTINUE, false
 }
 
-// countConsecutiveToolIterations counts how many consecutive tool-only
-// iterations exist ending at the current calls. This is similar to
-// isConsecutiveToolIterationLoop but returns the count instead of a bool.
-func countConsecutiveToolIterations(messages []agentctx.Message, currentCalls []agentctx.ToolCall) int {
-	count := 0
+// ConsecutiveLoopHandler detects cross-tool loops (N+ consecutive tool
+// iterations regardless of tool name). Skipped after compaction.
+//
+// DEPRECATED: This handler is superseded by ProgressDetectionHandler which
+// uses progress signatures instead of consecutive counts. It remains in the
+// codebase for backward compatibility (set ConsecutiveLoopThreshold > 0 to
+// re-enable), but is NOT part of the default handler chain.
+type ConsecutiveLoopHandler struct {
+	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
+}
 
-	for i := len(messages) - 1; i >= 0; i-- {
-		msg := messages[i]
-		if msg.Role == "user" {
-			break
-		}
-		if msg.Role != "assistant" {
-			continue
-		}
-		if msg.Content != "" {
-			break
-		}
-		if len(msg.ToolCalls) > 0 {
-			count++
-		}
+// Handle checks for consecutive iteration loops.
+func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Disabled when threshold is 0
+	if h.Thresholds.ConsecutiveLoopThreshold <= 0 {
+		return agentctx.StageActionCONTINUE, false
 	}
 
-	if len(currentCalls) > 0 {
-		count++
+	// Skip loop detection after compaction
+	if convCtx.CompactedThisTurn {
+		return agentctx.StageActionCONTINUE, false
 	}
 
-	return count
+	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
+		log.Printf("ConsecutiveLoopHandler: YIELD — %d+ tool iterations without text response (iteration %d)", h.Thresholds.ConsecutiveLoopThreshold, convCtx.Iteration)
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "consecutive_loop",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("consecutive loop detected: %d+ tool iterations without text response", h.Thresholds.ConsecutiveLoopThreshold),
+		})
+		return agentctx.StageActionYIELD, true
+	}
+
+	return agentctx.StageActionCONTINUE, false
+}
+
+// ProgressDetectionHandler detects when the agent stops making forward progress.
+// It tracks "progress signatures" (tool names + result tag) across iterations.
+// If an iteration's signature duplicates a recent one, the handler increments
+// a duplicate counter. After ProgressYieldThreshold duplicates, it YIELDs.
+// This is smarter than counting consecutive tool calls because it distinguishes:
+//   - PROGRESS: different tools, different results → signature is novel → counter resets
+//   - REPETITION: same tools, same results → signature duplicates → counter increments
+//   - SPIRAL: oscillating patterns (A→B→A→B) → partial overlap → counter increments
+//
+// A narration nudge is injected after 1+ consecutive duplicates (when the
+// model hasn't produced text), giving it a chance to self-correct before YIELD.
+type ProgressDetectionHandler struct {
+	Thresholds PipelineThresholds
+	EventBus   *eventbus.EventBus
+}
+
+// Handle checks for progress stalls using progress signatures.
+func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Skip after compaction — the model should get a chance with the smaller context.
+	if convCtx.CompactedThisTurn {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Only check progress when there are tool calls
+	if len(parsed.ToolCalls) == 0 {
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Compute progress signature for this iteration
+	sig := agentctx.ComputeProgressSignature(parsed.ToolCalls, toolResults)
+
+	// Check if this signature duplicates a recent one
+	isDuplicate := agentctx.IsDuplicateProgress(sig, convCtx.ProgressHistory)
+
+	// Update progress history (keep last 10)
+	convCtx.ProgressHistory = append(convCtx.ProgressHistory, sig)
+	if len(convCtx.ProgressHistory) > 10 {
+		convCtx.ProgressHistory = convCtx.ProgressHistory[len(convCtx.ProgressHistory)-10:]
+	}
+
+	if isDuplicate {
+		convCtx.DuplicateProgressCount++
+	} else {
+		convCtx.DuplicateProgressCount = 0
+	}
+
+	// Nudge zone: 1+ consecutive duplicates without text narration
+	// Don't nudge on the first duplicate — give the model a chance.
+	if convCtx.DuplicateProgressCount >= 1 && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold {
+		// Only nudge if the model hasn't produced any text
+		if parsed.Text == "" {
+			convCtx.Messages = append(convCtx.Messages,
+				agentctx.Message{
+					Role:    "user",
+					Content: fmt.Sprintf("[system: You've made %d tool call(s) with no new progress. Consider whether you need a different approach, or summarize your findings so far.]", convCtx.DuplicateProgressCount),
+				},
+			)
+			emitEvent(h.EventBus, LoopDetectionEvent{
+				Kind:      "progress_nudge",
+				Iteration: convCtx.Iteration,
+				Message:   fmt.Sprintf("progress nudge: %d duplicate iterations without progress", convCtx.DuplicateProgressCount),
+			})
+		}
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Yield zone: ProgressYieldThreshold or more duplicates
+	if convCtx.DuplicateProgressCount >= h.Thresholds.ProgressYieldThreshold {
+		log.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s)",
+			convCtx.DuplicateProgressCount, convCtx.Iteration, sig.ToolNames, sig.ResultTag)
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "progress_stall",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("progress stall: %d consecutive no-progress iterations (tools: %s, results: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag),
+		})
+		return agentctx.StageActionYIELD, true
+	}
+
+	return agentctx.StageActionCONTINUE, false
 }
 
 // AppendAndContinueHandler appends assistant messages and tool results to the
@@ -369,12 +432,11 @@ func (h *AppendAndContinueHandler) Handle(convCtx *agentctx.ConversationContext,
 // that each check a specific condition. The first handler that "handles" the
 // request determines the action. The chain order is:
 //
-//	1. OverflowHandler        — compact/terminate on token overflow
-//	2. StuckHandler           — yield on consecutive errors/not-found
-//	3. RepetitiveLoopHandler  — yield on same-tool loops (threshold defaults to 3)
-//	4. NarrationNudgeHandler  — inject system hint to encourage narration (threshold defaults to 1)
-//	5. ConsecutiveLoopHandler — yield on cross-tool loops (threshold defaults to 2)
-//	6. AppendAndContinueHandler — append messages + check limits, then CONTINUE
+//	1. OverflowHandler          — compact/terminate on token overflow
+//	2. StuckHandler             — yield on consecutive errors/not-found
+//	3. RepetitiveLoopHandler    — yield on same-tool loops (threshold defaults to 3)
+//	4. ProgressDetectionHandler — detect no-progress spirals via progress signatures
+//	5. AppendAndContinueHandler — append messages + check limits, then CONTINUE
 type ContextManagementStage struct {
 	MaxContextTokens int
 	Thresholds      PipelineThresholds
@@ -410,8 +472,7 @@ func (s *ContextManagementStage) defaultChain() *HandlerChain {
 		&OverflowHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&StuckHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&RepetitiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
-		&NarrationNudgeHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
-		&ConsecutiveLoopHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
+		&ProgressDetectionHandler{Thresholds: s.Thresholds, EventBus: s.EventBus},
 		&AppendAndContinueHandler{MaxContextTokens: s.MaxContextTokens, Thresholds: s.Thresholds, EventBus: s.EventBus},
 	)
 }
@@ -435,6 +496,35 @@ func (s *ContextManagementStage) Process(convCtx *agentctx.ConversationContext, 
 }
 
 // --- Helper functions that remain local to pipeline ---
+
+// countConsecutiveToolIterations counts how many consecutive tool-only
+// iterations exist ending at the current calls. This is used by the
+// deprecated NarrationNudgeHandler for backward compatibility.
+func countConsecutiveToolIterations(messages []agentctx.Message, currentCalls []agentctx.ToolCall) int {
+	count := 0
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role == "user" {
+			break
+		}
+		if msg.Role != "assistant" {
+			continue
+		}
+		if msg.Content != "" {
+			break
+		}
+		if len(msg.ToolCalls) > 0 {
+			count++
+		}
+	}
+
+	if len(currentCalls) > 0 {
+		count++
+	}
+
+	return count
+}
 
 // isStuckFromHistory checks conversation messages for recent tool failures.
 // It looks at the last `window` tool results in the conversation history for

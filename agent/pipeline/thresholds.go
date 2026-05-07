@@ -21,16 +21,24 @@ type PipelineThresholds struct {
 	// (allows 2 retries, breaks on the 3rd).
 	RepetitiveLoopThreshold int
 
-	// ConsecutiveLoopThreshold is the number of consecutive tool-call
-	// iterations (any tools) that triggers a cross-tool loop detection
-	// YIELD. Default: 2 (breaks quickly to avoid silent tool spirals).
+	// ProgressYieldThreshold is the number of consecutive no-progress
+	// iterations (same tool names, same result pattern) before yielding.
+	// A "no-progress" iteration is one where the progress signature
+	// duplicates a recent one in the history. Default: 3.
+	// This replaces ConsecutiveLoopThreshold and NarrationNudgeThreshold
+	// with a smarter detection that distinguishes legitimate multi-step
+	// tool use (different tools, different results) from actual spirals
+	// (same tool, same result, no forward progress).
+	ProgressYieldThreshold int
+
+	// ConsecutiveLoopThreshold is the LEGACY threshold for consecutive
+	// tool-only iterations (any tools) that triggers a YIELD.
+	// DEPRECATED: superseded by ProgressYieldThreshold. Set to 0 to disable.
 	ConsecutiveLoopThreshold int
 
-	// NarrationNudgeThreshold is the number of consecutive tool-only
-	// iterations after which a system nudge is injected to encourage
-	// the model to narrate its actions. Must be < ConsecutiveLoopThreshold.
-	// Set to 0 to disable nudging. Default: 1 (nudge after first tool-only
-	// iteration, giving the model one chance to self-correct before YIELD).
+	// NarrationNudgeThreshold is the LEGACY threshold for injecting a
+	// system nudge after N consecutive tool-only iterations.
+	// DEPRECATED: superseded by ProgressDetectionHandler. Set to 0 to disable.
 	NarrationNudgeThreshold int
 
 	// StuckMinFailures is the minimum number of consecutive tool failures
@@ -52,10 +60,11 @@ func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    3,
-		ConsecutiveLoopThreshold:   3,
-		NarrationNudgeThreshold:    2,
+		ProgressYieldThreshold:     3,
+		ConsecutiveLoopThreshold:   0, // disabled — ProgressDetection replaces it
+		NarrationNudgeThreshold:    0, // disabled — ProgressDetection replaces it
 		StuckMinFailures:           2,
-		StuckHistoryWindow:        3,
+		StuckHistoryWindow:         3,
 		MaxConsecutiveErrors:       3,
 	}
 }

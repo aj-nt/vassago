@@ -170,7 +170,9 @@ func TestRepetitiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
 // --- ConsecutiveLoopHandler tests ---
 
 func TestConsecutiveLoopHandler_DetectsLoop(t *testing.T) {
-	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds()}
+	thresholds := DefaultThresholds()
+	thresholds.ConsecutiveLoopThreshold = 3 // re-enable deprecated handler for this test
+	handler := &ConsecutiveLoopHandler{Thresholds: thresholds}
 	messages := []agentctx.Message{
 		{Role: "user", Content: "check this"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
@@ -441,8 +443,14 @@ func TestDefaultThresholds(t *testing.T) {
 	if th.RepetitiveLoopThreshold != 3 {
 		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
 	}
-	if th.ConsecutiveLoopThreshold != 3 {
-		t.Errorf("Expected ConsecutiveLoopThreshold=3, got %d", th.ConsecutiveLoopThreshold)
+	if th.ProgressYieldThreshold != 3 {
+		t.Errorf("Expected ProgressYieldThreshold=3, got %d", th.ProgressYieldThreshold)
+	}
+	if th.ConsecutiveLoopThreshold != 0 {
+		t.Errorf("Expected ConsecutiveLoopThreshold=0 (disabled, superseded by ProgressYieldThreshold), got %d", th.ConsecutiveLoopThreshold)
+	}
+	if th.NarrationNudgeThreshold != 0 {
+		t.Errorf("Expected NarrationNudgeThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.NarrationNudgeThreshold)
 	}
 	if th.StuckMinFailures != 2 {
 		t.Errorf("Expected StuckMinFailures=2, got %d", th.StuckMinFailures)
@@ -452,9 +460,6 @@ func TestDefaultThresholds(t *testing.T) {
 	}
 	if th.MaxConsecutiveErrors != 3 {
 		t.Errorf("Expected MaxConsecutiveErrors=3, got %d", th.MaxConsecutiveErrors)
-	}
-	if th.NarrationNudgeThreshold != 2 {
-		t.Errorf("Expected NarrationNudgeThreshold=2, got %d", th.NarrationNudgeThreshold)
 	}
 }
 
@@ -555,7 +560,9 @@ func TestConsecutiveLoopHandler_EmitsEvent(t *testing.T) {
 	bus := eventbus.NewEventBus()
 	ch := bus.Subscribe("consecutive_loop")
 
-	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	thresholds := DefaultThresholds()
+	thresholds.ConsecutiveLoopThreshold = 3 // re-enable deprecated handler for this test
+	handler := &ConsecutiveLoopHandler{Thresholds: thresholds, EventBus: bus}
 	messages := []agentctx.Message{
 		{Role: "user", Content: "check this"},
 		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},

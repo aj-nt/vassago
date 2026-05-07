@@ -5,6 +5,7 @@ package context
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -22,6 +23,15 @@ const (
 	MaxToolResultLines = 100
 	MaxToolResultChars = 4000
 )
+
+// ProgressSignature is a compact fingerprint of what happened in a pipeline
+// iteration. It captures which tools were called and whether they succeeded,
+// enabling detection of repetitive (no-progress) loops vs. legitimate
+// multi-step chains.
+type ProgressSignature struct {
+	ToolNames string // sorted, comma-joined tool names from this iteration
+	ResultTag string // "success", "error", "not_found", "empty", "mixed"
+}
 
 // ConversationContext holds the full state for a conversation loop.
 type ConversationContext struct {
@@ -41,6 +51,14 @@ type ConversationContext struct {
 	// their checks after compaction so the model gets a chance to
 	// operate on the newly compacted context.
 	CompactedThisTurn bool
+
+	// ProgressHistory tracks recent iteration signatures for progress detection.
+	// Kept to at most 10 entries. Used by ProgressDetectionHandler.
+	ProgressHistory []ProgressSignature
+
+	// DuplicateProgressCount is the number of consecutive iterations whose
+	// progress signature duplicates a recent one. Reset to 0 on novel progress.
+	DuplicateProgressCount int
 }
 
 // AddMessage appends a message to the conversation.
@@ -279,4 +297,66 @@ func joinNames(names []string) string {
 		result += ", " + n
 	}
 	return result
+}
+
+// ComputeProgressSignature creates a progress signature for the current iteration
+// based on the tool calls made and their results.
+func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult) ProgressSignature {
+	// Build sorted tool names
+	names := make([]string, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		names = append(names, tc.Name)
+	}
+	sort.Strings(names)
+	toolNames := strings.Join(names, ",")
+
+	// Determine result tag
+	resultTag := "success" // default
+	if len(results) == 0 {
+		resultTag = "empty"
+	} else {
+		hasError := false
+		hasNotFound := false
+		hasSuccess := false
+		for _, r := range results {
+			if r.IsError {
+				hasError = true
+			} else if IsResultNotFound(r.Result) {
+				hasNotFound = true
+			} else {
+				hasSuccess = true
+			}
+		}
+		if hasError && !hasSuccess && !hasNotFound {
+			resultTag = "error"
+		} else if hasNotFound && !hasSuccess && !hasError {
+			resultTag = "not_found"
+		} else if hasError || hasNotFound {
+			resultTag = "mixed"
+		}
+	}
+
+	return ProgressSignature{
+		ToolNames: toolNames,
+		ResultTag: resultTag,
+	}
+}
+
+// IsDuplicateProgress checks if the given signature duplicates any of the
+// recent signatures in the history. A signature is considered duplicate if
+// it has the same ToolNames AND the same ResultTag as a recent entry.
+// This catches actual repetition (same tool, same outcome) while allowing
+// legitimate multi-step chains (different tools or different outcomes).
+func IsDuplicateProgress(sig ProgressSignature, history []ProgressSignature) bool {
+	// Check last 3 signatures for matching patterns
+	start := len(history) - 3
+	if start < 0 {
+		start = 0
+	}
+	for i := start; i < len(history); i++ {
+		if sig.ToolNames == history[i].ToolNames && sig.ResultTag == history[i].ResultTag {
+			return true
+		}
+	}
+	return false
 }

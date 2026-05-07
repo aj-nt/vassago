@@ -133,58 +133,112 @@ func TestContextManagementStage_OverflowTerminatesWhenUncountable(t *testing.T) 
 	}
 }
 
-// TestContextManagementStage_LoopDetectionWhenContextFits verifies that loop detection
-// still works normally when the context is within limits. This is a regression test
-// to ensure the reorder doesn't break the existing loop detection.
+// TestContextManagementStage_LoopDetectionWhenContextFits verifies that progress
+// detection allows legitimate multi-step tool use to continue, but catches spirals
+// where the same tool/result pattern repeats without progress.
 func TestContextManagementStage_LoopDetectionWhenContextFits(t *testing.T) {
 	// Use a very high max context so it won't trigger overflow
 	stage := NewContextManagementStage(1000000)
 
-	// Build a conversation with 4+ consecutive tool iterations but small content
+	// Scenario 1: Different tools, different results — this is PROGRESS, not a spiral.
+	// The progress detector should allow this to CONTINUE.
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "search for everything"},
-			// Iteration 1
+			// Iteration 1: ListSessions → success
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
 				{ID: "call-1", Name: "ListSessions", Arguments: []byte(`{}`)},
 			}},
 			{Role: "tool", Content: "found 3 sessions", ToolCallID: "call-1", Name: "ListSessions"},
-			// Iteration 2
+			// Iteration 2: SearchMemories → success
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
 				{ID: "call-2", Name: "SearchMemories", Arguments: []byte(`{"query":"test"}`)},
 			}},
 			{Role: "tool", Content: "found 5 memories", ToolCallID: "call-2", Name: "SearchMemories"},
-			// Iteration 3
+			// Iteration 3: GetSession → success
 			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
 				{ID: "call-3", Name: "GetSession", Arguments: []byte(`{"id":"sess-123"}`)},
 			}},
 			{Role: "tool", Content: "session data", ToolCallID: "call-3", Name: "GetSession"},
-			// Iteration 4
-			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
-				{ID: "call-4", Name: "GetSession", Arguments: []byte(`{"id":"sess-456"}`)},
-			}},
-			{Role: "tool", Content: "more session data", ToolCallID: "call-4", Name: "GetSession"},
 		},
-		MaxIterations: 50,
-		Iteration:     5,
-		HotBlockContent: "",
+		MaxIterations:         50,
+		Iteration:             4,
+		HotBlockContent:       "",
+		ProgressHistory:       nil,
+		DuplicateProgressCount: 0,
 	}
 
 	parsed := agentctx.ParsedResponse{
 		Text:         "",
-		ToolCalls:    []agentctx.ToolCall{{ID: "call-5", Name: "FileRead", Arguments: []byte(`{"path":"/tmp/test"}`)}},
+		ToolCalls:    []agentctx.ToolCall{{ID: "call-4", Name: "FileRead", Arguments: []byte(`{"path":"/tmp/test"}`)}},
 		FinishReason: "tool_use",
 	}
 
 	toolResults := []agentctx.ToolResult{
-		{CallID: "call-5", Name: "FileRead", Result: "file contents", IsError: false},
+		{CallID: "call-4", Name: "FileRead", Result: "file contents", IsError: false},
 	}
 
 	action := stage.Process(convCtx, toolResults, parsed)
 
-	// With context well within limits, loop detection should fire and YIELD
+	// Different tools (FileRead after ListSessions, SearchMemories, GetSession)
+	// is NOT a spiral — it's legitimate progress. Should CONTINUE.
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE for legitimate multi-step tool use, got %v", action)
+	}
+}
+
+// TestContextManagementStage_ProgressDetectionDetectsSpiral verifies that
+// progress detection YIELDs when the same tool/result pattern repeats.
+func TestContextManagementStage_ProgressDetectionDetectsSpiral(t *testing.T) {
+	stage := NewContextManagementStage(1000000)
+
+	// Build a conversation with 3 consecutive GetHotBlock calls (same tool, same result)
+	// + results showing "same result" — this IS a spiral.
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "what do you remember"},
+			// Iteration 1: SearchMemories
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "call-1", Name: "SearchMemories", Arguments: []byte(`{"query":"test"}`)},
+			}},
+			{Role: "tool", Content: "no results found", ToolCallID: "call-1", Name: "SearchMemories"},
+			// Iteration 2: SearchMemories again (same tool, no results)
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "call-2", Name: "SearchMemories", Arguments: []byte(`{"query":"test2"}`)},
+			}},
+			{Role: "tool", Content: "no results found", ToolCallID: "call-2", Name: "SearchMemories"},
+			// Iteration 3: SearchMemories again (same tool, no results)
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "call-3", Name: "SearchMemories", Arguments: []byte(`{"query":"test3"}`)},
+			}},
+			{Role: "tool", Content: "no results found", ToolCallID: "call-3", Name: "SearchMemories"},
+		},
+		MaxIterations:         50,
+		Iteration:             4,
+		HotBlockContent:       "",
+		ProgressHistory: []agentctx.ProgressSignature{
+			{ToolNames: "SearchMemories", ResultTag: "not_found"},
+			{ToolNames: "SearchMemories", ResultTag: "not_found"},
+			{ToolNames: "SearchMemories", ResultTag: "not_found"},
+		},
+		DuplicateProgressCount: 3, // 3 consecutive duplicates
+	}
+
+	parsed := agentctx.ParsedResponse{
+		Text:         "",
+		ToolCalls:    []agentctx.ToolCall{{ID: "call-4", Name: "SearchMemories", Arguments: []byte(`{"query":"test4"}`)}},
+		FinishReason: "tool_use",
+	}
+
+	toolResults := []agentctx.ToolResult{
+		{CallID: "call-4", Name: "SearchMemories", Result: "no results found", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// SearchMemories → no results, repeated 3+ times = SPIRAL, should YIELD
 	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD from loop detection when context is within limits, got %v", action)
+		t.Errorf("Expected YIELD for spiral pattern (same tool, no results), got %v", action)
 	}
 }
 

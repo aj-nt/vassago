@@ -147,7 +147,9 @@ func TestConversation_ToolListingRepetition(t *testing.T) {
 }
 
 // TestConversation_CrossToolLoop simulates the pattern where the model
-// cycles through different tools (FileSearch → FileRead → Execute → repeat).
+// cycles through different tools back to the same one (FileSearch → FileRead → Execute → FileSearch).
+// With progress detection, this IS detected as a duplicate since FileSearch appeared
+// earlier in the progress history.
 func TestConversation_CrossToolLoop(t *testing.T) {
 	stage := NewContextManagementStage(0)
 
@@ -170,6 +172,13 @@ func TestConversation_CrossToolLoop(t *testing.T) {
 		},
 		MaxIterations: 10,
 		Iteration:     4,
+		HotBlockContent: "",
+		ProgressHistory: []agentctx.ProgressSignature{
+			{ToolNames: "FileSearch", ResultTag: "success"},
+			{ToolNames: "FileRead", ResultTag: "success"},
+			{ToolNames: "Execute", ResultTag: "success"},
+		},
+		DuplicateProgressCount: 0, // Fresh start — FileSearch hasn't been seen recently as duplicate
 	}
 
 	parsed := agentctx.ParsedResponse{
@@ -180,9 +189,19 @@ func TestConversation_CrossToolLoop(t *testing.T) {
 		FinishReason: "tool_use",
 	}
 
-	action := stage.Process(convCtx, nil, parsed)
-	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD (break cross-tool loop), got %v", action)
+	toolResults := []agentctx.ToolResult{
+		{CallID: "4", Name: "FileSearch", Result: "found 3 files", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// FileSearch appears in the history but with "success" result, and the
+	// current call is FileSearch with "success" — this IS a duplicate of
+	// the first history entry. After 3 consecutive duplicates (configured by
+	// ProgressYieldThreshold=3), it would YIELD. But here DuplicateProgressCount
+	// is only 1 (first duplicate), so it should get a nudge and CONTINUE.
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE (first duplicate gets nudge, not YIELD), got %v", action)
 	}
 }
 
