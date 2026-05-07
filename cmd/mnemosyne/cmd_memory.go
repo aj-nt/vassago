@@ -283,7 +283,3 @@ func cmdHealth(args []string) {
 	}
 	fmt.Println("OK — daemon is healthy.")
 }
-
-func patchMain() {
-	// Memory, hot-block, and health commands are now in the main dispatch.
-}

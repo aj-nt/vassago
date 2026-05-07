@@ -496,9 +496,6 @@ func checkDataDirs(home string) []ValidationIssue {
 }
 
 // expandHome is defined in cmd_init.go
-func stringsHasPrefix(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
-}
 
 // toInt converts an interface{} to int (YAML unmarshals numbers as int or float64).
 func toInt(v interface{}) int {
