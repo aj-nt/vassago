@@ -227,52 +227,15 @@ func handleToolSelection(nonInteractive bool, reader *bufio.Reader) ([]string, [
 	return enabledTools, toolNames
 }
 
-// handlePersonalitySelection handles personality selection
+// handlePersonalitySelection is removed - personality is now embedded in config.
+// This function is kept as a minimal stub for backward compatibility.
 func handlePersonalitySelection(nonInteractive bool, dir string, reader *bufio.Reader) (string, string, string) {
-	fmt.Println("══ Step 3: Personality ══")
-	fmt.Println()
-
-	personalityChoice := "bartimaeus"
-	personalityContent := defaultPersonality
-
-	if !nonInteractive {
-		personalityChoice, personalityContent = promptForPersonalityChoice(reader)
-	}
-
-	personalityPath := getPersonalityPath(personalityChoice, dir)
-	return personalityChoice, personalityContent, personalityPath
+	return "", defaultPersonality, ""
 }
 
-// promptForPersonalityChoice prompts user to select personality
+// promptForPersonalityChoice is removed - personality is now embedded in config.
 func promptForPersonalityChoice(reader *bufio.Reader) (string, string) {
-	personalityChoice := "bartimaeus"
-	personalityContent := defaultPersonality
-
-	fmt.Println("Select personality:")
-	fmt.Println("  1. bartimaeus  (direct, dry-witted — recommended)")
-	fmt.Println("  2. custom     (write your own)")
-	fmt.Printf("  Choice [1]: ")
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input == "2" || input == "custom" {
-		personalityChoice = "custom"
-		fmt.Println()
-		fmt.Println("Enter personality description (multi-line, end with empty line):")
-		var lines []string
-		for {
-			line, _ := reader.ReadString('\n')
-			line = strings.TrimSpace(line)
-			if line == "" && len(lines) > 0 {
-				break
-			}
-			lines = append(lines, line)
-		}
-		if len(lines) > 0 {
-			personalityContent = strings.Join(lines, "\n")
-		}
-	}
-	fmt.Println()
-	return personalityChoice, personalityContent
+	return "", defaultPersonality
 }
 
 // handleAPIKeyPersistenceReminder handles reminder about API key persistence

@@ -230,39 +230,16 @@ func TestExpandHome_EmptyString(t *testing.T) {
 	}
 }
 
-// --- getPersonalityPath tests ---
-
-func TestGetPersonalityPath_Bartimaeus(t *testing.T) {
-	dir := "/home/user/.mnemosyne"
-	result := getPersonalityPath("bartimaeus", dir)
-	expected := filepath.Join(dir, "personalities", "bartimaeus.md")
-	if result != expected {
-		t.Errorf("getPersonalityPath(%q, %q) = %q, want %q", "bartimaeus", dir, result, expected)
-	}
-}
-
-func TestGetPersonalityPath_Custom(t *testing.T) {
-	dir := "/home/user/.mnemosyne"
-	result := getPersonalityPath("custom", dir)
-	expected := filepath.Join(dir, "personalities", "custom.md")
-	if result != expected {
-		t.Errorf("getPersonalityPath(%q, %q) = %q, want %q", "custom", dir, result, expected)
-	}
-}
-
 // --- getConfigPaths tests ---
 
 func TestGetConfigPaths(t *testing.T) {
 	dir := "/home/user/.mnemosyne"
-	daemonConfigPath, agentConfigPath, personalityPath := getConfigPaths(dir)
+	daemonConfigPath, agentConfigPath := getConfigPaths(dir)
 	if daemonConfigPath != filepath.Join(dir, "config.yaml") {
 		t.Errorf("daemonConfigPath = %q, want %q", daemonConfigPath, filepath.Join(dir, "config.yaml"))
 	}
 	if agentConfigPath != filepath.Join(dir, "agent.yaml") {
 		t.Errorf("agentConfigPath = %q, want %q", agentConfigPath, filepath.Join(dir, "agent.yaml"))
-	}
-	if personalityPath != filepath.Join(dir, "personalities", "bartimaeus.md") {
-		t.Errorf("personalityPath = %q, want %q", personalityPath, filepath.Join(dir, "personalities", "bartimaeus.md"))
 	}
 }
 
@@ -272,22 +249,17 @@ func TestCheckExistingConfigs_AllExist(t *testing.T) {
 	tmpDir := t.TempDir()
 	daemonPath := filepath.Join(tmpDir, "config.yaml")
 	agentPath := filepath.Join(tmpDir, "agent.yaml")
-	personalityPath := filepath.Join(tmpDir, "personality.md")
 
 	// Create files
 	os.WriteFile(daemonPath, []byte("test"), 0644)
 	os.WriteFile(agentPath, []byte("test"), 0644)
-	os.WriteFile(personalityPath, []byte("test"), 0644)
 
-	daemonExists, agentExists, personalityExists := checkExistingConfigs(daemonPath, agentPath, personalityPath)
+	daemonExists, agentExists := checkExistingConfigs(daemonPath, agentPath)
 	if !daemonExists {
 		t.Error("daemon config should exist")
 	}
 	if !agentExists {
 		t.Error("agent config should exist")
-	}
-	if !personalityExists {
-		t.Error("personality file should exist")
 	}
 }
 
@@ -295,17 +267,13 @@ func TestCheckExistingConfigs_NoneExist(t *testing.T) {
 	tmpDir := t.TempDir()
 	daemonPath := filepath.Join(tmpDir, "config.yaml")
 	agentPath := filepath.Join(tmpDir, "agent.yaml")
-	personalityPath := filepath.Join(tmpDir, "personality.md")
 
-	daemonExists, agentExists, personalityExists := checkExistingConfigs(daemonPath, agentPath, personalityPath)
+	daemonExists, agentExists := checkExistingConfigs(daemonPath, agentPath)
 	if daemonExists {
 		t.Error("daemon config should not exist")
 	}
 	if agentExists {
 		t.Error("agent config should not exist")
-	}
-	if personalityExists {
-		t.Error("personality file should not exist")
 	}
 }
 
@@ -313,19 +281,15 @@ func TestCheckExistingConfigs_Partial(t *testing.T) {
 	tmpDir := t.TempDir()
 	daemonPath := filepath.Join(tmpDir, "config.yaml")
 	agentPath := filepath.Join(tmpDir, "agent.yaml")
-	personalityPath := filepath.Join(tmpDir, "personality.md")
 
 	// Create only daemon config
 	os.WriteFile(daemonPath, []byte("test"), 0644)
 
-	daemonExists, agentExists, personalityExists := checkExistingConfigs(daemonPath, agentPath, personalityPath)
+	daemonExists, agentExists := checkExistingConfigs(daemonPath, agentPath)
 	if !daemonExists {
 		t.Error("daemon config should exist")
 	}
 	if agentExists {
 		t.Error("agent config should not exist")
-	}
-	if personalityExists {
-		t.Error("personality file should not exist")
 	}
 }

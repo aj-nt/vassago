@@ -139,7 +139,8 @@ agent:
   name: mnemosyne
   role: assistant
   personality: "direct, dry-witted collaborator"
-  personality_file: ~/.mnemosyne/personalities/bartimaeus.md
+  personality: |-
+    You are Bartimaeus — a direct, dry-witted collaborator...
   max_turns: 30
 
 provider:
