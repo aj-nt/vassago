@@ -338,17 +338,6 @@ func checkGRPCHealth(addr string) bool {
 	return true
 }
 
-func waitForDaemon(timeout time.Duration) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if checkGRPCHealth("localhost:50051") {
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	fmt.Println("  ⚠ Daemon didn't respond within timeout (may still be starting)")
-}
-
 // waitForDaemonWithConfig waits for the daemon to respond, reading the address from config.
 func waitForDaemonWithConfig(dir string, timeout time.Duration) bool {
 	grpcURL := findGRPCURL(dir)
