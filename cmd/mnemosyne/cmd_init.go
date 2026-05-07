@@ -32,8 +32,8 @@ func cmdInit(args []string) {
 	createDirectories(dir)
 
 	// Check for existing configs
-	daemonConfigPath, agentConfigPath, personalityPath := getConfigPaths(dir)
-	daemonConfigExists, agentConfigExists, personalityExists := checkExistingConfigs(daemonConfigPath, agentConfigPath, personalityPath)
+	daemonConfigPath, agentConfigPath := getConfigPaths(dir)
+	daemonConfigExists, agentConfigExists := checkExistingConfigs(daemonConfigPath, agentConfigPath)
 
 	// Step 2: Provider Detection
 	primaryProvider, primaryModel, anthropicKey, openaiKey := handleProviderDetection(flags.nonInteractive, reader)
@@ -47,8 +47,8 @@ func cmdInit(args []string) {
 	// Step 4: Tool Selection
 	enabledTools, toolNames := handleToolSelection(flags.nonInteractive, reader)
 
-	// Step 5: Personality
-	_, personalityContent, personalityPath := handlePersonalitySelection(flags.nonInteractive, dir, reader)
+	// Step 5: Personality (now handled directly in config)
+	// personalityContent is now embedded directly in the agent config
 
 	// Step 6: Write Daemon Config
 	writeDaemonConfig(daemonConfigPath, dir, daemonConfigExists, flags.force)
@@ -56,14 +56,13 @@ func cmdInit(args []string) {
 	// Step 7: Write Agent Config
 	writeAgentConfig(agentConfigPath, dir, primaryProvider, primaryModel, toolNames, agentConfigExists, flags.force)
 
-	// Step 8: Write Personality
-	writePersonalityFile(personalityPath, personalityContent, personalityExists, flags.force)
+	// Step 8: Write Personality (deprecated - personality is now in config)
 
 	// Step 9: launchd plists
 	handleLaunchdPlists(dir)
 
 	// Summary
-	printSetupSummary(dir, daemonConfigPath, agentConfigPath, personalityPath, primaryProvider, primaryModel, enabledTools, anthropicKey, openaiKey)
+	printSetupSummary(dir, daemonConfigPath, agentConfigPath, primaryProvider, primaryModel, enabledTools, anthropicKey, openaiKey)
 
 	// API key persistence reminder
 	handleAPIKeyPersistenceReminder(flags.nonInteractive, anthropicKey, openaiKey)
@@ -140,28 +139,17 @@ func printSetupHeader() {
 }
 
 // getConfigPaths returns paths for configuration files
-func getConfigPaths(dir string) (string, string, string) {
+func getConfigPaths(dir string) (string, string) {
 	daemonConfigPath := filepath.Join(dir, "config.yaml")
 	agentConfigPath := filepath.Join(dir, "agent.yaml")
-	personalityPath := filepath.Join(dir, "personalities", "bartimaeus.md")
-	return daemonConfigPath, agentConfigPath, personalityPath
+	return daemonConfigPath, agentConfigPath
 }
 
 // checkExistingConfigs checks if configuration files already exist
-func checkExistingConfigs(daemonConfigPath, agentConfigPath, personalityPath string) (bool, bool, bool) {
+func checkExistingConfigs(daemonConfigPath, agentConfigPath string) (bool, bool) {
 	daemonConfigExists := fileExists(daemonConfigPath)
 	agentConfigExists := fileExists(agentConfigPath)
-	personalityExists := fileExists(personalityPath)
-	return daemonConfigExists, agentConfigExists, personalityExists
-}
-
-// getPersonalityPath returns the path for personality file
-func getPersonalityPath(personalityChoice, dir string) string {
-	if personalityChoice == "bartimaeus" {
-		return filepath.Join(dir, "personalities", "bartimaeus.md")
-	} else {
-		return filepath.Join(dir, "personalities", "custom.md")
-	}
+	return daemonConfigExists, agentConfigExists
 }
 
 // groupsToToolNames maps enabled tool groups to individual tool names.

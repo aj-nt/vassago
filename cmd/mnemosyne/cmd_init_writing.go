@@ -93,19 +93,7 @@ func writeAgentConfig(agentConfigPath, dir, primaryProvider, primaryModel string
 	}
 }
 
-// writePersonalityFile writes personality file
-func writePersonalityFile(personalityPath, personalityContent string, personalityExists, force bool) {
-	if personalityExists && !force {
-		fmt.Printf("⊙ Personality file already exists at %s (use --force to overwrite)\n", personalityPath)
-	} else {
-		fmt.Printf("Writing personality file to %s...\n", personalityPath)
-		if err := os.WriteFile(personalityPath, []byte(personalityContent), 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing personality: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("  ✓ Personality written")
-	}
-}
+
 
 // handleLaunchdPlists handles launchd plists creation on macOS
 func handleLaunchdPlists(dir string) {
@@ -115,7 +103,7 @@ func handleLaunchdPlists(dir string) {
 }
 
 // printSetupSummary prints setup completion summary
-func printSetupSummary(dir, daemonConfigPath, agentConfigPath, personalityPath, primaryProvider, primaryModel string, enabledTools []string, anthropicKey, openaiKey string) {
+func printSetupSummary(dir, daemonConfigPath, agentConfigPath, primaryProvider, primaryModel string, enabledTools []string, anthropicKey, openaiKey string) {
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════════")
 	fmt.Println("  Mnemosyne Setup Complete")
@@ -124,7 +112,7 @@ func printSetupSummary(dir, daemonConfigPath, agentConfigPath, personalityPath, 
 	fmt.Printf("  Data directory:  %s\n", dir)
 	fmt.Printf("  Daemon config:   %s\n", daemonConfigPath)
 	fmt.Printf("  Agent config:    %s\n", agentConfigPath)
-	fmt.Printf("  Personality:     %s\n", personalityPath)
+	fmt.Printf("  Personality:     (embedded in agent config)\n")
 	fmt.Printf("  Provider:        %s (%s)\n", primaryProvider, primaryModel)
 	fmt.Printf("  Tools:           %s\n", strings.Join(enabledTools, ", "))
 	if anthropicKey != "" || openaiKey != "" {

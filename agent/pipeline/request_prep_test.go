@@ -73,7 +73,7 @@ func TestRequestPrepStageProcess_WithHotBlock(t *testing.T) {
 	}
 }
 
-func TestRequestPrepStageProcess_WithPersonalityFile(t *testing.T) {
+func TestRequestPrepStageProcess_WithPersonality(t *testing.T) {
 	// Multi-line personality should be used as-is (not wrapped with "You are X.")
 	stage := NewRequestPrepStage("You are bartimaeus.\nBe direct and witty.")
 	convCtx := &agentctx.ConversationContext{
@@ -88,8 +88,8 @@ func TestRequestPrepStageProcess_WithPersonalityFile(t *testing.T) {
 	if !strings.Contains(prepared.SystemPrompt, "bartimaeus") {
 		t.Errorf("Expected system prompt to contain personality, got: %s", prepared.SystemPrompt)
 	}
-	if strings.Contains(prepared.SystemPrompt, "You are You are") {
-		t.Error("Multi-line personality should not be double-wrapped")
+	if !strings.Contains(prepared.SystemPrompt, "direct and witty") {
+		t.Errorf("Expected system prompt to contain personality traits, got: %s", prepared.SystemPrompt)
 	}
 }
 

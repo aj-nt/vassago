@@ -197,71 +197,10 @@ func TestValidateTools_UnknownTool(t *testing.T) {
 	}
 }
 
-// --- loadPersonality() tests ---
+// --- loadPersonality() tests (deprecated - personality file feature removed) ---
 
-func TestLoadPersonality_NoFile(t *testing.T) {
-	cfg := &AgentConfig{}
-	err := cfg.loadPersonality("/nonexistent/path")
-	if err != nil {
-		t.Errorf("loadPersonality with no PersonalityFile should succeed: %v", err)
-	}
-}
-
-func TestLoadPersonality_FromFile(t *testing.T) {
-	// Create a temp personality file
-	tmpDir := t.TempDir()
-	personalityContent := "You are a helpful assistant."
-	personalityFile := filepath.Join(tmpDir, "personality.txt")
-	if err := os.WriteFile(personalityFile, []byte(personalityContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a config YAML file so loadPersonality can resolve relative paths
-	configFile := filepath.Join(tmpDir, "agent.yaml")
-	if err := os.WriteFile(configFile, []byte("agent:\n  id: test\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := &AgentConfig{Agent: AgentSection{PersonalityFile: personalityFile}}
-	err := cfg.loadPersonality(configFile)
-	if err != nil {
-		t.Fatalf("loadPersonality failed: %v", err)
-	}
-	if cfg.Agent.Personality != personalityContent {
-		t.Errorf("Personality = %q, want %q", cfg.Agent.Personality, personalityContent)
-	}
-}
-
-func TestLoadPersonality_RelativePath(t *testing.T) {
-	tmpDir := t.TempDir()
-	personalityContent := "Relative personality."
-	personalityFile := filepath.Join(tmpDir, "personality.txt")
-	if err := os.WriteFile(personalityFile, []byte(personalityContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	configFile := filepath.Join(tmpDir, "agent.yaml")
-	if err := os.WriteFile(configFile, []byte("agent:\n  id: test\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := &AgentConfig{Agent: AgentSection{PersonalityFile: "personality.txt"}}
-	err := cfg.loadPersonality(configFile)
-	if err != nil {
-		t.Fatalf("loadPersonality with relative path failed: %v", err)
-	}
-	if cfg.Agent.Personality != personalityContent {
-		t.Errorf("Personality = %q, want %q", cfg.Agent.Personality, personalityContent)
-	}
-}
-
-func TestLoadPersonality_MissingFile(t *testing.T) {
-	cfg := &AgentConfig{Agent: AgentSection{PersonalityFile: "/nonexistent/personality.txt"}}
-	err := cfg.loadPersonality("/some/config.yaml")
-	if err == nil {
-		t.Error("loadPersonality should return error for missing file")
-	}
-}
+// These tests are intentionally removed as part of the personality file feature removal.
+// Personality is now always a string from config.yaml (can be multi-line).
 
 // --- LoadConfig() tests ---
 
@@ -459,20 +398,17 @@ mnemosyne:
 	}
 }
 
-func TestLoadConfig_WithPersonalityFile(t *testing.T) {
+// TestLoadConfig_PersonalityStringOnly verifies personality comes from config string
+func TestLoadConfig_PersonalityStringOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 	personalityContent := "You are a creative writer."
-	personalityFile := filepath.Join(tmpDir, "personality.txt")
-	if err := os.WriteFile(personalityFile, []byte(personalityContent), 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	yamlContent := `
 agent:
   id: test-agent
   name: Test
   role: assistant
-  personality_file: personality.txt
+  personality: "` + personalityContent + `"
 provider:
   name: openai
   model: glm-5.1:cloud
@@ -497,6 +433,8 @@ hot_block:
 		t.Errorf("Personality = %q, want %q", cfg.Agent.Personality, personalityContent)
 	}
 }
+
+
 
 // --- Validate() tests ---
 
@@ -715,6 +653,20 @@ func TestToAgentConfig_Fields(t *testing.T) {
 	}
 	if agentCfg.Temperature != 0.5 {
 		t.Errorf("Temperature = %f, want 0.5", agentCfg.Temperature)
+	}
+}
+
+// TestRequestPrepStage_MultiLinePersonalityFromConfig verifies multi-line personality in YAML works
+func TestRequestPrepStage_MultiLinePersonalityFromConfig(t *testing.T) {
+	cfg := validConfig()
+	multiLinePersonality := `You are a helpful assistant.
+You like to help people.
+You are concise and direct.`
+	cfg.Agent.Personality = multiLinePersonality
+
+	agentCfg := cfg.ToAgentConfig()
+	if agentCfg.Personality != multiLinePersonality {
+		t.Errorf("Personality = %q, want %q", agentCfg.Personality, multiLinePersonality)
 	}
 }
 

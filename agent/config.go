@@ -43,7 +43,6 @@ type AgentSection struct {
 	Name          string `yaml:"name"`
 	Role          string `yaml:"role"`
 	Personality   string `yaml:"personality"`
-	PersonalityFile string `yaml:"personality_file"`
 	MaxTurns      int    `yaml:"max_turns"`
 }
 
@@ -281,25 +280,7 @@ func (c *AgentConfig) validateTools() {
 	}
 }
 
-// loadPersonality loads personality from file if specified
-func (c *AgentConfig) loadPersonality(path string) error {
-	// Load personality from file if specified
-	if c.Agent.PersonalityFile != "" {
-		personalityPath := c.Agent.PersonalityFile
-		// If the path is relative, resolve it relative to the config file's directory
-		if !filepath.IsAbs(personalityPath) {
-			configDir := filepath.Dir(path)
-			personalityPath = filepath.Join(configDir, personalityPath)
-		}
 
-		personalityData, err := os.ReadFile(personalityPath)
-		if err != nil {
-			return fmt.Errorf("failed to read personality file: %w", err)
-		}
-		c.Agent.Personality = string(personalityData)
-	}
-	return nil
-}
 
 // LoadConfig reads agent config from a YAML file.
 func LoadConfig(path string) (*AgentConfig, error) {
@@ -318,10 +299,7 @@ func LoadConfig(path string) (*AgentConfig, error) {
 	// Validate tools
 	cfg.validateTools()
 
-	// Load personality
-	if err := cfg.loadPersonality(path); err != nil {
-		return nil, err
-	}
+
 
 	// Validate the configuration
 	if err := cfg.Validate(); err != nil {
