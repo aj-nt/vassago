@@ -1,11 +1,26 @@
+# Build output
 bin/
-bin/
-bin/
-mnemosyne-agent
-.DS_Store
-mnemosyne-cli
-coverage.out
 *.out
-mnemosyne-daemon
-binary
-mnemosyne.db
+coverage.out
+
+# Binaries (in case built at project root)
+/mnemosyne
+/mnemosyne-agent
+/mnemosyne-cli
+/mnemosyne-daemon
+/mnemosyne-import
+
+# OS files
+.DS_Store
+
+# Database files (local dev only)
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated proto (re-run protoc to regenerate)
+# proto/ files ARE tracked — generated Go files match the .proto source
