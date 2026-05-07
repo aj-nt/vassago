@@ -123,7 +123,9 @@ func TestStuckHandler_YieldsOnConsecutiveNotFound(t *testing.T) {
 // --- RepetitiveLoopHandler tests ---
 
 func TestRepetitiveLoopHandler_DetectsLoop(t *testing.T) {
-	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds()}
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 3 // re-enable for this test
+	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
@@ -150,7 +152,9 @@ func TestRepetitiveLoopHandler_DetectsLoop(t *testing.T) {
 }
 
 func TestRepetitiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
-	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds()}
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 3 // re-enable for this test
+	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{
 		Messages:          []agentctx.Message{{Role: "user", Content: "hello"}},
@@ -440,8 +444,8 @@ func TestDefaultThresholds(t *testing.T) {
 	if th.AggressiveSummaryThreshold != 500 {
 		t.Errorf("Expected AggressiveSummaryThreshold=500, got %d", th.AggressiveSummaryThreshold)
 	}
-	if th.RepetitiveLoopThreshold != 3 {
-		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
+	if th.RepetitiveLoopThreshold != 0 {
+		t.Errorf("Expected RepetitiveLoopThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.RepetitiveLoopThreshold)
 	}
 	if th.ProgressYieldThreshold != 5 {
 		t.Errorf("Expected ProgressYieldThreshold=5, got %d", th.ProgressYieldThreshold)
@@ -469,8 +473,8 @@ func TestBlockingThresholds(t *testing.T) {
 		t.Errorf("Expected MaxConsecutiveErrors=1 for blocking mode, got %d", th.MaxConsecutiveErrors)
 	}
 	// Other thresholds should match defaults
-	if th.RepetitiveLoopThreshold != 3 {
-		t.Errorf("Expected RepetitiveLoopThreshold=3, got %d", th.RepetitiveLoopThreshold)
+	if th.RepetitiveLoopThreshold != 0 {
+		t.Errorf("Expected RepetitiveLoopThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.RepetitiveLoopThreshold)
 	}
 }
 
@@ -516,7 +520,10 @@ func TestRepetitiveLoopHandler_EmitsEvent(t *testing.T) {
 	bus := eventbus.NewEventBus()
 	ch := bus.Subscribe("repetitive_loop")
 
-	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	// Use explicit thresholds — handler is disabled by default (threshold=0)
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 3
+	handler := &RepetitiveLoopHandler{Thresholds: thresholds, EventBus: bus}
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
@@ -553,6 +560,33 @@ func TestRepetitiveLoopHandler_EmitsEvent(t *testing.T) {
 		}
 	default:
 		t.Error("Expected to receive repetitive_loop event from EventBus")
+	}
+}
+
+func TestRepetitiveLoopHandler_DisabledByDefault(t *testing.T) {
+	// When RepetitiveLoopThreshold=0 (default), handler should return CONTINUE
+	bus := eventbus.NewEventBus()
+	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "check memory"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
+			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
+			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
+		},
+		MaxIterations: 20,
+		Iteration:     3,
+	}
+	parsed := agentctx.ParsedResponse{
+		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
+		FinishReason: "tool_use",
+	}
+
+	action, handled := handler.Handle(convCtx, nil, parsed)
+	if action != agentctx.StageActionCONTINUE || handled != false {
+		t.Errorf("Expected CONTINUE/false when RepetitiveLoopThreshold=0, got %v/%v", action, handled)
 	}
 }
 

@@ -113,7 +113,9 @@ func TestConversation_FileSearchNotFound(t *testing.T) {
 // TestConversation_ToolListingRepetition simulates the pattern where the
 // model keeps calling the same tool (GetHotBlock) on every iteration.
 func TestConversation_ToolListingRepetition(t *testing.T) {
-	stage := NewContextManagementStage(0)
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 3 // re-enable deprecated handler for this test
+	stage := NewContextManagementStageWithThresholds(0, thresholds)
 
 	args, _ := json.Marshal(map[string]interface{}{})
 	convCtx := &agentctx.ConversationContext{

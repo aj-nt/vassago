@@ -154,6 +154,16 @@ func (h *StuckHandler) Handle(convCtx *agentctx.ConversationContext, toolResults
 
 // RepetitiveLoopHandler detects same-tool loops (e.g., GetHotBlock called
 // N+ times consecutively). Skipped if the context was just compacted.
+//
+// DEPRECATED: This handler is superseded by ProgressDetectionHandler which
+// uses progress signatures (tool names + result tag) instead of just tool
+// name counts. ProgressDetectionHandler distinguishes between:
+//   - Legitimate work: FileRead/success 3x (each read has different content)
+//   - Genuine spiral: SearchMemories/not_found 5x (same tool, same result)
+//
+// RepetitiveLoopHandler counts same-tool calls regardless of results, so
+// it fires on legitimate multi-step work. Disabled by default
+// (RepetitiveLoopThreshold=0). Re-enable by setting threshold > 0.
 type RepetitiveLoopHandler struct {
 	Thresholds PipelineThresholds
 	EventBus   *eventbus.EventBus
@@ -161,6 +171,11 @@ type RepetitiveLoopHandler struct {
 
 // Handle checks for repetitive tool loops.
 func (h *RepetitiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
+	// Disabled when threshold is 0 (superseded by ProgressDetectionHandler).
+	if h.Thresholds.RepetitiveLoopThreshold <= 0 {
+		return agentctx.StageActionCONTINUE, false
+	}
+
 	// Skip loop detection after compaction — the model should get a chance
 	// with the smaller context.
 	if convCtx.CompactedThisTurn {

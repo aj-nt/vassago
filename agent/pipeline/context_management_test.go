@@ -328,7 +328,9 @@ func TestIsRepetitiveToolLoop_TextWithToolDoesNotBreakLoop(t *testing.T) {
 }
 
 func TestContextManagement_BreaksRepetitiveLoop(t *testing.T) {
-	stage := NewContextManagementStage(0)
+	thresholds := DefaultThresholds()
+	thresholds.RepetitiveLoopThreshold = 3 // re-enable deprecated handler for this test
+	stage := NewContextManagementStageWithThresholds(0, thresholds)
 	convCtx := &agentctx.ConversationContext{
 		Messages: []agentctx.Message{
 			{Role: "user", Content: "check memory"},

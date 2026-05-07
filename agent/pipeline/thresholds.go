@@ -17,8 +17,10 @@ type PipelineThresholds struct {
 	AggressiveSummaryThreshold int
 
 	// RepetitiveLoopThreshold is the number of consecutive same-tool calls
-	// that triggers a repetitive loop detection YIELD. Default: 3
-	// (allows 2 retries, breaks on the 3rd).
+	// that triggers a repetitive loop detection YIELD.
+	// DEPRECATED: superseded by ProgressDetectionHandler. Set to 0 to disable.
+	// RepetitiveLoopHandler only checks tool name, not result content, so it
+	// fires on legitimate multi-step work (e.g., reading 3 files).
 	RepetitiveLoopThreshold int
 
 	// ProgressYieldThreshold is the number of consecutive no-progress
@@ -57,7 +59,7 @@ type PipelineThresholds struct {
 func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
-		RepetitiveLoopThreshold:    3,
+		RepetitiveLoopThreshold:    0,  // disabled — ProgressDetection replaces it
 		ProgressYieldThreshold:    5, // need 5+ consecutive identical signatures to YIELD
 		ConsecutiveLoopThreshold:  0, // disabled — ProgressDetection replaces it
 		NarrationNudgeThreshold:   0, // disabled — ProgressDetection replaces it
