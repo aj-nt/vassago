@@ -144,7 +144,7 @@ Phase 8 (Hardening)
     ↓
 Phase 9-13 (Daily-Driver Hardening, E2E, Stress Tests, Operational Maturity)
     ↓
-Phase 14 (Multi-Agent & Telepathy) — IN PROGRESS
+Phase 14 (Multi-Agent & Telepathy) — COMPLETE ✅
 ```
 
 Phases 3 and 4 run in parallel — different code paths. Phase 6 can start
@@ -800,3 +800,42 @@ Goal: Catch up to Hermes feature parity and exceed it.
 - [x] Graceful scheduler shutdown on SIGINT/SIGTERM (existing)
 - [x] E2E validation against Hermes data (Phase 7 open item — deferred to future)
 - [x] CI pipeline (go test on push — Phase 1 open item, deferred to future)
+
+## Phase 19: GoF Pattern Refactoring — COMPLETE ✅
+
+Goal: Apply design pattern refactoring to improve code quality and testability.
+
+- [x] P0: Template Method for pipeline loop → `RunPipelineLoop()` with `ProviderCaller` interface
+- [x] P1: Chain of Responsibility for ContextManagementStage → `HandlerChain` with 6 handlers
+- [x] P1: Facade for ConversationContext
+- [x] P1: Split cmd_init.go
+- [x] P2: MnemoClient interface migration in cmd/
+- [x] P2: Client gRPC mock + integration tests (bufconn)
+- [x] P2: Agent+daemon integration tests
+- [x] Bug fix: Service.Subscribe nil hub panic → gRPC Unavailable
+- [x] client/ coverage: 33.8% → 57.2%, daemon/internal/grpc: 79.6% → 84.1%
+- [x] 1175 tests, all passing with -race
+
+## Phase 20: Memory Migration & Spiral Detection — COMPLETE ✅
+
+Goal: Migrate Hermes data to Mnemosyne and fix the spiral detection core issue.
+
+### 20F: Hermes → Mnemosyne Migration — COMPLETE ✅
+
+- [x] ImportHermesDB: session ID preservation (hermes: prefix), message import
+- [x] Schema v10+ auto-detection, batch inserts, UTF-8 sanitization
+- [x] 53 memories, 1,349 sessions, 76,923 messages migrated
+- [x] CLI: `mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db`
+
+### 20G: Spiral Detection Redesign — COMPLETE ✅
+
+- [x] Replaced ConsecutiveLoopHandler + NarrationNudgeHandler with ProgressDetectionHandler
+- [x] ProgressSignature: (ToolNames, ResultTag) — compact fingerprint per iteration
+- [x] ComputeProgressSignature + IsDuplicateProgress helpers
+- [x] Novel signatures → CONTINUE (legitimate multi-step chains)
+- [x] 1+ duplicate signatures, no text → nudge
+- [x] 3+ duplicate signatures → YIELD (spiral detected)
+- [x] Design doc: docs/SPIRAL_DETECTION_REDESIGN.md
+- [x] Old handlers deprecated (threshold=0), kept for backward compat
+- [x] 1175 tests, all passing with -race
+- [x] Deployed to MacBook + Studio

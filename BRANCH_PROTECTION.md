@@ -18,10 +18,6 @@
 - ❌ Do NOT require signed commits (we sign via SSH on the Mac)
 - ❌ Do NOT require conversation resolution (we're fast-moving)
 
-### Branch: `dogfood`
-
-Same as `main` — this is the fork's integration branch.
-
 ## Workflow
 
 ```
