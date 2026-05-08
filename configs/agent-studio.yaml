@@ -64,6 +64,11 @@ tools:
     - RemoveMemory
     - Consolidate
     - GetHotBlock
+    - AddSkill
+    - GetSkill
+    - ListSkills
+    - SearchSkills
+    - RemoveSkill
     - FileRead
     - FileSearch
     - FileWrite
