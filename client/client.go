@@ -27,6 +27,11 @@ type ClientInterface interface {
 	SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error)
 	ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error)
 	GetHotBlock(ctx context.Context, target, agentID string, charLimit int32, boostCategories, suppressCategories []string, boostPriority int32) (string, error)
+	AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error)
+	GetSkill(ctx context.Context, id string) (*pb.SkillEntry, error)
+	ListSkills(ctx context.Context, category, sourceAgent string, limit int32) ([]*pb.SkillEntry, error)
+	SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error)
+	RemoveSkill(ctx context.Context, id string) (bool, error)
 	CreateSession(ctx context.Context, agentID, source, title string) (string, error)
 	AddMessages(ctx context.Context, sessionID string, messages []Message) error
 	EndSession(ctx context.Context, sessionID string) error
@@ -53,10 +58,10 @@ var _ ClientInterface = &Client{}
 
 // Client is a gRPC client for the Mnemosyne daemon.
 type Client struct {
-    conn      *grpc.ClientConn
-    api       pb.MnemosyneClient
-    messaging pb.MessagingClient
-    cron      pb.CronServiceClient
+	conn      *grpc.ClientConn
+	api       pb.MnemosyneClient
+	messaging pb.MessagingClient
+	cron      pb.CronServiceClient
 }
 
 // RegisterAgent registers the agent with the daemon.
@@ -121,7 +126,7 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("health check: %w", err)
 	}
 
-    return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn), cron: pb.NewCronServiceClient(conn)}, nil
+	return &Client{conn: conn, api: c, messaging: pb.NewMessagingClient(conn), cron: pb.NewCronServiceClient(conn)}, nil
 }
 
 // ConnectMnemo creates a new client connection and returns the MnemoClient interface.
@@ -373,7 +378,6 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (*SessionDeta
 
 	return detail, nil
 }
-
 // SendMessage sends a message via the messaging service.
 func (c *Client) SendMessage(ctx context.Context, platform, target, message string) (string, error) {
 	resp, err := c.messaging.SendMessage(ctx, &pb.SendMessageRequest{
@@ -507,22 +511,72 @@ func protoTodoToItem(pb *pb.TodoItem) *TodoItem {
 	}
 }
 
-// optionalString returns a pointer to the string, or nil if empty.
-func optionalString(s string) *string {
-	if s == "" {
-		return nil
+// --- Skill management ---
+
+// AddSkill creates a new skill entry.
+func (c *Client) AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error) {
+	resp, err := c.api.AddSkill(ctx, &pb.AddSkillRequest{
+		Name:         name,
+		Description:  description,
+		Triggers:     triggers,
+		Category:     category,
+		Content:      content,
+		SourceAgent:  sourceAgent,
+		Priority:     &priority,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("AddSkill: %w", err)
 	}
-	return &s
+	return resp, nil
 }
 
-// optionalBool returns a pointer to the bool.
-func optionalBool(b bool) *bool {
-	return &b
+// GetSkill retrieves a skill by ID.
+func (c *Client) GetSkill(ctx context.Context, id string) (*pb.SkillEntry, error) {
+	resp, err := c.api.GetSkill(ctx, &pb.GetSkillRequest{Id: id})
+	if err != nil {
+		return nil, fmt.Errorf("GetSkill: %w", err)
+	}
+	return resp, nil
+}
+
+// ListSkills lists skills with optional filtering.
+func (c *Client) ListSkills(ctx context.Context, category, sourceAgent string, limit int32) ([]*pb.SkillEntry, error) {
+	resp, err := c.api.ListSkills(ctx, &pb.ListSkillsRequest{
+		Category:    category,
+		SourceAgent: sourceAgent,
+		Limit:       &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListSkills: %w", err)
+	}
+	return resp.Skills, nil
+}
+
+// RemoveSkill removes a skill by ID.
+func (c *Client) RemoveSkill(ctx context.Context, id string) (bool, error) {
+	resp, err := c.api.RemoveSkill(ctx, &pb.RemoveSkillRequest{Id: id})
+	if err != nil {
+		return false, fmt.Errorf("RemoveSkill: %w", err)
+	}
+	return resp.Success, nil
+}
+
+// SearchSkills searches skills using FTS5.
+func (c *Client) SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error) {
+	resp, err := c.api.SearchSkills(ctx, &pb.SearchSkillsRequest{
+		Query:    query,
+		Category: category,
+		Limit:    &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("SearchSkills: %w", err)
+	}
+	return resp.Skills, nil
 }
 
 // --- Cron job management ---
 
-// CronJobInfo is a client-side representation of a cron job.
+// CronJobInfo represents a cron job.
 type CronJobInfo struct {
 	ID         string
 	Name       string
@@ -551,23 +605,23 @@ func (c *Client) CreateCronJob(ctx context.Context, name, schedule, agentID, mes
 	return protoCronJobToInfo(resp), nil
 }
 
-// ListCronJobs returns cron jobs, optionally filtered by agent.
+// ListCronJobs lists cron jobs for an agent.
 func (c *Client) ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error) {
 	resp, err := c.cron.ListCronJobs(ctx, &pb.ListCronJobsRequest{
-		AgentId:         agentID,
-		IncludeDisabled: includeDisabled,
+		AgentId:          agentID,
+		IncludeDisabled:  includeDisabled,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("ListCronJobs: %w", err)
 	}
 	result := make([]CronJobInfo, len(resp.Jobs))
-	for i, job := range resp.Jobs {
-		result[i] = *protoCronJobToInfo(job)
+	for i, j := range resp.Jobs {
+		result[i] = *protoCronJobToInfo(j)
 	}
 	return result, nil
 }
 
-// UpdateCronJob updates an existing cron job.
+// UpdateCronJob updates a cron job.
 func (c *Client) UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error) {
 	resp, err := c.cron.UpdateCronJob(ctx, &pb.UpdateCronJobRequest{
 		Id:       id,
@@ -604,4 +658,19 @@ func protoCronJobToInfo(pb *pb.CronJob) *CronJobInfo {
 		LastFireAt: pb.LastFireAt,
 		NextFireAt: pb.NextFireAt,
 	}
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func optionalBool(b bool) *bool {
+	return &b
+}
+
+func optionalInt32(value int32) *int32 {
+	return &value
 }

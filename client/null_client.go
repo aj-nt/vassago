@@ -149,6 +149,26 @@ func (n *NullMnemo) DeleteCronJob(ctx context.Context, id string) error {
 	return fmt.Errorf("mnemo not connected")
 }
 
+func (n *NullMnemo) AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error) {
+	return nil, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) GetSkill(ctx context.Context, id string) (*pb.SkillEntry, error) {
+	return nil, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) ListSkills(ctx context.Context, category, sourceAgent string, limit int32) ([]*pb.SkillEntry, error) {
+	return nil, nil
+}
+
+func (n *NullMnemo) RemoveSkill(ctx context.Context, id string) (bool, error) {
+	return false, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error) {
+	return nil, nil
+}
+
 func (n *NullMnemo) Close() error {
 	return nil
 }

@@ -56,6 +56,13 @@ service Mnemosyne {
   rpc ListTodos(ListTodosRequest) returns (stream TodoItem);
   rpc CompleteTodo(CompleteTodoRequest) returns (TodoItem);
   rpc RemoveTodo(RemoveTodoRequest) returns (Empty);
+
+  // --- Skill Management ---
+  rpc AddSkill(AddSkillRequest) returns (SkillEntry);
+  rpc GetSkill(GetSkillRequest) returns (SkillEntry);
+  rpc ListSkills(ListSkillsRequest) returns (SkillList);
+  rpc RemoveSkill(RemoveSkillRequest) returns (RemoveSkillResponse);
+  rpc SearchSkills(SearchSkillsRequest) returns (SkillList);
 }
 
 // AgentChat is a lightweight gRPC service exposed by the agent binary
@@ -439,4 +446,57 @@ message UpdateCronJobRequest {
 
 message DeleteCronJobRequest {
   string id = 1;                 // Job ID to delete
+}
+
+// --- Skill Messages ---
+
+message SkillEntry {
+  string id = 1;
+  string name = 2;               // Skill name
+  string description = 3;        // Skill description
+  repeated string triggers = 4; // Triggers that activate this skill
+  string category = 5;           // Skill category
+  string content = 6;            // Skill content/implementation
+  string source_agent = 7;       // Agent that created this skill
+  int32 priority = 8;            // Priority (1-5, higher = more important)
+  int64 created_at = 9;          // Unix timestamp
+  int64 updated_at = 10;         // Unix timestamp
+}
+
+message AddSkillRequest {
+  string name = 1;               // Required: skill name
+  string description = 2;        // Required: skill description
+  repeated string triggers = 3; // Required: triggers
+  string category = 4;           // Required: category
+  string content = 5;            // Required: content
+  string source_agent = 6;       // Required: source agent
+  optional int32 priority = 7;   // Optional: priority (default: 3)
+}
+
+message GetSkillRequest {
+  string id = 1;                 // Required: skill ID
+}
+
+message ListSkillsRequest {
+  string category = 1;           // Filter by category (empty = all)
+  string source_agent = 2;       // Filter by source agent (empty = all)
+  optional int32 limit = 3;      // Limit results
+}
+
+message SkillList {
+  repeated SkillEntry skills = 1;
+}
+
+message RemoveSkillRequest {
+  string id = 1;                 // Required: skill ID to remove
+}
+
+message RemoveSkillResponse {
+  bool success = 1;              // Whether removal was successful
+}
+
+message SearchSkillsRequest {
+  string query = 1;              // Required: search query
+  string category = 2;           // Filter by category (empty = all)
+  optional int32 limit = 3;      // Limit results
 }
