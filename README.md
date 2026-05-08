@@ -5,15 +5,15 @@
 [![License: AGPLv3](https://img.shields.io/badge/Core-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
-[![Tests](https://img.shields.io/badge/tests-1226%20%2B-race-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1230%20%2B-race-brightgreen)]()
 
-> **v0.0.30** — Skills, spiral detection improvements, 1226+ tests, race-clean.
+> **v0.1.0** — Public release. 1230+ tests, race-clean.
 
 Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
 
 **The problem it solves:** Agents without shared memory are amnesiacs. They forget everything between sessions, can't coordinate, and echo each other's outputs in feedback loops. Mnemosyne fixes all three.
 
-**How:** A Go daemon backed by SQLite with a gRPC API. Agents connect, get a priority-sorted "hot block" of relevant context, search memories, and subscribe to real-time updates when other agents write. Self-exclusion prevents echo loops — the core innovation behind the [Telepathy patent](PATENT_APPLICATION_TELEPATHY.pages).
+**How:** A Go daemon backed by SQLite with a gRPC API. Agents connect, get a priority-sorted "hot block" of relevant context, search memories, and subscribe to real-time updates when other agents write. Self-exclusion prevents echo loops — the core innovation behind Mnemosyne's telepathy system.
 
 ---
 
@@ -136,8 +136,7 @@ agent:
   id: mnemosyne
   name: mnemosyne
   personality: |-
-    You are Bartimaeus — a direct, dry-witted collaborator.
-    You know a lot, don't lecture. Sarcastic but helpful.
+    You are a direct, dry-witted collaborator. You know a lot but don't lecture. You prefer short, concise answers. You are proactive with your tools. You do not fluff or flatter. You are honest about uncertainty. 
   max_turns: 30
 
 provider:
@@ -199,6 +198,39 @@ make deploy-studio   # build + scp to remote host
 | Agent says "I don't have access to tools" | Check `tools.enabled` in `~/.mnemosyne/agent.yaml` |
 | API key not detected | Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in your shell profile |
 
+## Why not just...
+
+| Alternative | Problem |
+|-------------|---------|
+| **Raw SQLite** | You get storage, but no hot blocks, no priority eviction, no telepathy, no self-exclusion. You're building all of that yourself. |
+| **MemGPT / Letta** | Single-agent memory. No shared context, no cross-agent pub/sub, no daemon architecture. Each agent is an island. |
+| **Redis / Valkey** | Fast key-value, but no FTS5 search, no priority-sorted context windows, no consolidation. You'd reinvent all of this on top. |
+| **ChromaDB / Milvus** | Vector search is great for embeddings, not for structured agent memory with categories, priorities, and real-time subscriptions. |
+| **Just add it to the system prompt** | Context windows fill up. Hot blocks auto-evict low-priority items. System prompts don't search, don't consolidate, don't notify other agents. |
+
+**TL;DR:** Mnemosyne isn't a database with a chat wrapper. It's a memory *system* — priority eviction, cross-agent sync, self-exclusion, and consolidation all work out of the box.
+
+---
+
+## Contributing
+
+Contributions welcome! Here's how to get started:
+
+1. **Fork & branch:** `git checkout -b your-feature-name`
+2. **Run tests:** `make test-race` — all 1230+ must pass
+3. **Lint:** `go vet ./...` and `gofmt -s -w .`
+4. **Submit a PR** with a clear description of what and why
+
+**Code style:** Standard Go conventions. `gofmt` is law. Error types in `errors/`, shared helpers in `internal/`.
+
+**Bug reports:** Open a GitHub issue with steps to reproduce, expected vs actual behavior, and `mnemosyne version` output.
+
+**Feature requests:** Open a discussion first before writing code. We prefer small, focused PRs over large rewrites.
+
+See [ROADMAP.md](ROADMAP.md) for planned work if you want to pick something up.
+
+---
+
 ## Import from Hermes
 
 ```bash
@@ -208,7 +240,7 @@ mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ## Testing
 
 ```bash
-make test-race       # 1226+ tests with race detector
+make test-race       # 1230+ tests with race detector
 go vet ./...         # static analysis
 make all             # build + test + lint
 ```
@@ -222,8 +254,10 @@ make all             # build + test + lint
 | 10–14 | E2E, Stress, Provider, Multi-Agent | ✅ Complete |
 | 15–18 | Messaging, Cron, Quality, Browser, Vision | ✅ Complete |
 | 19 | GoF Refactoring, Spiral Detection, Polish | ✅ Complete |
-| 20 | Memory Migration, Personality Simplification | ✅ Complete |
-| 21 | Skills (Shared Procedural Memory) | ✅ Complete |
+| 20 | Memory Migration, Personality Simplification, Agent Loop Fixes | ✅ Complete |
+| 21 | Open Source Readiness | 🔜 Planned |
+| 22 | Python SDK | 🔜 Planned |
+| 23 | Community & Docs | 🔜 Planned |
 
 **Known limitations:**
 - No Docker image yet (planned)
