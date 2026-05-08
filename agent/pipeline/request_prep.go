@@ -89,6 +89,13 @@ func (s *RequestPrepStage) buildSystemPrompt(ctx *agentctx.ConversationContext) 
 		parts = append(parts, ctx.HotBlockContent)
 	}
 
+	// Skill Block — known procedures pushed from the daemon
+	if ctx.SkillContent != "" {
+		parts = append(parts, "")
+		parts = append(parts, "[Skills — reusable procedures you know how to follow]")
+		parts = append(parts, ctx.SkillContent)
+	}
+
 	return joinParts(parts)
 }
 

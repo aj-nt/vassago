@@ -369,6 +369,7 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 		tools.RegisterSessionTools(toolReg, cfg.MnemoClient)
 		tools.RegisterTodoTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 		tools.RegisterCronTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+		tools.RegisterSkillTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 		if cfg.DelegationSection.Enabled {
 			tools.RegisterDelegationTool(toolReg, cfg.AgentID, cfg.SubAgentRunner, tools.DelegateConfig{
 				Enabled:  cfg.DelegationSection.Enabled,
@@ -462,6 +463,9 @@ func Tools(cfg ToolsConfig) *tools.ToolRegistry {
 	if AnyEnabled(enabled, "ScheduleCron") {
 		tools.RegisterCronTools(toolReg, cfg.MnemoClient, cfg.AgentID)
 	}
+	if AnyEnabled(enabled, "AddSkill", "GetSkill", "ListSkills", "SearchSkills", "RemoveSkill") {
+		tools.RegisterSkillTools(toolReg, cfg.MnemoClient, cfg.AgentID)
+	}
 	if AnyEnabled(enabled, "SearchWeb", "FetchURL") {
 		tools.RegisterWebTools(toolReg, nil)
 	}
@@ -542,6 +546,7 @@ func HandleCronFire(a *agent.Agent, agentID string, maxTurns int, temperature fl
 
 	hotBlock, _ := a.GetHotBlock(ctx)
 	toolDefs := a.BuildToolDefinitions()
+	skillBlock := a.GetSkillBlock(ctx)
 	convCtx := &agentctx.ConversationContext{
 		AgentID: agentID,
 		Messages: []agentctx.Message{
@@ -552,6 +557,7 @@ func HandleCronFire(a *agent.Agent, agentID string, maxTurns int, temperature fl
 		Iteration:       0,
 		Interrupt:       agentctx.NewInterruptSignal(),
 		HotBlockContent: hotBlock,
+		SkillContent:    skillBlock,
 		Temperature:     temperature,
 	}
 

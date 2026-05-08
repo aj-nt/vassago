@@ -303,15 +303,14 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 }
 
 // ProgressDetectionHandler detects when the agent stops making forward progress.
-// It tracks "progress signatures" (tool names + result tag) across iterations.
-// If an iteration's signature duplicates a recent one, the handler increments
-// a duplicate counter. After ProgressYieldThreshold duplicates, it YIELDs.
+// It uses two complementary signals:
 //
-// Key design insight: A code review reading 10 files is NOT a spiral (each
-// FileRead has novel content, but the signature is FileRead/success — this is
-// a false positive we accept because the result content differs). A genuine
-// spiral is SearchMemories/not_found repeated 3+ times — same tool, same
-// result pattern, no forward progress.
+//  1. Duplicate progress signatures (same tools + results) — catches same-tool loops
+//     like SearchMemories/not_found repeated 5x.
+//
+//  2. Intent loops (same purpose across different tools) — catches cross-tool spirals
+//     where the agent keeps saying "Let me search..." but switches between FileSearch,
+//     Execute, and FileRead without converging.
 //
 // The nudge is intentionally soft: it's a progress check, not a reprimand.
 // The agent should feel free to continue if it has new information.
@@ -320,7 +319,7 @@ type ProgressDetectionHandler struct {
 	EventBus   *eventbus.EventBus
 }
 
-// Handle checks for progress stalls using progress signatures.
+// Handle checks for progress stalls using progress signatures and intent loops.
 func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext, toolResults []agentctx.ToolResult, parsed agentctx.ParsedResponse) (agentctx.StageAction, bool) {
 	// Skip after compaction — the model should get a chance with the smaller context.
 	if convCtx.CompactedThisTurn {
@@ -332,8 +331,8 @@ func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext,
 		return agentctx.StageActionCONTINUE, false
 	}
 
-	// Compute progress signature for this iteration
-	sig := agentctx.ComputeProgressSignature(parsed.ToolCalls, toolResults)
+	// Compute progress signature for this iteration, including intent from LLM text
+	sig := agentctx.ComputeProgressSignature(parsed.ToolCalls, toolResults, parsed.Text)
 
 	// Check if this signature duplicates a recent one
 	isDuplicate := agentctx.IsDuplicateProgress(sig, convCtx.ProgressHistory)
@@ -350,37 +349,107 @@ func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext,
 		convCtx.DuplicateProgressCount = 0
 	}
 
+	// Check for intent loops: same purpose across different tools
+	isIntentLoop := agentctx.IsIntentLoop(convCtx.ProgressHistory, h.Thresholds.IntentLoopThreshold)
+
 	// Nudge zone: 3+ consecutive duplicates (same tool, same result pattern)
 	// The nudge is a gentle progress check, not a reprimand.
 	// The agent should feel free to continue if it has new information.
 	if convCtx.DuplicateProgressCount >= 3 && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold {
+		nudgeMsg := fmt.Sprintf(
+			"[system: You've called the same tools with the same results %d times. If you have new information, continue. Otherwise, summarize what you know and ask for guidance.]",
+			convCtx.DuplicateProgressCount,
+		)
 		convCtx.Messages = append(convCtx.Messages,
 			agentctx.Message{
 				Role:    "user",
-				Content: fmt.Sprintf("[system: You've called the same tools with the same results %d times. If you have new information, continue. Otherwise, summarize what you know and ask for guidance.]", convCtx.DuplicateProgressCount),
+				Content: nudgeMsg,
 			},
 		)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "progress_nudge",
 			Iteration: convCtx.Iteration,
-			Message:   fmt.Sprintf("progress nudge: %d duplicate iterations (tools: %s, results: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag),
+			Message:   fmt.Sprintf("progress nudge: %d duplicate iterations (tools: %s, results: %s, intent: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag, sig.IntentTag),
+		})
+		return agentctx.StageActionCONTINUE, false
+	}
+
+	// Intent nudge: same purpose across different tools, but not yet at yield threshold.
+	// This fires independently of the duplicate check — even if the signature matches
+	// a previous one, we still want to flag when the agent is pursuing the same GOAL
+	// across different tools. The progress nudge above handles "same tool+result" loops,
+	// while this catches "different tools, same intent" spirals.
+	// We skip only if we already nudged for duplicates this turn.
+	nudgedForDuplicates := convCtx.DuplicateProgressCount >= 3 && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold
+	if isIntentLoop && !nudgedForDuplicates && convCtx.DuplicateProgressCount < h.Thresholds.ProgressYieldThreshold {
+		// Find the dominant intent
+		intentCounts := make(map[string]int)
+		recentStart := len(convCtx.ProgressHistory) - 6
+		if recentStart < 0 {
+			recentStart = 0
+		}
+		for i := recentStart; i < len(convCtx.ProgressHistory); i++ {
+			intentCounts[convCtx.ProgressHistory[i].IntentTag]++
+		}
+		dominantIntent := ""
+		maxCount := 0
+		for intent, count := range intentCounts {
+			if count > maxCount {
+				maxCount = count
+				dominantIntent = intent
+			}
+		}
+
+		nudgeMsg := fmt.Sprintf(
+			"[system: You've been %s multiple times without converging. Consider whether you have enough information to answer, or try a completely different approach.]",
+			intentVerb(dominantIntent),
+		)
+		convCtx.Messages = append(convCtx.Messages,
+			agentctx.Message{
+				Role:    "user",
+				Content: nudgeMsg,
+			},
+		)
+		emitEvent(h.EventBus, LoopDetectionEvent{
+			Kind:      "intent_nudge",
+			Iteration: convCtx.Iteration,
+			Message:   fmt.Sprintf("intent nudge: repeating purpose '%s' across %d iterations (tools: %s)", dominantIntent, maxCount, sig.ToolNames),
 		})
 		return agentctx.StageActionCONTINUE, false
 	}
 
 	// Yield zone: ProgressYieldThreshold or more consecutive duplicates
 	if convCtx.DuplicateProgressCount >= h.Thresholds.ProgressYieldThreshold {
-		log.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s)",
-			convCtx.DuplicateProgressCount, convCtx.Iteration, sig.ToolNames, sig.ResultTag)
+		log.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s, intent: %s)",
+			convCtx.DuplicateProgressCount, convCtx.Iteration, sig.ToolNames, sig.ResultTag, sig.IntentTag)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "progress_stall",
 			Iteration: convCtx.Iteration,
-			Message:   fmt.Sprintf("progress stall: %d consecutive no-progress iterations (tools: %s, results: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag),
+			Message:   fmt.Sprintf("progress stall: %d consecutive no-progress iterations (tools: %s, results: %s, intent: %s)", convCtx.DuplicateProgressCount, sig.ToolNames, sig.ResultTag, sig.IntentTag),
 		})
 		return agentctx.StageActionYIELD, true
 	}
 
 	return agentctx.StageActionCONTINUE, false
+}
+
+// intentVerb converts an intent bucket to a human-readable verb phrase
+// for nudge messages. "search" → "searching", "execute" → "running commands", etc.
+func intentVerb(bucket string) string {
+	switch bucket {
+	case "search":
+		return "searching"
+	case "read":
+		return "reading files"
+	case "execute":
+		return "running commands"
+	case "write":
+		return "writing files"
+	case "memory":
+		return "saving memories"
+	default:
+		return "pursuing the same goal"
+	}
 }
 
 // AppendAndContinueHandler appends assistant messages and tool results to the

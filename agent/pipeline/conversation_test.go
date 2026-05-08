@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -331,5 +332,119 @@ func TestConversation_DelegateEmptyOutput(t *testing.T) {
 	}
 	if !found {
 		t.Error("Expected Delegate tool result to be appended to messages")
+	}
+}
+
+// TestConversation_IntentLoopCrossTool simulates the key new case:
+// the agent switches between different tools but with the same stated purpose
+// ("Let me search..."). The old progress detection missed this because the
+// tool names differ (FileSearch ≠ SearchMemories ≠ Execute).
+// The intent loop detection catches it because "search" appears 3+ times.
+func TestConversation_IntentLoopCrossTool(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "find the bug"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "1", Name: "FileSearch", Arguments: args},
+			}},
+			{Role: "tool", Content: "found 3 files", ToolCallID: "1", Name: "FileSearch"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "2", Name: "SearchMemories", Arguments: args},
+			}},
+			{Role: "tool", Content: "no results found", ToolCallID: "2", Name: "SearchMemories"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "3", Name: "Execute", Arguments: args},
+			}},
+			{Role: "tool", Content: "output: grep found nothing", ToolCallID: "3", Name: "Execute"},
+		},
+		MaxIterations: 10,
+		Iteration:     4,
+		ProgressHistory: []agentctx.ProgressSignature{
+			{ToolNames: "FileSearch", ResultTag: "success", IntentTag: "search"},
+			{ToolNames: "SearchMemories", ResultTag: "not_found", IntentTag: "search"},
+			{ToolNames: "Execute", ResultTag: "success", IntentTag: "search"},
+		},
+		DuplicateProgressCount: 0, // Different signatures — not duplicate!
+	}
+
+	// 4th iteration: still searching, different tool
+	parsed := agentctx.ParsedResponse{
+		Text: "Let me search the codebase again.",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "4", Name: "FileSearch", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "4", Name: "FileSearch", Result: "found 5 files", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// Should CONTINUE (intent nudge injects a system message, doesn't YIELD)
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE (intent nudge, not yield), got %v", action)
+	}
+
+	// Verify an intent nudge was injected
+	foundNudge := false
+	for _, m := range convCtx.Messages {
+		if m.Role == "user" && strings.Contains(m.Content, "searching") {
+			foundNudge = true
+		}
+	}
+	if !foundNudge {
+		t.Error("Expected intent nudge about 'searching' to be injected")
+	}
+}
+
+// TestConversation_IntentLoopDifferentGoals verifies that different intents
+// (search → read → execute) do NOT trigger intent loop detection, even with
+// repeated tool calls. Each step has a distinct purpose.
+func TestConversation_IntentLoopDifferentGoals(t *testing.T) {
+	stage := NewContextManagementStage(0)
+
+	args, _ := json.Marshal(map[string]interface{}{})
+	convCtx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "audit the code"},
+		},
+		MaxIterations: 10,
+		Iteration:     4,
+		ProgressHistory: []agentctx.ProgressSignature{
+			{ToolNames: "FileSearch", ResultTag: "success", IntentTag: "search"},
+			{ToolNames: "FileRead", ResultTag: "success", IntentTag: "read"},
+			{ToolNames: "Execute", ResultTag: "success", IntentTag: "execute"},
+		},
+		DuplicateProgressCount: 0,
+	}
+
+	// 4th iteration: writing a fix — different goal entirely
+	parsed := agentctx.ParsedResponse{
+		Text: "Now I'll fix the issue.",
+		ToolCalls: []agentctx.ToolCall{
+			{ID: "4", Name: "FileWrite", Arguments: args},
+		},
+		FinishReason: "tool_use",
+	}
+	toolResults := []agentctx.ToolResult{
+		{CallID: "4", Name: "FileWrite", Result: "saved", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
+
+	// Should CONTINUE — no loop detection, no nudge
+	if action != agentctx.StageActionCONTINUE {
+		t.Errorf("Expected CONTINUE (different goals, no loop), got %v", action)
+	}
+
+	// No nudge should be injected
+	for _, m := range convCtx.Messages {
+		if m.Role == "user" && strings.HasPrefix(m.Content, "[system:") {
+			t.Errorf("Unexpected nudge in messages: %s", m.Content)
+		}
 	}
 }

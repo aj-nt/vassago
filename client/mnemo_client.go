@@ -90,6 +90,13 @@ type MnemoClient interface {
 	UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error)
 	DeleteCronJob(ctx context.Context, id string) error
 
+	// Skill management
+	AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error)
+	GetSkill(ctx context.Context, id string) (*pb.SkillEntry, error)
+	ListSkills(ctx context.Context, category, sourceAgent string, limit int32) ([]*pb.SkillEntry, error)
+	RemoveSkill(ctx context.Context, id string) (bool, error)
+	SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error)
+
 	// Close closes the connection to the daemon.
 	Close() error
 }
