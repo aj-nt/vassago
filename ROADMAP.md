@@ -814,7 +814,19 @@ Goal: Apply design pattern refactoring to improve code quality and testability.
 - [x] P2: Agent+daemon integration tests
 - [x] Bug fix: Service.Subscribe nil hub panic → gRPC Unavailable
 - [x] client/ coverage: 33.8% → 57.2%, daemon/internal/grpc: 79.6% → 84.1%
-- [x] 1175 tests, all passing with -race
+- [x] 1230 tests, all passing with -race
+
+### 20H: Skills Tool — COMPLETE ✅
+
+- [x] Skills tool: dynamic skill discovery and execution
+- [x] Agent can list available skills and invoke them by name
+- [x] Commit 5b7b70c
+
+### 20I: Agent Loop Bugfixes — COMPLETE ✅
+
+- [x] Fix: tool budget (callCounts) now resets at turn start instead of accumulating forever
+- [x] Fix: progress signature coarseness — ToolNames-only signatures caused false spiral detection on legitimate multi-step chains
+- [x] Commit da168fd
 
 ## Phase 20: Memory Migration & Spiral Detection — COMPLETE ✅
 
@@ -839,3 +851,110 @@ Goal: Migrate Hermes data to Mnemosyne and fix the spiral detection core issue.
 - [x] Old handlers deprecated (threshold=0), kept for backward compat
 - [x] 1175 tests, all passing with -race
 - [x] Deployed to MacBook + Studio
+
+### 20H: Skills Tool — COMPLETE ✅
+
+- [x] SkillsTool: expose agent capabilities as a callable tool
+- [x] Skill definitions in YAML under `skills/` directory
+- [x] Each skill: name, description, input_schema, handler reference
+- [x] Agent discovers own skills at startup, registers with tool manifest
+- [x] Other agents can call SkillsTool to learn what this agent can do
+- [x] Tests for skill loading, validation, invocation
+
+### 20I: Agent Loop Bugfixes — COMPLETE ✅
+
+- [x] Fix: tool budget (callCounts) not resetting between turns — accumulated across entire session
+- [x] Fix: ProgressSignature too coarse — (ToolNames, ResultTag) collapsed distinct legitimate chains into duplicates
+- [x] Commit da168fd
+
+## Phase 21: Open Source Readiness
+
+Goal: Polish the repo for public consumption. The code works — now make it welcoming to strangers.
+
+### 21A: README & Documentation Audit
+
+- [ ] Fix stale test badge (1226 → 1230)
+- [ ] Triage "Known Limitations" — label items as v1.0 blockers vs. v0.x accepted
+- [ ] Add architecture diagram (ASCII or Mermaid) to README
+- [ ] Add quickstart video/screencast link placeholder
+- [ ] Verify all CLI flags documented in README match `--help` output
+- [ ] Add `godoc`-compatible package documentation with runnable examples
+
+### 21B: CONTRIBUTING.md & Community
+
+- [ ] CONTRIBUTING.md: PR process, code style, commit message conventions
+- [ ] CODE_OF_CONDUCT.md ( Contributor Covenant or similar)
+- [ ] SECURITY.md: vulnerability disclosure process, supported versions
+- [ ] Add issue/PR templates (bug report, feature request, PR checklist)
+
+### 21C: CI & Release Automation
+
+- [ ] goreleaser config: tag push → GitHub Release with binaries (macOS arm64, Linux amd64)
+- [ ] Add release automation workflow (`.github/workflows/release.yml`)
+- [ ] Stale badge fix + CI badge pointing at main branch
+- [ ] Add `make lint` target (golangci-lint) to CI
+- [ ] Add `make coverage` target with minimum threshold (80%?)
+
+### 21D: Docker & Packaging
+
+- [ ] Multi-stage Dockerfile (builder + minimal runtime)
+- [ ] Docker Compose example (daemon + agent)
+- [ ] Remove "Docker planned" from Known Limitations
+- [ ] Homebrew tap or `brew install` formula
+- [ ] Verify `go install` works cleanly from a fresh clone
+
+## Phase 22: Python SDK
+
+Goal: Make Mnemosyne accessible beyond Go shops. gRPC client works — now wrap it properly.
+
+### 22A: Package Structure & Publishing
+
+- [ ] `pip install mnemosyne` on PyPI
+- [ ] Generated gRPC stubs from proto files (checked in, not generated at install)
+- [ ] Async-first client (`MnemosyneClient` with `async def` methods)
+- [ ] Type stubs (`py.typed`, full type annotations)
+- [ ] `pyproject.toml` with proper metadata, dependencies, Python version support
+
+### 22B: Client API
+
+- [ ] `client.add_memory(key, content, category, priority)`
+- [ ] `client.search_memories(query, limit)`
+- [ ] `client.get_hot_block()`
+- [ ] `client.remove_memory(id)`
+- [ ] `client.consolidate()`
+- [ ] Connection management (reconnect, timeout, TLS)
+- [ ] Context manager support (`async with MnemosyneClient(...) as client`)
+
+### 22C: Documentation & Examples
+
+- [ ] Quickstart guide for Python users
+- [ ] Examples: Jupyter notebook integration, LangChain tool wrapper
+- [ ] API reference on ReadTheDocs or similar
+- [ ] Integration test suite (Python client → real daemon)
+
+## Phase 23: Multi-User & Auth
+
+Goal: Support team deployments. Single-user is fine for personal agents; auth enables shared daemons.
+
+### 23A: Authentication
+
+- [ ] API key authentication on daemon gRPC endpoint
+- [ ] Key management: `mnemosyne-cli key create/list/revoke`
+- [ ] Keys stored in SQLite, hashed (argon2id)
+- [ ] gRPC metadata interceptor: extract key, validate, set agent identity
+- [ ] Unauthenticated mode still supported (localhost-only, config flag)
+
+### 23B: Authorization & Namespacing
+
+- [ ] Per-agent memory namespacing — agent A cannot read agent B's private memories
+- [ ] Shared memories (category: "environment", "project") visible across agents
+- [ ] ACL model: owner/private/shared/public per memory entry
+- [ ] Agent registration: agents declare identity at connect, daemon enforces namespace isolation
+- [ ] Admin CLI: `mnemosyne-cli agent list`, `mnemosyne-cli memory acl set`
+
+### 23C: Audit & Observability
+
+- [ ] Audit log: who accessed what, when (write to SQLite table)
+- [ ] `mnemosyne-cli audit search` with filters (agent, memory key, time range)
+- [ ] Metrics endpoint (Prometheus): memory count, search latency, hot block hit rate
+- [ ] Health check gRPC method (`/grpc.health.v1.Health/Check`)
