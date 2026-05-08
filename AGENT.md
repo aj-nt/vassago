@@ -429,6 +429,45 @@ function calling. Here's the memory tool set:
 ]
 ```
 
+**Skills tools** (shared procedural memory):
+
+```json
+[
+  {
+    "name": "AddSkill",
+    "description": "Save a reusable skill (procedure, workflow, or reference) that all agents can access.",
+    "parameters": {
+      "name": {"type": "string", "description": "Unique skill name (kebab-case)"},
+      "description": {"type": "string", "description": "One-line summary"},
+      "triggers": {"type": "array", "items": {"type": "string"}, "description": "Keywords that trigger this skill"},
+      "category": {"type": "string", "enum": ["devops", "software-development", "data-science", "research", "writing", "general"]},
+      "content": {"type": "string", "description": "Full skill content (markdown)"},
+      "priority": {"type": "integer", "minimum": 1, "maximum": 5, "default": 3}
+    }
+  },
+  {
+    "name": "GetSkill",
+    "description": "Retrieve a specific skill by ID.",
+    "parameters": {"id": {"type": "string", "description": "Skill ID"}}
+  },
+  {
+    "name": "ListSkills",
+    "description": "List all skills, optionally filtered by category.",
+    "parameters": {"category": {"type": "string", "description": "Filter by category"}}
+  },
+  {
+    "name": "SearchSkills",
+    "description": "Search skills by keywords. Use real words, not wildcards.",
+    "parameters": {"query": {"type": "string"}, "limit": {"type": "integer", "default": 20}}
+  },
+  {
+    "name": "RemoveSkill",
+    "description": "Delete a skill by ID.",
+    "parameters": {"id": {"type": "string", "description": "Skill ID"}}
+  }
+]
+```
+
 ### 3.5 Session Persistence
 
 Sessions and messages are recorded in the Mnemosyne daemon's database via
@@ -535,7 +574,7 @@ provider:
   temperature: 0.7
 
 mnemosyne:
-  address: "unix:///home/aj/.mnemosyne/mnemosyne.sock"
+  address: "unix://~/.mnemosyne/mnemosyne.sock"
   # address: "localhost:50051"              # For LAN/internet
 
 hot_block:
@@ -550,6 +589,11 @@ tools:
     - ReplaceMemory
     - RemoveMemory
     - Consolidate
+    - AddSkill
+    - GetSkill
+    - ListSkills
+    - SearchSkills
+    - RemoveSkill
     - Terminal
     - FileRead
     - FileWrite
@@ -559,7 +603,7 @@ tools:
 
 logging:
   level: "info"
-  sessions_dir: "/home/aj/.mnemosyne/sessions"
+  sessions_dir: "~/.mnemosyne/sessions"
 ```
 
 ### 5.1 Hot Block Per-Role Defaults
@@ -595,7 +639,7 @@ mnemosyne-agent chat "What were we working on yesterday?"
 mnemosyne-agent chat --resume <session-id>
 
 # One-shot mode
-echo "Add this to memory: the server is at 192.168.1.100" | mnemosyne-agent chat
+echo "Add this to memory: the server is at node-3.internal" | mnemosyne-agent chat
 ```
 
 The CLI handles:

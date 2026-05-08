@@ -32,6 +32,11 @@ tools:
     - SearchMemories
     - ReplaceMemory
     - RemoveMemory
+    - AddSkill
+    - GetSkill
+    - ListSkills
+    - SearchSkills
+    - RemoveSkill
   approval_required: []
   allowed_dirs:
     - /tmp
