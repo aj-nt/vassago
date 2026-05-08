@@ -5,9 +5,9 @@
 [![License: AGPLv3](https://img.shields.io/badge/Core-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
-[![Tests](https://img.shields.io/badge/tests-1223%20%2B-race-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1226%20%2B-race-brightgreen)]()
 
-> **v0.2.0** — Skills, spiral detection improvements, 1223+ tests, race-clean.
+> **v0.0.30** — Skills, spiral detection improvements, 1226+ tests, race-clean.
 
 Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
 
@@ -208,7 +208,7 @@ mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ## Testing
 
 ```bash
-make test-race       # 1223+ tests with race detector
+make test-race       # 1226+ tests with race detector
 go vet ./...         # static analysis
 make all             # build + test + lint
 ```

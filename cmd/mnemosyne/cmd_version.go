@@ -10,7 +10,7 @@ import (
 
 // Build variables set via ldflags during compilation.
 var (
-	Version   = "v0.1.0-dev"
+	Version   = "v0.0.30-dev"
 	Commit    = "unknown"
 	BuildDate = "unknown"
 )

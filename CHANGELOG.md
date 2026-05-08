@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025-05-09
+## [0.0.30] - 2025-05-09
 
 ### Added
 - **Skills** — Shared procedural memory for agents: AddSkill, GetSkill, ListSkills, SearchSkills, RemoveSkill
@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - gRPC handlers (5 new RPCs) and proto definitions
   - Client interface + null client implementations
   - Agent tool registrations with JSON schemas
-  - GetSkillBlock injection at all 6 system-prompt entry points ensures agents always have relevant skills loaded
+  - GetSkillBlock injection at all 6 system-prompt entry points
   - Skills are priority-sorted, category-filtered, and searchable like memories
+- **mnemosyne-import --dry-run** — preview what would be imported without writing to Mnemosyne
 
 ### Fixed
 - **Spiral detection** — ProgressDetectionHandler now detects oscillating tool spirals (A→B→A→B patterns) alongside duplicate-signature detection
@@ -22,16 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **RepetitiveLoopHandler** — Disabled (threshold=0); was catching legitimate multi-step work
 - **Spiral detection aggressiveness** — Relaxed thresholds to allow legitimate multi-step agent workflows
 - **Agent config** — chat_listen now included in default agent configuration
+- **handleChat placeholder** — Was returning HTTP 200 with "to be implemented", now returns 501 JSON pointing to gRPC
+- **Hardcoded paths** — Replaced /home/aj and 192.168.1.100 in docs with ~/ and hostname examples
 - **3 dead functions** removed (found by static analysis)
 
 ### Testing
-- 1223 tests passing with `-race` detector
-- New: 5 store tests, 7 gRPC handler tests, 5 client integration tests, 5 agent tool tests
+- 1226 tests passing with `-race` detector
+- New: 5 store tests, 7 gRPC handler tests, 5 client integration tests, 5 agent tool tests, 3 dry-run import tests
 - Store coverage at 83.7%, gRPC coverage at 83.9%
 
-## [0.1.0] - 2025-05-08
+## [0.0.29] - 2025-05-08
 
-First public release. Core daemon, agent, and CLI working.
+Core daemon, agent, and CLI working. Baseline for public-release prep.
 
 ### Added
 - **Memory daemon** — Go gRPC server backed by SQLite (WAL mode) with FTS5 full-text search
@@ -47,18 +50,21 @@ First public release. Core daemon, agent, and CLI working.
 - **Tool system** — 25+ tools: memory, files, terminal, web, sessions, todos, cron, messaging, delegation, browser, vision, image gen
 - **Hermes migration** — `mnemosyne-import` to bring data from Hermes
 - **Apache 2.0 protocol** — proto/ and client/ are permissively licensed for third-party clients
+- **GoF refactoring** — Template Method, Chain of Responsibility, Facade patterns for cleaner pipeline
+- **Context overflow fixes** — Priority 1 for context overflow in Stage5, aggressive truncation, effective max tokens
+- **TUI improvements** — ANSI color, bordered panels, tool dispatch indicators, streaming display
 
-### Known Limitations
-- No Docker image yet
+### Known Limitations (as of 0.0.30)
+- No Docker image yet (planned)
 - No Python SDK on PyPI (gRPC client works, pip package planned)
-- Single-user — no auth/ACL system
+- Single-user — no auth/ACL system yet
 - No web UI (CLI only)
 - Browser tool requires ChromeDP installed
 
 ### Testing
-- 1175+ tests passing with `-race` detector
+- 1226+ tests passing with `-race` detector
 - Red-team QA pass on every merge
 - Integration tests with bufconn gRPC mock
 
-[0.2.0]: https://github.com/aj-nt/mnemosyne/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/aj-nt/mnemosyne/releases/tag/v0.1.0
+[0.0.30]: https://github.com/aj-nt/mnemosyne/compare/v0.0.29...v0.0.30
+[0.0.29]: https://github.com/aj-nt/mnemosyne/releases/tag/v0.0.29
