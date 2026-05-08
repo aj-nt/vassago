@@ -402,3 +402,72 @@ func TestIsIntentLoop_Disabled(t *testing.T) {
 		t.Error("threshold 0 should disable intent loop detection")
 	}
 }
+func TestExtractCommandVerb_SimpleCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     string
+		expected string
+	}{
+		{"simple git", `{"command": "git log --oneline"}`, "git"},
+		{"simple ls", `{"command": "ls -la /tmp"}`, "ls"},
+		{"cd command", `{"command": "cd /tmp && ls"}`, "cd"},
+		{"chain with &&", `{"command": "git fetch && git rebase"}`, "git"},
+		{"chain with ;", `{"command": "echo hello; echo world"}`, "echo"},
+		{"chain with ||", `{"command": "cat file || echo missing"}`, "cat"},
+		{"empty args", `{}`, ""},
+		{"invalid json", `{bad`, ""},
+		{"no command field", `{"path": "/tmp"}`, ""},
+		{"just command no args", `{"command": "pwd"}`, "pwd"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractCommandVerb([]byte(tt.args))
+			if got != tt.expected {
+				t.Errorf("extractCommandVerb(%q) = %q, want %q", tt.args, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestComputeProgressSignature_ExecuteDifferentiation(t *testing.T) {
+	// Two Execute calls with different commands should produce different signatures
+	gitCall := ToolCall{Name: "Execute", Arguments: []byte(`{"command": "git log --oneline"}`)}
+	lsCall := ToolCall{Name: "Execute", Arguments: []byte(`{"command": "ls -la /tmp"}`)}
+
+	gitResult := ToolResult{CallID: "1", Name: "Execute", Result: "output", IsError: false}
+	lsResult := ToolResult{CallID: "2", Name: "Execute", Result: "output", IsError: false}
+
+	gitSig := ComputeProgressSignature([]ToolCall{gitCall}, []ToolResult{gitResult}, "")
+	lsSig := ComputeProgressSignature([]ToolCall{lsCall}, []ToolResult{lsResult}, "")
+
+	if gitSig.ToolNames == lsSig.ToolNames {
+		t.Errorf("Different Execute commands should have different tool names, got same: %q", gitSig.ToolNames)
+	}
+	if gitSig.ToolNames != "Execute:git" {
+		t.Errorf("Expected 'Execute:git', got %q", gitSig.ToolNames)
+	}
+	if lsSig.ToolNames != "Execute:ls" {
+		t.Errorf("Expected 'Execute:ls', got %q", lsSig.ToolNames)
+	}
+}
+
+func TestComputeProgressSignature_ExecuteFallback(t *testing.T) {
+	// Execute call without a command field should fall back to just "Execute"
+	call := ToolCall{Name: "Execute", Arguments: []byte(`{}`)}
+	result := ToolResult{CallID: "1", Name: "Execute", Result: "output", IsError: false}
+	sig := ComputeProgressSignature([]ToolCall{call}, []ToolResult{result}, "")
+	if sig.ToolNames != "Execute" {
+		t.Errorf("Expected 'Execute' fallback, got %q", sig.ToolNames)
+	}
+}
+
+func TestComputeProgressSignature_FileReadNoCommand(t *testing.T) {
+	// FileRead should NOT have command differentiation — just "FileRead"
+	call := ToolCall{Name: "FileRead", Arguments: []byte(`{"path": "/tmp/test"}`)}
+	result := ToolResult{CallID: "1", Name: "FileRead", Result: "contents", IsError: false}
+	sig := ComputeProgressSignature([]ToolCall{call}, []ToolResult{result}, "")
+	if sig.ToolNames != "FileRead" {
+		t.Errorf("Expected 'FileRead', got %q", sig.ToolNames)
+	}
+}

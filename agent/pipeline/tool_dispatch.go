@@ -38,13 +38,17 @@ func NewToolDispatchStage(registry *tools.ToolRegistry, eventBus *eventbus.Event
 }
 
 // Process executes tool calls and returns their results.
-func (s *ToolDispatchStage) Process(_ *agentctx.ConversationContext, parsed agentctx.ParsedResponse) agentctx.ToolDispatchResult {
+func (s *ToolDispatchStage) Process(convCtx *agentctx.ConversationContext, parsed agentctx.ParsedResponse) agentctx.ToolDispatchResult {
 	if len(parsed.ToolCalls) == 0 {
 		return agentctx.ToolDispatchResult{}
 	}
 
-	// Initialize call counts map if not already done
-	if s.callCounts == nil {
+	// Reset call counts at the start of each new turn (iteration 0).
+	// Per-turn budgets should not accumulate across the entire loop.
+	// When convCtx is nil (e.g., tests), don't reset — accumulate normally.
+	if convCtx != nil && convCtx.Iteration == 0 {
+		s.callCounts = make(map[string]int)
+	} else if s.callCounts == nil {
 		s.callCounts = make(map[string]int)
 	}
 

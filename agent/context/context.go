@@ -4,6 +4,7 @@
 package context
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -304,11 +305,22 @@ func joinNames(names []string) string {
 
 // ComputeProgressSignature creates a progress signature for the current iteration
 // based on the tool calls made, their results, and the LLM's stated intent.
+// For Execute tool calls, the first word of the command is included in the
+// tool name to distinguish different commands (e.g., "Execute:git" vs "Execute:ls").
 func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult, intentText string) ProgressSignature {
-	// Build sorted tool names
+	// Build tool names, including command detail for Execute
 	names := make([]string, 0, len(toolCalls))
 	for _, tc := range toolCalls {
-		names = append(names, tc.Name)
+		name := tc.Name
+		// For Execute, include the first word of the command to distinguish
+		// different actions (git log vs git show vs cat vs ls, etc.)
+		if tc.Name == "Execute" {
+			cmd := extractCommandVerb(tc.Arguments)
+			if cmd != "" {
+				name = "Execute:" + cmd
+			}
+		}
+		names = append(names, name)
 	}
 	sort.Strings(names)
 	toolNames := strings.Join(names, ",")
@@ -344,6 +356,37 @@ func ComputeProgressSignature(toolCalls []ToolCall, results []ToolResult, intent
 		ResultTag: resultTag,
 		IntentTag: ComputeIntentTag(toolNames, intentText),
 	}
+}
+
+// extractCommandVerb parses the "command" field from an Execute tool call's
+// JSON arguments and returns the first word (the actual command, not its flags).
+// For example: {"command": "git log --oneline"} → "git".
+// Returns empty string if parsing fails or no command field is found.
+func extractCommandVerb(args json.RawMessage) string {
+	var parsed struct {
+		Command string `json:"command"`
+	}
+	if err := json.Unmarshal(args, &parsed); err != nil || parsed.Command == "" {
+		return ""
+	}
+	// Take just the first word (the command itself, not flags/args)
+	cmd := strings.TrimSpace(parsed.Command)
+	// Handle chained commands: "cd foo && git log" → take first command
+	if idx := strings.Index(cmd, "&&"); idx > 0 {
+		cmd = strings.TrimSpace(cmd[:idx])
+	}
+	if idx := strings.Index(cmd, "||"); idx > 0 {
+		cmd = strings.TrimSpace(cmd[:idx])
+	}
+	if idx := strings.Index(cmd, ";"); idx > 0 {
+		cmd = strings.TrimSpace(cmd[:idx])
+	}
+	// Now take the first word
+	fields := strings.Fields(cmd)
+	if len(fields) > 0 {
+		return fields[0]
+	}
+	return ""
 }
 
 // intentKeywords maps verbs commonly used in LLM narration to intent buckets.
