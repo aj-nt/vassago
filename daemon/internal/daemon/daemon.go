@@ -433,11 +433,12 @@ func (d *Daemon) Server() *grpc.Server {
 	return d.server
 }
 
-// handleChat handles HTTP chat requests
+// handleChat handles HTTP chat requests.
+// Not yet implemented — the primary chat interface is via gRPC (ChatStream).
 func (d *Daemon) handleChat(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement chat functionality
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Chat endpoint - to be implemented"))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotImplemented)
+	w.Write([]byte(`{"error":"chat via HTTP not implemented; use gRPC ChatStream instead"}`))
 }
 
 // runAutoConsolidation runs periodic consolidation (expired + idle sweep) every hour.
