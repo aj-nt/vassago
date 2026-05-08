@@ -38,7 +38,14 @@ func main() {
 
 	if *dryRun {
 		log.Println("DRY RUN — no changes will be made")
-		// TODO: implement dry-run mode
+		result, err := migration.DryRunImport(*source, *agent)
+		if err != nil {
+			log.Fatalf("Dry run failed: %v", err)
+		}
+		log.Printf("Would import:")
+		log.Printf("  Memories: %d read, %d would import, %d would skip", result.MemoriesRead, result.MemoriesImported, result.MemoriesSkipped)
+		log.Printf("  Sessions: %d read, %d would import, %d would skip", result.SessionsRead, result.SessionsImported, result.SessionsSkipped)
+		log.Printf("  Messages: %d read, %d would import", result.MessagesRead, result.MessagesImported)
 		os.Exit(0)
 	}
 
