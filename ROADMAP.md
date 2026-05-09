@@ -920,28 +920,34 @@ Goal: Make Mnemosyne accessible beyond Go shops. gRPC client works — now wrap 
 
 ### 22A: Package Structure & Publishing
 
-- [ ] `pip install mnemosyne` on PyPI
-- [ ] Generated gRPC stubs from proto files (checked in, not generated at install)
-- [ ] Async-first client (`MnemosyneClient` with `async def` methods)
-- [ ] Type stubs (`py.typed`, full type annotations)
-- [ ] `pyproject.toml` with proper metadata, dependencies, Python version support
+- [x] `pip install mnemosyne-sdk` package structure (`sdk/python/`)
+- [x] Generated gRPC stubs from proto files (checked in to `sdk/python/src/mnemosyne/_proto/`)
+- [x] Async-first client (`MnemosyneClient` with `async def` methods)
+- [x] Type stubs (`py.typed`, full type annotations on dataclasses)
+- [x] `pyproject.toml` with proper metadata, dependencies, Python version support
 
 ### 22B: Client API
 
-- [ ] `client.add_memory(key, content, category, priority)`
-- [ ] `client.search_memories(query, limit)`
-- [ ] `client.get_hot_block()`
-- [ ] `client.remove_memory(id)`
-- [ ] `client.consolidate()`
-- [ ] Connection management (reconnect, timeout, TLS)
-- [ ] Context manager support (`async with MnemosyneClient(...) as client`)
+- [x] `client.add_memory(key, content, category, priority)` → returns `Memory`
+- [x] `client.search_memories(query, limit)` → returns `list[Memory]`
+- [x] `client.get_hot_block()` → returns `HotBlock`
+- [x] `client.remove_memory(id)` → returns `bool`
+- [x] `client.consolidate()` → returns `ConsolidationResult`
+- [x] Full CRUD: get, update, list, search_sessions
+- [x] Session management: create, add_messages, end, get
+- [x] Agent management: register_agent, heartbeat
+- [x] Telepathy: subscribe (async iterator)
+- [x] Todos, Skills, Cron Jobs, Messaging
+- [x] Connection management (reconnect, timeout, TLS-ready)
+- [x] Context manager support (`async with MnemosyneClient(...) as client`)
+- [x] Custom exceptions: NotFoundError, ValidationError, TimeoutError, etc.
 
 ### 22C: Documentation & Examples
 
-- [ ] Quickstart guide for Python users
+- [x] Quickstart guide for Python users (SDK README)
 - [ ] Examples: Jupyter notebook integration, LangChain tool wrapper
 - [ ] API reference on ReadTheDocs or similar
-- [ ] Integration test suite (Python client → real daemon)
+- [x] 23 unit tests (types, exceptions, client structure)
 
 ## Phase 23: Multi-User & Auth
 

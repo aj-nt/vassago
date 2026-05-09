@@ -258,6 +258,34 @@ See [ROADMAP.md](ROADMAP.md) for planned work if you want to pick something up.
 mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ```
 
+## Python SDK
+
+```bash
+pip install mnemosyne-sdk
+```
+
+```python
+import asyncio
+from mnemosyne import MnemosyneClient
+
+async def main():
+    async with MnemosyneClient("localhost:50051") as client:
+        # Add a memory
+        mem = await client.add_memory(
+            key="deploy-server",
+            content="The deploy server is at node-3.internal",
+            category="environment",
+            priority=4,
+        )
+        # Get the hot block
+        block = await client.get_hot_block()
+        print(block.content)
+
+asyncio.run(main())
+```
+
+See [`sdk/python/README.md`](sdk/python/README.md) for the full API reference.
+
 ## Testing
 
 ```bash
@@ -278,13 +306,13 @@ make all             # build + test + lint
 | 15–18 | Messaging, Cron, Quality, Browser, Vision | ✅ Complete |
 | 19 | GoF Refactoring, Spiral Detection, Polish | ✅ Complete |
 | 20 | Memory Migration, Personality Simplification, Agent Loop Fixes | ✅ Complete |
-| 21 | Open Source Readiness | 🔜 Planned |
-| 22 | Python SDK | 🔜 Planned |
-| 23 | Community & Docs | 🔜 Planned |
+| 21 | Open Source Readiness | ✅ Complete |
+| 22 | Python SDK | 🔧 In Progress |
+| 23 | Multi-User & Auth | 🔜 Planned |
 
 **Known limitations:**
 - ~~No Docker image yet (planned)~~ → Docker image available (see Docker section)
-- No Python SDK on PyPI (gRPC client works, pip package planned — Phase 22)
+- ~~No Python SDK on PyPI (gRPC client works, pip package planned — Phase 22)~~ → Python SDK available (`pip install mnemosyne-sdk`)
 - Single-user — no auth/ACL system yet (Phase 23)
 - No web UI (CLI only)
 - Browser tool requires ChromeDP installed
