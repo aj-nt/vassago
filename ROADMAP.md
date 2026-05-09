@@ -828,6 +828,17 @@ Goal: Apply design pattern refactoring to improve code quality and testability.
 - [x] Fix: progress signature coarseness — ToolNames-only signatures caused false spiral detection on legitimate multi-step chains
 - [x] Commit da168fd
 
+### 20J: Auto-Memory-Persist — COMPLETE ✅
+
+- [x] FinallyFunc hook in LoopConfig — called via defer on every exit path (YIELD, TERMINATE, error)
+- [x] ExtractMemories — LLM-based post-conversation memory extraction
+- [x] extractAndPersistMemories wired in agent.go (both RunWithContext and RunStreaming)
+- [x] Guards: skip on context overflow, errors, nil provider/MnemoClient
+- [x] IntentLoopThreshold 3→5 (soften nudge during code exploration)
+- [x] Softer nudge messages ("Progress check" → gentle reminder)
+- [x] 6 new tests (3 FinallyFunc + 3 ExtractMemories)
+- [x] Commits 8ef653e + fc326c0
+
 ## Phase 20: Memory Migration & Spiral Detection — COMPLETE ✅
 
 Goal: Migrate Hermes data to Mnemosyne and fix the spiral detection core issue.
