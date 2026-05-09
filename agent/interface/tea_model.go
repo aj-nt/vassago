@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -23,15 +24,38 @@ import (
 
 var (
 	styleAgentName = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	styleDim      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleError    = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	styleToolStart = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Italic(true)
-	styleToolOkay  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	styleToolExec = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Italic(true)
-	styleContextOK  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	styleContextWarn = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	styleContextCrit = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	styleDim       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	styleBold      = lipgloss.NewStyle().Bold(true)
+	styleError     = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	styleToolSpin  = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Italic(true)
+	styleToolOk    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	styleToolExec  = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Italic(true)
+	styleContextOK   = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	styleContextWarn  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	styleContextCrit  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+
+	// Response panel styles
+	stylePanelBorder = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	stylePanelHeader = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("12"))
+
+	// Input prompt styles
+	stylePromptChar = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
+
+	// Chat bubble styles
+	styleUserBubble = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("6")).
+			PaddingLeft(2)
+	styleAssistantLabel = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("12")).
+				Bold(true).
+				PaddingLeft(2)
 )
+
+// --- Spinners ---
+
+var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // --- Bubble Tea model ---
 
@@ -46,28 +70,29 @@ type teaModel struct {
 	hotBlock  string
 	stats     SessionStats
 
+	// UI components
+	input    textinput.Model
+	viewport viewport.Model
+
+	// Current streaming response (accumulated during a single turn)
+	turnText strings.Builder
+	toolLogs []string // tool indicator lines for current turn
+
+	// Completed turn history (displayed in the viewport)
+	chatHistory []string
+
 	// UI state
-	input      textinput.Model
-	response   strings.Builder // current streaming response text
-	toolLines  []string        // tool indicator lines during streaming
 	thinking   bool
 	responding bool
+	phase      phase
 	err        error
-	phase      phase // where we are in the turn cycle
+	spinner    int
+	width      int
+	height     int
 
-	// Spinner counter for thinking animation
-	spinner int
-
-	// Channel for streaming events from the agent
+	// Agent streaming
 	eventCh chan agent.StreamEvent
-
-	// Terminal width
-	width int
-
-	// Current conversation context (updated after each turn)
 	convCtx *agentctx.ConversationContext
-
-	// Interrupt signal for cancellation
 	interrupt *agentctx.InterruptSignal
 	cancel    context.CancelFunc
 }
@@ -75,10 +100,10 @@ type teaModel struct {
 type phase int
 
 const (
-	phaseReady    phase = iota // waiting for user input
-	phaseThinking               // agent is thinking, spinner shown
-	phaseStreaming              // agent is streaming response
-	phaseToolCall               // agent is making tool calls
+	phaseReady     phase = iota
+	phaseThinking
+	phaseStreaming
+	phaseToolCall
 )
 
 // --- Messages ---
@@ -91,14 +116,17 @@ type thinkingTickMsg struct{}
 // RunInteractiveBubble starts an interactive chat session using Bubble Tea.
 func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 	ti := textinput.New()
-	ti.Placeholder = "Type a message..."
+	ti.Placeholder = "Type a message... (/quit to exit)"
 	ti.Prompt = "❯ "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	ti.PromptStyle = stylePromptChar
 	ti.CharLimit = 0
 	ti.Width = 70
 
 	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "Interactive session")
 	hotBlock, _ := a.GetHotBlock(ctx)
+
+	vp := viewport.New(80, 20)
+	vp.Style = lipgloss.NewStyle().PaddingLeft(0)
 
 	m := teaModel{
 		agent:     a,
@@ -107,11 +135,22 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 		toolDefs:  a.BuildToolDefinitions(),
 		hotBlock:  sanitizeUTF8(hotBlock),
 		input:     ti,
+		viewport:  vp,
 		eventCh:   make(chan agent.StreamEvent, 64),
 		width:     80,
+		height:    24,
 		phase:     phaseReady,
 		interrupt: agentctx.NewInterruptSignal(),
 	}
+
+	// Build startup banner
+	banner := formatBanner(a.Config.AgentName, a.Config.Personality)
+	banner += "\n"
+	banner += formatStartupInfo(0, utf8.RuneCountInString(m.hotBlock), "")
+	banner += "\n"
+	banner += formatCommandsHelp()
+	banner += "\n"
+	m.chatHistory = []string{banner}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()
@@ -129,14 +168,18 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+		m.height = msg.Height
 		m.input.Width = max(msg.Width-6, 20)
+		// Viewport takes all space except input area and status
+		m.viewport.Width = msg.Width
+		m.viewport.Height = max(msg.Height-3, 5) // 3 rows for input + gap
+		m.rebuildViewport()
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			if m.responding {
-				// Interrupt current response
 				if m.interrupt != nil {
 					m.interrupt.Set()
 				}
@@ -146,16 +189,17 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.responding = false
 				m.thinking = false
 				m.phase = phaseReady
-				m.response.Reset()
-				m.toolLines = nil
+				m.endTurn("Interrupted.")
 				m.input.Focus()
 				return m, nil
 			}
+			// Persist and exit
+			m.persistSession()
 			return m, tea.Quit
 
 		case tea.KeyEnter:
 			if m.responding {
-				return m, nil // ignore input while responding
+				return m, nil
 			}
 			input := m.input.Value()
 			if input == "" {
@@ -170,9 +214,13 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if quitCmd != nil {
 						return m, quitCmd
 					}
+					m.rebuildViewport()
 					return m, nil
 				}
 			}
+
+			// Show user message in history
+			m.chatHistory = append(m.chatHistory, styleUserBubble.Render("You: "+input))
 
 			// Start agent response
 			m.messages = append(m.messages, agentctx.Message{Role: "user", Content: input})
@@ -181,8 +229,8 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.responding = true
 			m.thinking = true
 			m.phase = phaseThinking
-			m.response.Reset()
-			m.toolLines = nil
+			m.turnText.Reset()
+			m.toolLogs = nil
 			m.err = nil
 			m.spinner = 0
 
@@ -198,18 +246,20 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.waitForStreamEvent())
 		}
 		m.input.Focus()
+		m.rebuildViewport()
 		return m, cmd
 
 	case thinkingTickMsg:
 		if m.thinking {
 			m.spinner++
+			m.rebuildViewport()
 			return m, m.thinkingTick()
 		}
 		return m, nil
 	}
 
-	// Default: update text input
-	if m.phase == phaseReady && m.input.Focused() {
+	// Default: update text input when ready
+	if m.phase == phaseReady {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		return m, cmd
@@ -218,68 +268,96 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m teaModel) View() string {
-	var b strings.Builder
-	width := m.width
+	// Layout: viewport on top, input at bottom
+	// The viewport contains the chat history
+	vpView := m.viewport.View()
 
-	switch m.phase {
-	case phaseThinking:
-		// Show spinner
-		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		b.WriteString(styleDim.Render(fmt.Sprintf("  ⚕ Thinking %s", spinFrames[m.spinner%len(spinFrames)])))
-		b.WriteString("\n\n")
-
-	case phaseStreaming, phaseToolCall:
-		// Show accumulated response
-		if m.response.Len() > 0 {
-			b.WriteString(m.response.String())
-			b.WriteString("\n")
-		}
-		// Show tool indicators
-		for _, line := range m.toolLines {
-			b.WriteString(line)
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
-
-	case phaseReady:
-		// Show completed response with context usage
-		if m.response.Len() > 0 {
-			text := strings.TrimRight(m.response.String(), " \t\n")
-			if text != "" {
-				b.WriteString(formatResponseBubble(text, m.agent.Config.AgentName, width))
-				b.WriteString("\n")
-			}
-
-			// Context usage
-			if m.convCtx != nil {
-				tokenCount := m.convCtx.TokenCount()
-				ctxStr := formatContextUsageBubble(tokenCount, m.agent.Config.MaxContextTokens)
-				if ctxStr != "" {
-					b.WriteString(styleDim.Render("  📊 " + ctxStr))
-					b.WriteString("\n")
-				}
-			}
-			b.WriteString("\n")
-		}
-
-		// Show error if any
-		if m.err != nil {
-			b.WriteString(styleError.Render(fmt.Sprintf("Error: %v", m.err)))
-			b.WriteString("\n\n")
-		}
-	}
-
-	// Always show the prompt
+	// Input area
+	var inputView string
 	if m.phase == phaseReady {
-		b.WriteString(m.input.View())
+		inputView = m.input.View()
 	} else {
-		b.WriteString(styleDim.Render("  ⋯"))
+		inputView = styleDim.Render("  ⋯")
 	}
 
-	return b.String()
+	// Status line (context usage, turn count)
+	var statusLine string
+	if m.stats.Turns > 0 {
+		parts := []string{}
+		parts = append(parts, fmt.Sprintf("turn %d", m.stats.Turns))
+		if m.stats.ToolCalls > 0 {
+			parts = append(parts, fmt.Sprintf("%d tools", m.stats.ToolCalls))
+		}
+		statusLine = styleDim.Render("  "+strings.Join(parts, " · "))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		vpView,
+		statusLine,
+		inputView,
+	)
 }
 
 // --- Internal methods ---
+
+// rebuildViewport rebuilds the viewport content from chatHistory and current turn state.
+func (m *teaModel) rebuildViewport() {
+	var b strings.Builder
+
+	// Render completed chat history
+	for _, line := range m.chatHistory {
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+
+	// Render current turn state
+	switch m.phase {
+	case phaseThinking:
+		b.WriteString(styleDim.Render(fmt.Sprintf("  ⚕ Thinking %s", spinFrames[m.spinner%len(spinFrames)])))
+		b.WriteString("\n")
+
+	case phaseStreaming, phaseToolCall:
+		if m.turnText.Len() > 0 {
+			b.WriteString(m.turnText.String())
+			b.WriteString("\n")
+		}
+		for _, line := range m.toolLogs {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+	}
+
+	m.viewport.SetContent(b.String())
+	m.viewport.GotoBottom()
+}
+
+// endTurn finalizes a completed turn: moves turnText into chatHistory,
+// shows response panel and context usage, resets state to phaseReady.
+func (m *teaModel) endTurn(fallbackText string) {
+	text := strings.TrimRight(m.turnText.String(), " \t\n")
+	if text == "" && fallbackText != "" {
+		text = fallbackText
+	}
+	if text != "" {
+		panel := formatResponseBubble(text, m.agent.Config.AgentName, m.width)
+		m.chatHistory = append(m.chatHistory, panel)
+
+		// Context usage line
+		if m.convCtx != nil {
+			tokenCount := m.convCtx.TokenCount()
+			ctxStr := formatContextUsageBubble(tokenCount, m.agent.Config.MaxContextTokens)
+			if ctxStr != "" {
+				m.chatHistory = append(m.chatHistory, styleDim.Render("  📊 "+ctxStr))
+			}
+		}
+		m.chatHistory = append(m.chatHistory, "") // blank line separator
+	}
+
+	// Clear turn state
+	m.turnText.Reset()
+	m.toolLogs = nil
+	m.phase = phaseReady
+}
 
 // handleStreamEvent processes a streaming event and updates model state.
 func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
@@ -289,30 +367,29 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 			m.thinking = false
 			m.phase = phaseStreaming
 		}
-		m.response.WriteString(ev.Text)
+		m.turnText.WriteString(ev.Text)
 
 	case agentctx.StreamToolStart:
 		m.thinking = false
 		m.phase = phaseToolCall
 		m.stats.ToolCalls++
-		m.toolLines = append(m.toolLines,
-			fmt.Sprintf("  %s %s", styleToolStart.Render("⟳"), styleDim.Render(ev.ToolName)))
+		m.toolLogs = append(m.toolLogs,
+			fmt.Sprintf("  %s %s", styleToolSpin.Render("⟳"), styleDim.Render(ev.ToolName)))
 
 	case agentctx.StreamToolExec:
 		m.phase = phaseToolCall
-		m.toolLines = append(m.toolLines,
+		m.toolLogs = append(m.toolLogs,
 			fmt.Sprintf("  %s %s", styleToolExec.Render("⚙"), styleDim.Render(ev.ToolName)))
 
 	case agentctx.StreamToolEnd:
-		// Mark the last tool indicator as complete
-		for i := len(m.toolLines) - 1; i >= 0; i-- {
-			if strings.Contains(m.toolLines[i], "⟳") {
-				// Replace spinner with checkmark
+		// Mark last tool start indicator as completed
+		for i := len(m.toolLogs) - 1; i >= 0; i-- {
+			if strings.Contains(m.toolLogs[i], "⟳") {
 				toolName := ev.ToolName
 				if toolName == "" {
 					toolName = "tool"
 				}
-				m.toolLines[i] = fmt.Sprintf("  %s %s", styleToolOkay.Render("✓"), styleDim.Render(toolName))
+				m.toolLogs[i] = fmt.Sprintf("  %s %s", styleToolOk.Render("✓"), styleDim.Render(toolName))
 				break
 			}
 		}
@@ -321,13 +398,12 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 		m.err = ev.Error
 		m.responding = false
 		m.thinking = false
-		m.phase = phaseReady
+		m.endTurn("")
 		m.input.Focus()
 
 	case agentctx.StreamDone:
 		m.responding = false
 		m.thinking = false
-		m.phase = phaseReady
 		m.stats.Turns++
 		if ev.Usage != nil {
 			m.stats.TokensUsed += ev.Usage.TotalTokens
@@ -336,13 +412,13 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 			cost, _, _ := m.agent.Router.SessionCost()
 			m.stats.CostUSD = cost
 		}
+		m.endTurn("")
 		m.input.Focus()
 	}
 	return nil
 }
 
-// startAgentTurn launches the agent streaming goroutine and returns a command
-// that waits for the first event.
+// startAgentTurn launches the agent streaming goroutine.
 func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 	return func() tea.Msg {
 		// Refresh hot block
@@ -369,16 +445,15 @@ func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 			Temperature:     m.agent.Config.Temperature,
 		}
 
-		// Wire tool approval
-		// NOTE: In Bubble Tea mode, we auto-approve for now.
-		// Phase 2 will add interactive approval prompts.
+		// Auto-approve tools in TUI mode (interactive approval is Phase 3)
 		m.agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
 			return true
 		}
 
+		// Create fresh event channel
+		m.eventCh = make(chan agent.StreamEvent, 64)
 		go m.agent.RunStreaming(turnCtx, convCtx, m.eventCh)
 
-		// Store context for token count display
 		m.convCtx = convCtx
 
 		// Wait for first event
@@ -401,7 +476,7 @@ func (m *teaModel) waitForStreamEvent() tea.Cmd {
 	}
 }
 
-// thinkingTick returns a command that sends a thinkingTickMsg after 100ms.
+// thinkingTick sends a thinkingTickMsg after 100ms.
 func (m *teaModel) thinkingTick() tea.Cmd {
 	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
 		return thinkingTickMsg{}
@@ -409,86 +484,74 @@ func (m *teaModel) thinkingTick() tea.Cmd {
 }
 
 // handleCommand processes slash commands. Returns (handled, quitCmd).
-// quitCmd is non-nil when the user wants to exit.
 func (m *teaModel) handleCommand(input string) (bool, tea.Cmd) {
-	switch strings.TrimSpace(input) {
+	trimmed := strings.TrimSpace(input)
+
+	switch trimmed {
 	case "/quit", "/exit":
-		// Persist session
-		if m.sessionID != "" && len(m.messages) > 0 {
-			msgs := make([]client.Message, 0, len(m.messages))
-			for _, msg := range m.messages {
-				msgs = append(msgs, client.Message{Role: msg.Role, Content: msg.Content})
-			}
-			_ = m.agent.Mnemo.AddMessages(m.ctx, m.sessionID, msgs)
-		}
+		m.persistSession()
 		return true, tea.Quit
 
 	case "/clear":
 		m.messages = m.messages[:0]
-		m.response.Reset()
-		m.toolLines = nil
-		m.err = nil
+		m.chatHistory = append(m.chatHistory, styleToolOk.Render("✓")+styleDim.Render(" Context cleared"))
+		m.chatHistory = append(m.chatHistory, "")
 		m.convCtx = nil
+		m.err = nil
 		return true, nil
 
 	case "/hot":
-		m.response.Reset()
-		m.toolLines = nil
-		m.phase = phaseReady
-		m.response.WriteString(m.hotBlock)
+		output := m.hotBlock
+		m.chatHistory = append(m.chatHistory, output, "")
 		return true, nil
 
 	case "/history":
-		m.response.Reset()
-		m.toolLines = nil
-		m.phase = phaseReady
 		if len(m.messages) == 0 {
-			m.response.WriteString("[No messages in current context]")
+			m.chatHistory = append(m.chatHistory, styleDim.Render("  [No messages in current context]"), "")
 		} else {
 			for _, msg := range m.messages {
-				m.response.WriteString(formatHistoryLine(msg.Role, msg.Content) + "\n")
+				m.chatHistory = append(m.chatHistory, formatHistoryLine(msg.Role, msg.Content))
 			}
+			m.chatHistory = append(m.chatHistory, "")
 		}
 		return true, nil
 
 	case "/sessions":
-		m.response.Reset()
-		m.toolLines = nil
-		m.phase = phaseReady
 		if !m.agent.Mnemo.IsConnected() {
-			m.response.WriteString("[Not connected to daemon]")
+			m.chatHistory = append(m.chatHistory, styleDim.Render("  [Not connected to daemon]"), "")
 		} else {
 			sessions, err := m.agent.Mnemo.ListRecentSessions(m.ctx, 10)
 			if err != nil {
-				m.err = err
+				m.chatHistory = append(m.chatHistory, styleError.Render(fmt.Sprintf("Error: %v", err)), "")
 			} else if len(sessions) == 0 {
-				m.response.WriteString("[No sessions found]")
+				m.chatHistory = append(m.chatHistory, styleDim.Render("  [No sessions found]"), "")
 			} else {
 				for _, s := range sessions {
 					title := s.Title
 					if title == "" {
 						title = "(untitled)"
 					}
-					m.response.WriteString(formatSessionLine(s.ID[:25], title, int(s.MessageCount), s.Source) + "\n")
+					m.chatHistory = append(m.chatHistory, formatSessionLine(s.ID[:25], title, int(s.MessageCount), s.Source))
 				}
+				m.chatHistory = append(m.chatHistory, "")
 			}
 		}
 		return true, nil
 	}
 
-	if strings.HasPrefix(input, "/resume") {
-		id, ok := parseResumeCommand(input)
+	if strings.HasPrefix(trimmed, "/resume") {
+		id, ok := parseResumeCommand(trimmed)
 		if !ok {
-			m.err = fmt.Errorf("usage: /resume <session-id>")
+			m.chatHistory = append(m.chatHistory, styleError.Render("usage: /resume <session-id>"), "")
 			return true, nil
 		}
 		if !m.agent.Mnemo.IsConnected() {
-			m.err = fmt.Errorf("not connected to daemon")
+			m.chatHistory = append(m.chatHistory, styleError.Render("not connected to daemon"), "")
 			return true, nil
 		}
 		detail, err := m.agent.Mnemo.GetSession(m.ctx, id)
 		if err != nil {
-			m.err = err
+			m.chatHistory = append(m.chatHistory, styleError.Render(fmt.Sprintf("resume: %v", err)), "")
 			return true, nil
 		}
 		resumedMsgs := make([]agentctx.Message, 0, len(detail.Messages))
@@ -501,69 +564,63 @@ func (m *teaModel) handleCommand(input string) (bool, tea.Cmd) {
 		if title == "" {
 			title = "(untitled)"
 		}
-		m.response.Reset()
-		m.phase = phaseReady
-		m.response.WriteString(formatResumedSession(title, len(m.messages)))
+		m.chatHistory = append(m.chatHistory, formatResumedSession(title, len(m.messages)), "")
 		return true, nil
 	}
 
 	return false, nil
 }
 
-// formatResponseBubble wraps response text in a bordered panel using lipgloss.
+// persistSession saves session messages to the daemon.
+func (m *teaModel) persistSession() {
+	if m.sessionID != "" && len(m.messages) > 0 {
+		persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		msgs := make([]client.Message, 0, len(m.messages))
+		for _, msg := range m.messages {
+			msgs = append(msgs, client.Message{Role: msg.Role, Content: msg.Content})
+		}
+		_ = m.agent.Mnemo.AddMessages(persistCtx, m.sessionID, msgs)
+	}
+}
+
+// formatResponseBubble wraps response text in a lipgloss bordered panel.
 func formatResponseBubble(text, agentName string, width int) string {
 	if text == "" {
 		return ""
 	}
 
-	maxWidth := width - 4 // leave room for borders
-	if maxWidth < 40 {
-		maxWidth = 40
+	// Calculate content width (accounting for border and padding)
+	maxContent := width - 6 // 2 for borders, 4 for padding
+	if maxContent < 30 {
+		maxContent = 30
 	}
 
-	wrapped := wrapText(text, maxWidth)
+	wrapped := wrapText(text, maxContent)
 	lines := strings.Split(wrapped, "\n")
 
-	// Calculate content width
-	header := " ⚕ " + agentName + " "
-	headerLen := utf8.RuneCountInString(header)
-	contentWidth := headerLen
+	// Find max line width
+	contentWidth := utf8.RuneCountInString(" ⚕ "+agentName+" ")
 	for _, line := range lines {
-		l := utf8.RuneCountInString(line)
-		if l > contentWidth {
+		if l := utf8.RuneCountInString(line); l > contentWidth {
 			contentWidth = l
 		}
 	}
 
-	borderStyle := lipgloss.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		PaddingLeft(1).
-		PaddingRight(1)
+		PaddingRight(1).
+		Width(contentWidth + 2) // +2 for padding
 
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("12"))
-
-	contentStyle := lipgloss.NewStyle().
-		Width(contentWidth)
-
-	// Build header line
-	headerLine := headerStyle.Render(header)
-
-	// Build content lines
-	var contentLines []string
-	for _, line := range lines {
-		contentLines = append(contentLines, contentStyle.Render(line))
-	}
-
-	// Combine header + content
+	// Build content: header + response lines
 	var b strings.Builder
-	b.WriteString(headerLine)
+	b.WriteString(stylePanelHeader.Render("⚕ " + agentName))
 	b.WriteString("\n")
-	b.WriteString(strings.Join(contentLines, "\n"))
+	b.WriteString(strings.Join(lines, "\n"))
 
-	return borderStyle.Render(b.String())
+	return panelStyle.Render(b.String())
 }
 
 // formatContextUsageBubble shows context token usage with color coding.
