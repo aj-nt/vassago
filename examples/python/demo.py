@@ -1,129 +1,97 @@
 #!/usr/bin/env python3
-"""Mnemosyne gRPC client demo — add memory, read hot block, search, subscribe.
+"""Mnemosyne Python SDK demo — add memory, read hot block, search, subscribe.
 
-Prerequisites: pip install grpcio grpcio-tools
+Prerequisites: pip install mnemosyne-sdk
 Daemon must be running: mnemosyne start
-Stubs must be generated: make proto-python
 """
 
+import asyncio
 import sys
-import time
-import threading
 
-# Adjust this if running from a different directory
-sys.path.insert(0, "../../proto")
+sys.path.insert(0, "../../sdk/python/src")  # For development
 
-import grpc
-import mnemosyne_pb2 as pb
-import mnemosyne_pb2_grpc as rpc
+from mnemosyne import MnemosyneClient
 
 
 DAEMON_ADDR = "localhost:50051"
 AGENT_ID = "python-demo"
 
 
-def connect():
-    channel = grpc.insecure_channel(DAEMON_ADDR)
-    stub = rpc.MnemosyneStub(channel)
-    # Health check
-    resp = stub.Ping(pb.HealthCheckRequest())
-    print(f"✓ Connected to Mnemosyne daemon (status: {resp.status})")
-    return stub
+async def connect():
+    """Connect to the daemon and verify health."""
+    client = MnemosyneClient(DAEMON_ADDR)
+    await client.connect()
+    status = await client.ping()
+    print(f"✓ Connected to Mnemosyne daemon (status: {status})")
+    return client
 
 
-def add_memory(stub):
+async def add_memory(client):
     """Write a fact that persists across sessions."""
-    resp = stub.AddMemory(pb.AddMemoryRequest(
-        target="memory",
-        category="environment",
+    mem = await client.add_memory(
         key="demo-deployment",
         content="The deploy server is at 192.168.1.100 (added by Python demo)",
+        category="environment",
         priority=4,
         source_agent=AGENT_ID,
-    ))
-    print(f"✓ Added memory: {resp.entry.id[:8]}... (key={resp.entry.key})")
-    return resp.entry.id
+    )
+    print(f"✓ Added memory: {mem}")
+    return mem.id
 
 
-def read_hot_block(stub):
+async def read_hot_block(client):
     """Read the computed context window for this agent."""
-    resp = stub.GetHotBlock(pb.HotBlockRequest(
-        target="memory",
-        agent_id=AGENT_ID,
-        char_limit=3000,
-    ))
-    print(f"\n--- Hot Block ({resp.char_count} chars, {resp.entry_count} entries) ---")
-    print(resp.content[:500] + ("..." if resp.char_count > 500 else ""))
+    block = await client.get_hot_block(target="memory", agent_id=AGENT_ID)
+    print(f"\n--- Hot Block ({block.char_count} chars, {block.entry_count} entries) ---")
+    print(block.content[:500] + ("..." if block.char_count > 500 else ""))
     print("---\n")
 
 
-def search_memories(stub, query):
+async def search_memories(client, query):
     """Full-text search across all memories."""
-    resp = stub.Search(pb.SearchRequest(query=query, target="memory", limit=5))
-    print(f"✓ Search '{query}': {len(resp.entries)} results")
-    for entry in resp.entries:
-        print(f"  [{entry.category}] {entry.key}: {entry.content[:60]}...")
+    results = await client.search_memories(query=query, target="memory", limit=5)
+    print(f"✓ Search '{query}': {len(results)} results")
+    for m in results:
+        print(f"  [{m.category}] {m.key}: {m.content[:60]}...")
     print()
 
 
-def subscribe_telepathy(stub, agent_id, duration=5):
+async def subscribe_telepathy(client, duration=5):
     """Subscribe to real-time updates. Self-exclusion: you don't see your own writes."""
-    print(f"✓ Subscribing as '{agent_id}' for {duration}s (self-exclusion active)...")
+    print(f"✓ Subscribing as '{AGENT_ID}' for {duration}s (self-exclusion active)...")
     try:
-        stream = stub.Subscribe(pb.SubscribeRequest(
-            agent_id=agent_id,
-            targets=["memory"],
-        ))
-        deadline = time.time() + duration
-        for event in stream:
-            if time.time() > deadline:
-                break
-            kind = pb.UpdateEvent.EventType.Name(event.event_type)
-            print(f"  📡 Telepathy event: {kind} from {event.entry.source_agent[:8]}... "
-                  f"[{event.entry.category}] {event.entry.key}")
-    except grpc.RpcError as e:
-        if e.code() == grpc.StatusCode.CANCELLED:
-            pass  # normal exit
-        else:
-            print(f"  Subscription ended: {e.code()}")
+        async for event in client.subscribe(agent_id=AGENT_ID, targets=["memory"]):
+            print(f"  📡 Telepathy event: {event.event_type} from {event.agent_id[:8]}... "
+                  f"[{event.category}] {event.key}")
+    except Exception as e:
+        print(f"  Subscription ended: {e}")
 
 
-def main():
-    stub = connect()
+async def main():
+    client = await connect()
 
-    # 1. Add a memory
-    mem_id = add_memory(stub)
+    try:
+        # 1. Add a memory
+        mem_id = await add_memory(client)
 
-    # 2. Read the hot block (includes our new memory)
-    read_hot_block(stub)
+        # 2. Read the hot block (includes our new memory)
+        await read_hot_block(client)
 
-    # 3. Search for it
-    search_memories(stub, "deploy server")
+        # 3. Search
+        await search_memories(client, "deploy")
 
-    # 4. Subscribe to Telepathy events in a background thread
-    sub_thread = threading.Thread(
-        target=subscribe_telepathy,
-        args=(stub, AGENT_ID, 5),
-        daemon=True,
-    )
-    sub_thread.start()
+        # 4. List all memories
+        all_mems = await client.list_memories()
+        print(f"✓ Total memories: {len(all_mems)}")
+        for m in all_mems[:5]:
+            print(f"  [{m.category}] {m.key} (priority={m.priority})")
 
-    # 5. Write something else — see if we get our own echo back
-    print("Writing another memory while subscribed...")
-    resp = stub.AddMemory(pb.AddMemoryRequest(
-        target="memory",
-        category="project",
-        key="demo-check",
-        content="Self-exclusion test: I should NOT see this echoed back",
-        priority=3,
-        source_agent=AGENT_ID,
-    ))
-    print(f"✓ Added second memory: {resp.entry.id[:8]}...")
+        # 5. Subscribe (5 seconds)
+        await subscribe_telepathy(client, duration=5)
 
-    # Wait for subscription to finish
-    sub_thread.join(timeout=6)
-    print("\n✓ Self-exclusion verified: no echo of our own writes in subscription.")
+    finally:
+        await client.close()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

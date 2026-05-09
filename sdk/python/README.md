@@ -171,6 +171,40 @@ except MnemosyneError as e:
     print(f"Unexpected error: {e}")
 ```
 
+## LangChain Integration
+
+Install with LangChain support:
+
+```bash
+pip install mnemosyne-sdk[langchain]
+```
+
+```python
+from mnemosyne import MnemosyneClient
+from mnemosyne.integrations.langchain import (
+    MnemosyneMemoryTool,
+    MnemosyneSearchTool,
+    MnemosyneHotBlockTool,
+)
+
+client = MnemosyneClient("localhost:50051")
+await client.connect()
+
+tools = [
+    MnemosyneMemoryTool(client=client),
+    MnemosyneSearchTool(client=client),
+    MnemosyneHotBlockTool(client=client),
+]
+
+# Use with any LangChain agent
+from langchain.agents import initialize_agent
+agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
+```
+
+## Jupyter Notebook
+
+See [`examples/python/quickstart.ipynb`](../../examples/python/quickstart.ipynb) for an interactive walkthrough of the full API.
+
 ## Development
 
 ```bash

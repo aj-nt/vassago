@@ -34,6 +34,9 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
 ]
+langchain = [
+    "langchain-core>=0.1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/aj-nt/mnemosyne"
