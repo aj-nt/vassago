@@ -63,7 +63,13 @@ const (
 
 type streamEventMsg struct{ event agent.StreamEvent }
 type thinkingTickMsg struct{}
-type approvalResultMsg struct{ approved bool }
+
+// approvalRequestMsg is sent when a tool needs user approval.
+// The TUI transitions to phaseApproval and waits for the user's response.
+type approvalRequestMsg struct {
+	toolName string
+	args     map[string]interface{}
+}
 
 // --- Model ---
 
@@ -108,8 +114,12 @@ type teaModel struct {
 	interrupt *agentctx.InterruptSignal
 	cancel    context.CancelFunc
 
-	// Tool approval state (for interactive approval — Phase 3b)
-	// Currently auto-approved; will be made interactive later.
+	// Approval: the Approver callback (running in the streaming goroutine)
+	// sends approvalRequestMsg via p.Send(), then blocks on approvalCh.
+	// The TUI's Update() handles approvalRequestMsg, prompts the user,
+	// and sends the result to approvalCh to unblock the Approver.
+	program     *tea.Program
+	approvalCh  chan bool
 	pendingApprovalToolName string
 	pendingApprovalArgs    map[string]interface{}
 }
@@ -135,19 +145,20 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 	vp := viewport.New(80, 20)
 
 	m := teaModel{
-		agent:     a,
-		ctx:       ctx,
-		sessionID: sessionID,
-		toolDefs:  a.BuildToolDefinitions(),
-		hotBlock:  sanitizeUTF8(hotBlock),
-		input:     ta,
-		viewport:  vp,
-		eventCh:   make(chan agent.StreamEvent, 64),
-		width:     80,
-		height:    24,
-		phase:     phaseReady,
-		interrupt: agentctx.NewInterruptSignal(),
-		historyIdx: -1,
+		agent:        a,
+		ctx:          ctx,
+		sessionID:    sessionID,
+		toolDefs:     a.BuildToolDefinitions(),
+		hotBlock:     sanitizeUTF8(hotBlock),
+		input:        ta,
+		viewport:     vp,
+		eventCh:      make(chan agent.StreamEvent, 64),
+		approvalCh:   make(chan bool, 1),
+		width:        80,
+		height:       24,
+		phase:        phaseReady,
+		interrupt:    agentctx.NewInterruptSignal(),
+		historyIdx:   -1,
 	}
 
 	// Build startup banner
@@ -160,6 +171,7 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 	m.chatHistory = []string{banner}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
+	m.program = p // store for p.Send() in Approver callback
 	_, err := p.Run()
 	return err
 }
@@ -187,11 +199,18 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			if m.phase == phaseApproval {
-				// Deny approval
+				// Deny approval — send false to unblock the Approver
+				m.approvalCh <- false
+				// Cancel the streaming context so the agent stops
+				if m.cancel != nil {
+					m.cancel()
+				}
 				m.phase = phaseReady
+				m.responding = false
+				m.thinking = false
 				m.input.SetValue("")
 				m.input.Focus()
-				m.chatHistory = append(m.chatHistory, styleDim.Render("  ⚠ Tool approval denied"))
+				m.chatHistory = append(m.chatHistory, styleDim.Render("  ⚠ Tool approval denied — turn cancelled"))
 				m.chatHistory = append(m.chatHistory, "")
 				m.rebuildViewport()
 				return m, nil
@@ -246,18 +265,23 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.phase == phaseApproval {
 				input := strings.ToLower(strings.TrimSpace(m.input.Value()))
 				approved := input == "y" || input == "yes"
-				m.phase = phaseReady
-				m.input.SetValue("")
-				m.input.Focus()
+
+				// Send result to the Approver callback (unblocking the streaming goroutine)
+				m.approvalCh <- approved
+
 				if approved {
 					m.chatHistory = append(m.chatHistory, styleToolOk.Render("  ✓ Approved"))
 				} else {
 					m.chatHistory = append(m.chatHistory, styleDim.Render("  ⚠ Tool approval denied"))
 				}
 				m.chatHistory = append(m.chatHistory, "")
+				m.phase = phaseToolCall // resume streaming (tool will execute or be skipped)
+				m.input.SetValue("")
+				m.input.Blur()
 				m.rebuildViewport()
-				// Note: actual approval wiring is Phase 3b — currently auto-approved
-				return m, nil
+
+				// Resume waiting for stream events
+				return m, m.waitForStreamEvent()
 			}
 
 			if m.responding {
@@ -322,6 +346,35 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuildViewport()
 			return m, m.thinkingTick()
 		}
+		return m, nil
+
+	case approvalRequestMsg:
+		// A tool needs user approval — transition to approval mode
+		m.pendingApprovalToolName = msg.toolName
+		m.pendingApprovalArgs = msg.args
+		m.phase = phaseApproval
+		m.input.SetValue("")
+		m.input.Focus()
+
+		// Build approval prompt with tool details
+		promptText := fmt.Sprintf("⚠ Approval required\n  Tool: %s", msg.toolName)
+		if cmd, ok := msg.args["command"].(string); ok && cmd != "" {
+			// Truncate long commands for display
+			displayCmd := cmd
+			if len(displayCmd) > 120 {
+				displayCmd = displayCmd[:120] + "…"
+			}
+			promptText += fmt.Sprintf("\n  Command: %s", displayCmd)
+		} else if path, ok := msg.args["path"].(string); ok && path != "" {
+			promptText += fmt.Sprintf("\n  Path: %s", path)
+		}
+		promptText += "\n\n  Type 'y' to approve, any other key to skip."
+
+		m.chatHistory = append(m.chatHistory, "")
+		m.chatHistory = append(m.chatHistory, styleApprovalBox.Render(promptText))
+		m.chatHistory = append(m.chatHistory, "")
+		m.rebuildViewport()
+
 		return m, nil
 	}
 
@@ -522,14 +575,22 @@ func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 			Temperature:     m.agent.Config.Temperature,
 		}
 
-		// Wire tool approval — check if approval is needed and pause if so
+		// Wire tool approval — interactive for tools that need it
 		m.agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
 			if !tools.NeedsApproval(toolName, args) {
 				return true
 			}
-			// Auto-approve in non-interactive mode for now
-			// TODO: Phase 3b will make this interactive via tea.Program.Send()
-			return true
+
+			// Send a message to the Bubble Tea program to show the approval prompt.
+			// The TUI's Update() will handle this, transition to phaseApproval,
+			// and the user's response will be sent to approvalCh.
+			m.program.Send(approvalRequestMsg{
+				toolName: toolName,
+				args:     args,
+			})
+
+			// Block until the user responds via the TUI
+			return <-m.approvalCh
 		}
 
 		m.eventCh = make(chan agent.StreamEvent, 64)
