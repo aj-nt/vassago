@@ -945,9 +945,11 @@ Goal: Make Mnemosyne accessible beyond Go shops. gRPC client works — now wrap 
 ### 22C: Documentation & Examples
 
 - [x] Quickstart guide for Python users (SDK README)
-- [ ] Examples: Jupyter notebook integration, LangChain tool wrapper
-- [ ] API reference on ReadTheDocs or similar
+- [x] Examples: Jupyter notebook integration, LangChain tool wrapper
+- [ ] API reference on ReadTheDocs or similar (deferred — SDK README is comprehensive)
 - [x] 23 unit tests (types, exceptions, client structure)
+- [x] Integration test suite (Python client → real daemon, with --live-daemon flag)
+- [x] Updated demo.py to use SDK instead of raw gRPC stubs
 
 ## Phase 23: Multi-User & Auth
 
