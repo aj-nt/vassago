@@ -10,54 +10,62 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/aj-nt/mnemosyne/agent"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/tools"
 	"github.com/aj-nt/mnemosyne/client"
 )
 
 // --- Lipgloss styles ---
 
 var (
-	styleAgentName = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	styleDim       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleBold      = lipgloss.NewStyle().Bold(true)
 	styleError     = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	styleToolSpin  = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Italic(true)
 	styleToolOk    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	styleToolExec  = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Italic(true)
-	styleContextOK   = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	styleContextWarn  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	styleContextCrit  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	styleContextOK = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	styleContextWarn = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	styleContextCrit = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 
-	// Response panel styles
 	stylePanelBorder = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	stylePanelHeader = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("12"))
+	stylePanelHeader = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	styleUserLabel   = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
+	styleApprovalBox = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("11")).
+				Padding(0, 1)
 
-	// Input prompt styles
-	stylePromptChar = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
-
-	// Chat bubble styles
-	styleUserBubble = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			PaddingLeft(2)
-	styleAssistantLabel = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("12")).
-				Bold(true).
-				PaddingLeft(2)
+	styleStatusBar = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
-// --- Spinners ---
-
+// Spin frames for thinking indicator
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-// --- Bubble Tea model ---
+// --- Phases ---
+
+type phase int
+
+const (
+	phaseReady      phase = iota // waiting for user input
+	phaseThinking                 // agent thinking, spinner shown
+	phaseStreaming                // agent streaming text response
+	phaseToolCall                  // agent executing tool calls
+	phaseApproval                  // waiting for user approval of a tool call
+)
+
+// --- Messages ---
+
+type streamEventMsg struct{ event agent.StreamEvent }
+type thinkingTickMsg struct{}
+type approvalResultMsg struct{ approved bool }
+
+// --- Model ---
 
 type teaModel struct {
 	agent *agent.Agent
@@ -71,62 +79,60 @@ type teaModel struct {
 	stats     SessionStats
 
 	// UI components
-	input    textinput.Model
+	input    textarea.Model
 	viewport viewport.Model
 
-	// Current streaming response (accumulated during a single turn)
+	// Current streaming response
 	turnText strings.Builder
-	toolLogs []string // tool indicator lines for current turn
+	toolLogs []string
 
-	// Completed turn history (displayed in the viewport)
+	// Chat history (rendered into viewport)
 	chatHistory []string
 
+	// Input history (up/down arrow recall)
+	inputHistory []string
+	historyIdx   int // -1 = not navigating history
+
 	// UI state
+	phase      phase
 	thinking   bool
 	responding bool
-	phase      phase
 	err        error
 	spinner    int
 	width      int
 	height     int
 
 	// Agent streaming
-	eventCh chan agent.StreamEvent
-	convCtx *agentctx.ConversationContext
+	eventCh  chan agent.StreamEvent
+	convCtx  *agentctx.ConversationContext
 	interrupt *agentctx.InterruptSignal
 	cancel    context.CancelFunc
+
+	// Tool approval state (for interactive approval — Phase 3b)
+	// Currently auto-approved; will be made interactive later.
+	pendingApprovalToolName string
+	pendingApprovalArgs    map[string]interface{}
 }
 
-type phase int
-
-const (
-	phaseReady     phase = iota
-	phaseThinking
-	phaseStreaming
-	phaseToolCall
-)
-
-// --- Messages ---
-
-type streamEventMsg struct{ event agent.StreamEvent }
-type thinkingTickMsg struct{}
-
-// --- Public entry point ---
+// --- Phases ---
 
 // RunInteractiveBubble starts an interactive chat session using Bubble Tea.
 func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
-	ti := textinput.New()
-	ti.Placeholder = "Type a message... (/quit to exit)"
-	ti.Prompt = "❯ "
-	ti.PromptStyle = stylePromptChar
-	ti.CharLimit = 0
-	ti.Width = 70
+	ta := textarea.New()
+	ta.Placeholder = "Type a message... (Shift+Enter for newline, /quit to exit)"
+	ta.Prompt = "❯ "
+	ta.CharLimit = 0
+	ta.ShowLineNumbers = false
+	ta.SetWidth(70)
+	ta.SetHeight(1) // single line by default, expands for multi-line
+
+	// Enable cursor blinking
+	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 
 	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "Interactive session")
 	hotBlock, _ := a.GetHotBlock(ctx)
 
 	vp := viewport.New(80, 20)
-	vp.Style = lipgloss.NewStyle().PaddingLeft(0)
 
 	m := teaModel{
 		agent:     a,
@@ -134,13 +140,14 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 		sessionID: sessionID,
 		toolDefs:  a.BuildToolDefinitions(),
 		hotBlock:  sanitizeUTF8(hotBlock),
-		input:     ti,
+		input:     ta,
 		viewport:  vp,
 		eventCh:   make(chan agent.StreamEvent, 64),
 		width:     80,
 		height:    24,
 		phase:     phaseReady,
 		interrupt: agentctx.NewInterruptSignal(),
+		historyIdx: -1,
 	}
 
 	// Build startup banner
@@ -160,7 +167,7 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 // --- tea.Model interface ---
 
 func (m teaModel) Init() tea.Cmd {
-	return textinput.Blink
+	return textarea.Blink
 }
 
 func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -169,16 +176,26 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.Width = max(msg.Width-6, 20)
-		// Viewport takes all space except input area and status
+		m.input.SetWidth(max(msg.Width-4, 20))
 		m.viewport.Width = msg.Width
-		m.viewport.Height = max(msg.Height-3, 5) // 3 rows for input + gap
+		m.viewport.Height = max(msg.Height-5, 5)
 		m.rebuildViewport()
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle special keys first
 		switch msg.Type {
 		case tea.KeyCtrlC:
+			if m.phase == phaseApproval {
+				// Deny approval
+				m.phase = phaseReady
+				m.input.SetValue("")
+				m.input.Focus()
+				m.chatHistory = append(m.chatHistory, styleDim.Render("  ⚠ Tool approval denied"))
+				m.chatHistory = append(m.chatHistory, "")
+				m.rebuildViewport()
+				return m, nil
+			}
 			if m.responding {
 				if m.interrupt != nil {
 					m.interrupt.Set()
@@ -191,36 +208,86 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.phase = phaseReady
 				m.endTurn("Interrupted.")
 				m.input.Focus()
+				m.rebuildViewport()
 				return m, nil
 			}
-			// Persist and exit
 			m.persistSession()
 			return m, tea.Quit
 
-		case tea.KeyEnter:
-			if m.responding {
+		case tea.KeyUp:
+			// Input history navigation (only in ready phase, not composing)
+			if m.phase == phaseReady && !m.input.Focused() {
+				// shouldn't happen, but be safe
+			} else if m.phase == phaseReady {
+				if len(m.inputHistory) > 0 && m.historyIdx < len(m.inputHistory)-1 {
+					m.historyIdx++
+					m.input.SetValue(m.inputHistory[len(m.inputHistory)-1-m.historyIdx])
+					m.input.CursorEnd()
+					return m, nil
+				}
+			}
+
+		case tea.KeyDown:
+			// Input history navigation
+			if m.phase == phaseReady {
+				if m.historyIdx > 0 {
+					m.historyIdx--
+					m.input.SetValue(m.inputHistory[len(m.inputHistory)-1-m.historyIdx])
+					m.input.CursorEnd()
+				} else if m.historyIdx == 0 {
+					m.historyIdx = -1
+					m.input.SetValue("")
+				}
 				return m, nil
 			}
-			input := m.input.Value()
+
+		case tea.KeyEnter:
+			// Approval mode: 'y' = approve, anything else = deny
+			if m.phase == phaseApproval {
+				input := strings.ToLower(strings.TrimSpace(m.input.Value()))
+				approved := input == "y" || input == "yes"
+				m.phase = phaseReady
+				m.input.SetValue("")
+				m.input.Focus()
+				if approved {
+					m.chatHistory = append(m.chatHistory, styleToolOk.Render("  ✓ Approved"))
+				} else {
+					m.chatHistory = append(m.chatHistory, styleDim.Render("  ⚠ Tool approval denied"))
+				}
+				m.chatHistory = append(m.chatHistory, "")
+				m.rebuildViewport()
+				// Note: actual approval wiring is Phase 3b — currently auto-approved
+				return m, nil
+			}
+
+			if m.responding {
+				return m, nil // ignore input while responding
+			}
+
+			input := strings.TrimSpace(m.input.Value())
 			if input == "" {
 				return m, nil
 			}
+
+			// Save to history
+			m.inputHistory = append(m.inputHistory, input)
+			m.historyIdx = -1
 
 			// Handle slash commands
 			if strings.HasPrefix(input, "/") {
 				handled, quitCmd := m.handleCommand(input)
 				if handled {
 					m.input.SetValue("")
+					m.rebuildViewport()
 					if quitCmd != nil {
 						return m, quitCmd
 					}
-					m.rebuildViewport()
 					return m, nil
 				}
 			}
 
 			// Show user message in history
-			m.chatHistory = append(m.chatHistory, styleUserBubble.Render("You: "+input))
+			m.chatHistory = append(m.chatHistory, styleUserLabel.Render("You: ")+input)
 
 			// Start agent response
 			m.messages = append(m.messages, agentctx.Message{Role: "user", Content: input})
@@ -258,37 +325,45 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Default: update text input when ready
-	if m.phase == phaseReady {
+	// Default: update text input/viewport when ready
+	if m.phase == phaseReady || m.phase == phaseApproval {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
+		m.viewport, _ = m.viewport.Update(msg)
 		return m, cmd
 	}
+
+	// During responding, still update viewport for scrolling
+	m.viewport, _ = m.viewport.Update(msg)
 	return m, nil
 }
 
 func (m teaModel) View() string {
-	// Layout: viewport on top, input at bottom
-	// The viewport contains the chat history
+	// Layout: viewport (chat history), status line, input area
 	vpView := m.viewport.View()
+
+	// Status line
+	var statusLine string
+	if m.phase == phaseThinking {
+		statusLine = styleDim.Render(fmt.Sprintf("  ⚕ Thinking %s", spinFrames[m.spinner%len(spinFrames)]))
+	} else if m.phase == phaseApproval {
+		statusLine = styleDim.Render("  ⚠ Awaiting approval (y/n)")
+	} else if m.stats.Turns > 0 {
+		parts := []string{fmt.Sprintf("turn %d", m.stats.Turns)}
+		if m.stats.ToolCalls > 0 {
+			parts = append(parts, fmt.Sprintf("%d tools", m.stats.ToolCalls))
+		}
+		statusLine = styleStatusBar.Render("  " + strings.Join(parts, " · "))
+	}
 
 	// Input area
 	var inputView string
 	if m.phase == phaseReady {
 		inputView = m.input.View()
+	} else if m.phase == phaseApproval {
+		inputView = styleDim.Render("  y/n> ")
 	} else {
 		inputView = styleDim.Render("  ⋯")
-	}
-
-	// Status line (context usage, turn count)
-	var statusLine string
-	if m.stats.Turns > 0 {
-		parts := []string{}
-		parts = append(parts, fmt.Sprintf("turn %d", m.stats.Turns))
-		if m.stats.ToolCalls > 0 {
-			parts = append(parts, fmt.Sprintf("%d tools", m.stats.ToolCalls))
-		}
-		statusLine = styleDim.Render("  "+strings.Join(parts, " · "))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -325,14 +400,20 @@ func (m *teaModel) rebuildViewport() {
 			b.WriteString(line)
 			b.WriteString("\n")
 		}
+
+	case phaseApproval:
+		b.WriteString("\n")
+		b.WriteString(styleApprovalBox.Render(
+			fmt.Sprintf("⚠ Approval required\n  Tool: %s\n  Type 'y' to approve, anything else to skip",
+				m.pendingApprovalToolName)))
+		b.WriteString("\n")
 	}
 
 	m.viewport.SetContent(b.String())
 	m.viewport.GotoBottom()
 }
 
-// endTurn finalizes a completed turn: moves turnText into chatHistory,
-// shows response panel and context usage, resets state to phaseReady.
+// endTurn finalizes a completed turn and resets state.
 func (m *teaModel) endTurn(fallbackText string) {
 	text := strings.TrimRight(m.turnText.String(), " \t\n")
 	if text == "" && fallbackText != "" {
@@ -342,7 +423,6 @@ func (m *teaModel) endTurn(fallbackText string) {
 		panel := formatResponseBubble(text, m.agent.Config.AgentName, m.width)
 		m.chatHistory = append(m.chatHistory, panel)
 
-		// Context usage line
 		if m.convCtx != nil {
 			tokenCount := m.convCtx.TokenCount()
 			ctxStr := formatContextUsageBubble(tokenCount, m.agent.Config.MaxContextTokens)
@@ -350,16 +430,15 @@ func (m *teaModel) endTurn(fallbackText string) {
 				m.chatHistory = append(m.chatHistory, styleDim.Render("  📊 "+ctxStr))
 			}
 		}
-		m.chatHistory = append(m.chatHistory, "") // blank line separator
+		m.chatHistory = append(m.chatHistory, "") // blank separator
 	}
 
-	// Clear turn state
 	m.turnText.Reset()
 	m.toolLogs = nil
 	m.phase = phaseReady
 }
 
-// handleStreamEvent processes a streaming event and updates model state.
+// handleStreamEvent processes agent streaming events.
 func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 	switch ev.Type {
 	case agentctx.StreamText:
@@ -382,7 +461,6 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 			fmt.Sprintf("  %s %s", styleToolExec.Render("⚙"), styleDim.Render(ev.ToolName)))
 
 	case agentctx.StreamToolEnd:
-		// Mark last tool start indicator as completed
 		for i := len(m.toolLogs) - 1; i >= 0; i-- {
 			if strings.Contains(m.toolLogs[i], "⟳") {
 				toolName := ev.ToolName
@@ -421,7 +499,6 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 // startAgentTurn launches the agent streaming goroutine.
 func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 	return func() tea.Msg {
-		// Refresh hot block
 		if hb, err := m.agent.GetHotBlock(m.ctx); err == nil && hb != "" {
 			m.hotBlock = sanitizeUTF8(hb)
 		}
@@ -445,18 +522,20 @@ func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 			Temperature:     m.agent.Config.Temperature,
 		}
 
-		// Auto-approve tools in TUI mode (interactive approval is Phase 3)
+		// Wire tool approval — check if approval is needed and pause if so
 		m.agent.Stage4.Approver = func(toolName string, args map[string]interface{}) bool {
+			if !tools.NeedsApproval(toolName, args) {
+				return true
+			}
+			// Auto-approve in non-interactive mode for now
+			// TODO: Phase 3b will make this interactive via tea.Program.Send()
 			return true
 		}
 
-		// Create fresh event channel
 		m.eventCh = make(chan agent.StreamEvent, 64)
 		go m.agent.RunStreaming(turnCtx, convCtx, m.eventCh)
-
 		m.convCtx = convCtx
 
-		// Wait for first event
 		ev, ok := <-m.eventCh
 		if !ok {
 			return streamEventMsg{event: agent.StreamEvent{Type: agentctx.StreamDone}}
@@ -465,7 +544,7 @@ func (m *teaModel) startAgentTurn(input string) tea.Cmd {
 	}
 }
 
-// waitForStreamEvent returns a command that waits for the next stream event.
+// waitForStreamEvent waits for the next streaming event.
 func (m *teaModel) waitForStreamEvent() tea.Cmd {
 	return func() tea.Msg {
 		ev, ok := <-m.eventCh
@@ -476,14 +555,14 @@ func (m *teaModel) waitForStreamEvent() tea.Cmd {
 	}
 }
 
-// thinkingTick sends a thinkingTickMsg after 100ms.
+// thinkingTick sends a spinner animation tick.
 func (m *teaModel) thinkingTick() tea.Cmd {
 	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
 		return thinkingTickMsg{}
 	})
 }
 
-// handleCommand processes slash commands. Returns (handled, quitCmd).
+// handleCommand processes slash commands.
 func (m *teaModel) handleCommand(input string) (bool, tea.Cmd) {
 	trimmed := strings.TrimSpace(input)
 
@@ -501,8 +580,7 @@ func (m *teaModel) handleCommand(input string) (bool, tea.Cmd) {
 		return true, nil
 
 	case "/hot":
-		output := m.hotBlock
-		m.chatHistory = append(m.chatHistory, output, "")
+		m.chatHistory = append(m.chatHistory, m.hotBlock, "")
 		return true, nil
 
 	case "/history":
@@ -590,8 +668,7 @@ func formatResponseBubble(text, agentName string, width int) string {
 		return ""
 	}
 
-	// Calculate content width (accounting for border and padding)
-	maxContent := width - 6 // 2 for borders, 4 for padding
+	maxContent := width - 6
 	if maxContent < 30 {
 		maxContent = 30
 	}
@@ -599,7 +676,6 @@ func formatResponseBubble(text, agentName string, width int) string {
 	wrapped := wrapText(text, maxContent)
 	lines := strings.Split(wrapped, "\n")
 
-	// Find max line width
 	contentWidth := utf8.RuneCountInString(" ⚕ "+agentName+" ")
 	for _, line := range lines {
 		if l := utf8.RuneCountInString(line); l > contentWidth {
@@ -612,9 +688,8 @@ func formatResponseBubble(text, agentName string, width int) string {
 		BorderForeground(lipgloss.Color("8")).
 		PaddingLeft(1).
 		PaddingRight(1).
-		Width(contentWidth + 2) // +2 for padding
+		Width(contentWidth + 2)
 
-	// Build content: header + response lines
 	var b strings.Builder
 	b.WriteString(stylePanelHeader.Render("⚕ " + agentName))
 	b.WriteString("\n")
@@ -642,7 +717,6 @@ func formatContextUsageBubble(used, maximum int) string {
 	}
 }
 
-// max returns the larger of two integers.
 func max(a, b int) int {
 	if a > b {
 		return a
