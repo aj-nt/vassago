@@ -2,6 +2,7 @@
 bin/
 *.out
 coverage.out
+coverage.html
 
 # Binaries (in case built at project root)
 /mnemosyne
@@ -28,4 +29,4 @@ coverage.out
 # Generated Python gRPC stubs (run make proto-python to regenerate)
 proto/*_pb2.py
 proto/*_pb2_grpc.py
-proto/*_pb2.pyi
+proto/*_pb2.pyideploy-studio.sh

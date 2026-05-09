@@ -1,0 +1,142 @@
+# .goreleaser.yml
+# https://goreleaser.com/customization/
+
+project_name: mnemosyne
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: mnemosyne
+    main: ./cmd/mnemosyne
+    binary: mnemosyne
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: mnemosyne-daemon
+    main: ./daemon/cmd/mnemosyne-daemon
+    binary: mnemosyne-daemon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: mnemosyne-agent
+    main: ./agent/cmd/mnemosyne-agent
+    binary: mnemosyne-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: mnemosyne-cli
+    main: ./daemon/cmd/mnemosyne-cli
+    binary: mnemosyne-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: mnemosyne-import
+    main: ./daemon/cmd/mnemosyne-import
+    binary: mnemosyne-import
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_
+      {{- .Arch }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - LICENSE-AGPLv3
+      - LICENSE-Apache-2.0
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^refactor:"
+
+brews:
+  - name: mnemosyne
+    repository:
+      owner: aj-nt
+      name: homebrew-mnemosyne
+    directory: Formula
+    homepage: https://github.com/aj-nt/mnemosyne
+    description: "Shared memory for AI agents. One daemon, many agents, zero echo loops."
+    license: AGPL-3.0
+    install: |
+      bin.install "mnemosyne"
+      bin.install "mnemosyne-daemon"
+      bin.install "mnemosyne-agent"
+      bin.install "mnemosyne-cli"
+      bin.install "mnemosyne-import"
+    test: |
+      assert_match "mnemosyne version", shell_output("#{bin}/mnemosyne version 2>&1", 1)
