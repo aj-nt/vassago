@@ -126,6 +126,10 @@ Description:
   Start an interactive chat session with the Mnemosyne agent.
   If a message is provided, sends it and exits.
 
+  With --tui, the Bubble Tea interface provides scrolling, mouse
+  support, multi-line input, and tool approval prompts.
+  Combines with --message for a one-shot TUI display.
+
   The daemon must be running (use 'mnemosyne start').
 
 Examples:
@@ -168,9 +172,16 @@ Examples:
 	cli := iface.NewCLI(result.Agent)
 
 	if message != "" {
-		if err := cli.RunOneShot(agentCtx, message); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+		if useTUI {
+			if err := iface.RunOneShotBubble(agentCtx, result.Agent, message); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := cli.RunOneShot(agentCtx, message); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		// Check if stdin has data (piped input)
@@ -184,9 +195,16 @@ Examples:
 			}
 			msg := strings.TrimSpace(input.String())
 			if msg != "" {
-				if err := cli.RunOneShot(agentCtx, msg); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-					os.Exit(1)
+				if useTUI {
+					if err := iface.RunOneShotBubble(agentCtx, result.Agent, msg); err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+						os.Exit(1)
+					}
+				} else {
+					if err := cli.RunOneShot(agentCtx, msg); err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+						os.Exit(1)
+					}
 				}
 			}
 		} else {
