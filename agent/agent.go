@@ -199,6 +199,9 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 		PersistFunc: func(sid string) {
 			a.persistSession(ctx, sid, convCtx)
 		},
+		FinallyFunc: func(sid string, result *pipeline.LoopResult) {
+			a.extractAndPersistMemories(ctx, sid, convCtx, result)
+		},
 	}
 
 	result := pipeline.RunPipelineLoop(ctx, convCtx, cfg, caller, sessionID)
@@ -214,6 +217,24 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 		MaxIterationsHit: result.MaxIterationsHit,
 		SessionID:        sessionID,
 	}, nil
+}
+
+// extractAndPersistMemories is the FinallyFunc — runs after every conversation
+// via defer, extracting key facts from the conversation and saving them as memories.
+func (a *Agent) extractAndPersistMemories(ctx context.Context, sessionID string, convCtx *agentctx.ConversationContext, result *pipeline.LoopResult) {
+	if a.Mnemo == nil || a.Registry == nil {
+		return
+	}
+	// Skip extraction on context overflow or error — nothing useful to save
+	if result != nil && (result.ContextOverflow || result.StoppedOnError) {
+		return
+	}
+	prov, err := a.selectProvider(convCtx)
+	if err != nil || prov == nil {
+		log.Printf("[memory-extract] no provider available: %v", err)
+		return
+	}
+	ExtractMemories(ctx, convCtx.Messages, prov, a.Mnemo, sessionID, a.Config.AgentName)
 }
 
 // SetHotBlockCache sets the hot block cache for Telepathy-driven updates.
@@ -385,6 +406,9 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 		MaxConsecutiveErrors: 3,
 		PersistFunc: func(sid string) {
 			a.persistSession(ctx, sid, convCtx)
+		},
+		FinallyFunc: func(sid string, result *pipeline.LoopResult) {
+			a.extractAndPersistMemories(ctx, sid, convCtx, result)
 		},
 	}
 

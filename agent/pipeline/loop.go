@@ -48,6 +48,7 @@ type LoopConfig struct {
 	EventBus             *eventbus.EventBus
 	PersistFunc          func(sessionID string)
 	MaxConsecutiveErrors int
+	FinallyFunc          func(sessionID string, result *LoopResult)
 }
 
 // Stages holds the 5 pipeline stages.
@@ -69,7 +70,14 @@ type Stages struct {
 // The ProviderCaller parameter provides the mode-specific Stage 2-3 logic.
 // For streaming, the caller may also run Stages 4-5 in fallback scenarios,
 // indicated by SkipStages45=true in the return.
-func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext, cfg *LoopConfig, caller ProviderCaller, sessionID string) *LoopResult {
+func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext, cfg *LoopConfig, caller ProviderCaller, sessionID string) (result *LoopResult) {
+	// FinallyFunc runs on every exit path (yield, terminate, error),
+	// similar to a finally clause in try-catch-finally.
+	if cfg.FinallyFunc != nil {
+		defer func() {
+			cfg.FinallyFunc(sessionID, result)
+		}()
+	}
 	if cfg.MaxConsecutiveErrors <= 0 {
 		cfg.MaxConsecutiveErrors = 3
 	}
@@ -149,7 +157,7 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 			// free to continue tool use if it has new information.
 			convCtx.Messages = append(convCtx.Messages,
 				agentctx.Message{Role: "assistant", Content: parsed.Text},
-				agentctx.Message{Role: "user", Content: "[system: A progress check was triggered. Continue if you have new information. Otherwise, summarize what you've found.]"},
+				agentctx.Message{Role: "user", Content: "[system: Progress check — if you have new information, continue. If you're stuck, summarize and ask for guidance.]"},
 			)
 			if cfg.PersistFunc != nil {
 				cfg.PersistFunc(sessionID)

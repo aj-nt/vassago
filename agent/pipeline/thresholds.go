@@ -69,7 +69,7 @@ func DefaultThresholds() PipelineThresholds {
 		AggressiveSummaryThreshold: 500,
 		RepetitiveLoopThreshold:    0,  // disabled — ProgressDetection replaces it
 		ProgressYieldThreshold:     5,  // need 5+ consecutive identical signatures to YIELD
-		IntentLoopThreshold:        3,  // 3+ same-intent iterations triggers nudge
+		IntentLoopThreshold:        5,  // 5+ same-intent iterations triggers nudge
 		ConsecutiveLoopThreshold:   0,  // disabled — ProgressDetection replaces it
 		NarrationNudgeThreshold:   0,  // disabled — ProgressDetection replaces it
 		StuckMinFailures:           2,

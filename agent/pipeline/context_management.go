@@ -401,7 +401,7 @@ func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext,
 		}
 
 		nudgeMsg := fmt.Sprintf(
-			"[system: You've been %s multiple times without converging. Consider whether you have enough information to answer, or try a completely different approach.]",
+			"[system: Note: you've been %s several times. If you have new information, keep going. If stuck, try a different approach.]",
 			intentVerb(dominantIntent),
 		)
 		convCtx.Messages = append(convCtx.Messages,

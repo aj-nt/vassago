@@ -339,7 +339,7 @@ func TestConversation_DelegateEmptyOutput(t *testing.T) {
 // the agent switches between different tools but with the same stated purpose
 // ("Let me search..."). The old progress detection missed this because the
 // tool names differ (FileSearch ≠ SearchMemories ≠ Execute).
-// The intent loop detection catches it because "search" appears 3+ times.
+// The intent loop detection catches it because "search" appears 5+ times.
 func TestConversation_IntentLoopCrossTool(t *testing.T) {
 	stage := NewContextManagementStage(0)
 
@@ -359,27 +359,37 @@ func TestConversation_IntentLoopCrossTool(t *testing.T) {
 				{ID: "3", Name: "Execute", Arguments: args},
 			}},
 			{Role: "tool", Content: "output: grep found nothing", ToolCallID: "3", Name: "Execute"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "4a", Name: "FileSearch", Arguments: args},
+			}},
+			{Role: "tool", Content: "found 2 files", ToolCallID: "4a", Name: "FileSearch"},
+			{Role: "assistant", Content: "", ToolCalls: []agentctx.ToolCall{
+				{ID: "4b", Name: "Execute", Arguments: args},
+			}},
+			{Role: "tool", Content: "output: grep found nothing", ToolCallID: "4b", Name: "Execute"},
 		},
 		MaxIterations: 10,
-		Iteration:     4,
+		Iteration:     6,
 		ProgressHistory: []agentctx.ProgressSignature{
 			{ToolNames: "FileSearch", ResultTag: "success", IntentTag: "search"},
 			{ToolNames: "SearchMemories", ResultTag: "not_found", IntentTag: "search"},
+			{ToolNames: "Execute", ResultTag: "success", IntentTag: "search"},
+			{ToolNames: "FileSearch", ResultTag: "success", IntentTag: "search"},
 			{ToolNames: "Execute", ResultTag: "success", IntentTag: "search"},
 		},
 		DuplicateProgressCount: 0, // Different signatures — not duplicate!
 	}
 
-	// 4th iteration: still searching, different tool
+	// 6th iteration: still searching, different tool
 	parsed := agentctx.ParsedResponse{
 		Text: "Let me search the codebase again.",
 		ToolCalls: []agentctx.ToolCall{
-			{ID: "4", Name: "FileSearch", Arguments: args},
+			{ID: "6", Name: "FileSearch", Arguments: args},
 		},
 		FinishReason: "tool_use",
 	}
 	toolResults := []agentctx.ToolResult{
-		{CallID: "4", Name: "FileSearch", Result: "found 5 files", IsError: false},
+		{CallID: "6", Name: "FileSearch", Result: "found 5 files", IsError: false},
 	}
 
 	action := stage.Process(convCtx, toolResults, parsed)

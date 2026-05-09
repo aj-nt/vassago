@@ -1,0 +1,120 @@
+package agent
+
+import (
+	"context"
+	"testing"
+
+	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/provider"
+	pb "github.com/aj-nt/mnemosyne/proto"
+)
+
+// mockExtractProvider implements provider.Provider for testing
+type mockExtractProvider struct {
+	response agentctx.ParsedResponse
+	err      error
+}
+
+func (m *mockExtractProvider) Name() string { return "mock" }
+func (m *mockExtractProvider) Capabilities() agentctx.ProviderCapabilities {
+	return agentctx.ProviderCapabilities{}
+}
+func (m *mockExtractProvider) Prepare(ctx context.Context, convCtx *agentctx.ConversationContext, req agentctx.PreparedRequest) (interface{}, error) {
+	return req, nil
+}
+func (m *mockExtractProvider) Execute(ctx context.Context, req interface{}) (agentctx.ProviderResult, error) {
+	return agentctx.ProviderResult{}, nil
+}
+func (m *mockExtractProvider) Parse(ctx context.Context, result agentctx.ProviderResult) (agentctx.ParsedResponse, error) {
+	return m.response, m.err
+}
+func (m *mockExtractProvider) Stream(ctx context.Context, req interface{}) (<-chan agentctx.StreamEvent, error) {
+	ch := make(chan agentctx.StreamEvent)
+	close(ch)
+	return ch, nil
+}
+
+// mockExtractClient implements client.MnemoClient for testing
+type mockExtractClient struct {
+	savedMemories []*pb.MemoryEntry
+}
+
+func (m *mockExtractClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
+	entry := &pb.MemoryEntry{Key: key, Content: content, Category: category, Priority: priority}
+	m.savedMemories = append(m.savedMemories, entry)
+	return entry, nil
+}
+func (m *mockExtractClient) GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error) { return nil, nil }
+func (m *mockExtractClient) SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error) {
+	return nil, nil
+}
+func (m *mockExtractClient) ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error) {
+	return nil, nil
+}
+func (m *mockExtractClient) RemoveMemory(ctx context.Context, id string) error { return nil }
+func (m *mockExtractClient) ReplaceMemory(ctx context.Context, target, category, key, content string, priority int32) (*pb.MemoryEntry, error) {
+	return nil, nil
+}
+func (m *mockExtractClient) ConsolidateMemories(ctx context.Context, scope string, batchSize int) error {
+	return nil
+}
+
+func TestExtractMemories_EmptyMessages(t *testing.T) {
+	mockProv := &mockExtractProvider{}
+	mockClient := &mockExtractClient{}
+
+	err := ExtractMemories(context.Background(), []agentctx.Message{}, mockProv, mockClient, "session1", "test-agent")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(mockClient.savedMemories) != 0 {
+		t.Fatalf("expected 0 memories, got %d", len(mockClient.savedMemories))
+	}
+}
+
+func TestExtractMemories_ExtractsFacts(t *testing.T) {
+	mockProv := &mockExtractProvider{
+		response: agentctx.ParsedResponse{
+			Text: `[{"key":"user_name","content":"User's name is AJ","category":"user","priority":3}]`,
+		},
+	}
+	mockClient := &mockExtractClient{}
+
+	messages := []agentctx.Message{
+		{Role: "user", Content: "My name is AJ"},
+		{Role: "assistant", Content: "Nice to meet you, AJ!"},
+	}
+
+	err := ExtractMemories(context.Background(), messages, mockProv, mockClient, "session1", "test-agent")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(mockClient.savedMemories) != 1 {
+		t.Fatalf("expected 1 memory, got %d", len(mockClient.savedMemories))
+	}
+	if mockClient.savedMemories[0].Key != "user_name" {
+		t.Errorf("expected key 'user_name', got %q", mockClient.savedMemories[0].Key)
+	}
+}
+
+func TestExtractMemories_NothingWorthSaving(t *testing.T) {
+	mockProv := &mockExtractProvider{
+		response: agentctx.ParsedResponse{
+			Text: `[]`,
+		},
+	}
+	mockClient := &mockExtractClient{}
+
+	messages := []agentctx.Message{
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi there"},
+	}
+
+	err := ExtractMemories(context.Background(), messages, mockProv, mockClient, "session1", "test-agent")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(mockClient.savedMemories) != 0 {
+		t.Fatalf("expected 0 memories, got %d", len(mockClient.savedMemories))
+	}
+}
