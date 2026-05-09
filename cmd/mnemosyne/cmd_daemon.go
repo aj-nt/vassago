@@ -91,11 +91,13 @@ func cmdAgent(args []string) {
 func cmdChat(args []string) {
 	configPath := ""
 	message := ""
+	useTUI := false
 
 	fs := flag.NewFlagSet("chat", flag.ExitOnError)
 	fs.StringVar(&configPath, "config", "", "Path to agent config (default: ~/.mnemosyne/agent.yaml)")
 	fs.StringVar(&message, "message", "", "Send a single message and exit (non-interactive)")
 	fs.StringVar(&message, "m", "", "Shorthand for --message")
+	fs.BoolVar(&useTUI, "tui", false, "Use Bubble Tea TUI (experimental)")
 	fs.Parse(args)
 
 	// Re-parse remaining args for any positional message
@@ -117,11 +119,16 @@ func cmdChat(args []string) {
 Options:
   --config PATH    Path to agent config (default: ~/.mnemosyne/agent.yaml)
   --message, -m    Send a single message and exit (non-interactive)
+  --tui            Use Bubble Tea TUI (experimental)
   --help, -h       Show this help
 
 Description:
   Start an interactive chat session with the Mnemosyne agent.
   If a message is provided, sends it and exits.
+
+  With --tui, the Bubble Tea interface provides scrolling, mouse
+  support, multi-line input, and tool approval prompts.
+  Combines with --message for a one-shot TUI display.
 
   The daemon must be running (use 'mnemosyne start').
 
@@ -165,9 +172,16 @@ Examples:
 	cli := iface.NewCLI(result.Agent)
 
 	if message != "" {
-		if err := cli.RunOneShot(agentCtx, message); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+		if useTUI {
+			if err := iface.RunOneShotBubble(agentCtx, result.Agent, message); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := cli.RunOneShot(agentCtx, message); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		// Check if stdin has data (piped input)
@@ -181,15 +195,29 @@ Examples:
 			}
 			msg := strings.TrimSpace(input.String())
 			if msg != "" {
-				if err := cli.RunOneShot(agentCtx, msg); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-					os.Exit(1)
+				if useTUI {
+					if err := iface.RunOneShotBubble(agentCtx, result.Agent, msg); err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+						os.Exit(1)
+					}
+				} else {
+					if err := cli.RunOneShot(agentCtx, msg); err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+						os.Exit(1)
+					}
 				}
 			}
 		} else {
-			if err := cli.RunInteractive(agentCtx); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+			if useTUI {
+				if err := iface.RunInteractiveBubble(agentCtx, result.Agent); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+			} else {
+				if err := cli.RunInteractive(agentCtx); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
 			}
 		}
 	}
