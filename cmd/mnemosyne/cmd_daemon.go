@@ -91,11 +91,13 @@ func cmdAgent(args []string) {
 func cmdChat(args []string) {
 	configPath := ""
 	message := ""
+	useTUI := false
 
 	fs := flag.NewFlagSet("chat", flag.ExitOnError)
 	fs.StringVar(&configPath, "config", "", "Path to agent config (default: ~/.mnemosyne/agent.yaml)")
 	fs.StringVar(&message, "message", "", "Send a single message and exit (non-interactive)")
 	fs.StringVar(&message, "m", "", "Shorthand for --message")
+	fs.BoolVar(&useTUI, "tui", false, "Use Bubble Tea TUI (experimental)")
 	fs.Parse(args)
 
 	// Re-parse remaining args for any positional message
@@ -117,6 +119,7 @@ func cmdChat(args []string) {
 Options:
   --config PATH    Path to agent config (default: ~/.mnemosyne/agent.yaml)
   --message, -m    Send a single message and exit (non-interactive)
+  --tui            Use Bubble Tea TUI (experimental)
   --help, -h       Show this help
 
 Description:
@@ -187,9 +190,16 @@ Examples:
 				}
 			}
 		} else {
-			if err := cli.RunInteractive(agentCtx); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+			if useTUI {
+				if err := iface.RunInteractiveBubble(agentCtx, result.Agent); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+			} else {
+				if err := cli.RunInteractive(agentCtx); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
 			}
 		}
 	}
