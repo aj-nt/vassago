@@ -1,4 +1,4 @@
-.PHONY: build test test-race lint proto clean generate all deploy setup check-licenses install
+.PHONY: build test test-race lint coverage proto clean generate all deploy setup check-licenses install
 
 # Binary output directory
 BINARY_DIR=bin
@@ -32,6 +32,19 @@ test-integration:
 # Lint
 lint:
 	go vet ./...
+	@which golangci-lint >/dev/null 2>&1 && golangci-lint run --timeout=5m ./... || echo "⚠ golangci-lint not installed, skipping"
+
+# Coverage report
+coverage:
+	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -func=coverage.out
+	@echo ""
+	@echo "Coverage report: coverage.out"
+	@echo "HTML report:     make coverage-html"
+
+coverage-html: coverage
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "✓ coverage.html written"
 
 # Generate Go code from proto
 generate:

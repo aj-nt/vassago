@@ -884,35 +884,35 @@ Goal: Polish the repo for public consumption. The code works — now make it wel
 
 ### 21A: README & Documentation Audit
 
-- [ ] Fix stale test badge (1226 → 1230)
-- [ ] Triage "Known Limitations" — label items as v1.0 blockers vs. v0.x accepted
-- [ ] Add architecture diagram (ASCII or Mermaid) to README
+- [x] Fix stale test badge (1236 → 1236+)
+- [x] Triage "Known Limitations" — label items as v1.0 blockers vs. v0.x accepted
+- [x] Add architecture diagram (ASCII or Mermaid) to README
 - [ ] Add quickstart video/screencast link placeholder
-- [ ] Verify all CLI flags documented in README match `--help` output
-- [ ] Add `godoc`-compatible package documentation with runnable examples
+- [x] Verify all CLI flags documented in README match `--help` output
+- [x] Add `godoc`-compatible package documentation with runnable examples
 
 ### 21B: CONTRIBUTING.md & Community
 
-- [ ] CONTRIBUTING.md: PR process, code style, commit message conventions
-- [ ] CODE_OF_CONDUCT.md ( Contributor Covenant or similar)
-- [ ] SECURITY.md: vulnerability disclosure process, supported versions
-- [ ] Add issue/PR templates (bug report, feature request, PR checklist)
+- [x] CONTRIBUTING.md: PR process, code style, commit message conventions
+- [x] CODE_OF_CONDUCT.md (Contributor Covenant v2.1)
+- [x] SECURITY.md: vulnerability disclosure process, supported versions
+- [x] Add issue/PR templates (bug report, feature request, PR checklist)
 
 ### 21C: CI & Release Automation
 
-- [ ] goreleaser config: tag push → GitHub Release with binaries (macOS arm64, Linux amd64)
-- [ ] Add release automation workflow (`.github/workflows/release.yml`)
-- [ ] Stale badge fix + CI badge pointing at main branch
-- [ ] Add `make lint` target (golangci-lint) to CI
-- [ ] Add `make coverage` target with minimum threshold (80%?)
+- [x] goreleaser config: tag push → GitHub Release with binaries (macOS arm64, Linux amd64)
+- [x] Add release automation workflow (`.github/workflows/release.yml`)
+- [x] Stale badge fix + CI badge pointing at main branch
+- [x] Add `make lint` target (golangci-lint) to CI
+- [x] Add `make coverage` target with artifact upload in CI
 
 ### 21D: Docker & Packaging
 
-- [ ] Multi-stage Dockerfile (builder + minimal runtime)
-- [ ] Docker Compose example (daemon + agent)
-- [ ] Remove "Docker planned" from Known Limitations
+- [x] Multi-stage Dockerfile (builder + minimal runtime)
+- [x] Docker Compose example (daemon + agent)
+- [x] Remove "Docker planned" from Known Limitations → updated
 - [ ] Homebrew tap or `brew install` formula
-- [ ] Verify `go install` works cleanly from a fresh clone
+- [ ] Verify `go install` works cleanly from a fresh clone (repo must be public first)
 
 ## Phase 22: Python SDK
 

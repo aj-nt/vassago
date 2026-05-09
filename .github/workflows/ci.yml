@@ -36,6 +36,15 @@ jobs:
       - name: Check build
         run: go build ./...
 
+      - name: Run coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

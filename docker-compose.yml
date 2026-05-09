@@ -1,0 +1,42 @@
+# Mnemosyne Docker Compose
+#
+# Usage:
+#   docker compose up -d          # start daemon + agent
+#   docker compose logs -f daemon  # view daemon logs
+#   docker compose down            # stop
+
+services:
+  daemon:
+    build: .
+    container_name: mnemosyne-daemon
+    ports:
+      - "50051:50051"
+    volumes:
+      - mnemosyne-data:/data
+      - ./config:/etc/mnemosyne:ro
+    environment:
+      - MNEMOSYNE_CONFIG_PATH=/etc/mnemosyne/daemon.yaml
+    healthcheck:
+      test: ["CMD", "mnemosyne", "health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  agent:
+    build: .
+    container_name: mnemosyne-agent
+    command: ["agent"]
+    depends_on:
+      daemon:
+        condition: service_healthy
+    volumes:
+      - ./config:/etc/mnemosyne:ro
+    environment:
+      - MNEMOSYNE_CONFIG_PATH=/etc/mnemosyne/agent.yaml
+      - MNEMOSYNE_DAEMON_ADDRESS=daemon:50051
+    restart: unless-stopped
+
+volumes:
+  mnemosyne-data:

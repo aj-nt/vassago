@@ -5,9 +5,9 @@
 [![License: AGPLv3](https://img.shields.io/badge/Core-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
-[![Tests](https://img.shields.io/badge/tests-1230%20%2B-race-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1236%20%2B-race-brightgreen)]()
 
-> **v0.1.0** — Public release. 1230+ tests, race-clean.
+> **v0.1.0** — Public release. 1236+ tests, race-clean.
 
 Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
 
@@ -102,6 +102,9 @@ Everything through one binary:
 | `mnemosyne status` | Service health + database info |
 | `mnemosyne memory` | Memory CRUD + search + stats |
 | `mnemosyne hot-block` | Show computed context window |
+| `mnemosyne sessions` | List, resume, and inspect past sessions |
+| `mnemosyne export` | Export all memories to JSON |
+| `mnemosyne import` | Import memories from JSON (with backup) |
 | `mnemosyne health` | Daemon health check |
 | `mnemosyne config` | Validate / show / edit config |
 | `mnemosyne version` | Build info with commit hash |
@@ -187,6 +190,24 @@ make deploy           # build + copy to ~/bin/
 make deploy-studio   # build + scp to remote host
 ```
 
+### Docker
+
+```bash
+# Build and run with Docker Compose
+docker compose up -d
+
+# Or build manually
+docker build -t mnemosyne .
+
+# Run daemon only
+docker run -d -p 50051:50051 -v mnemosyne-data:/data mnemosyne
+
+# Check health
+docker compose exec daemon mnemosyne health
+```
+
+The Docker image includes all binaries (`mnemosyne`, `mnemosyne-daemon`, `mnemosyne-agent`, `mnemosyne-cli`, `mnemosyne-import`). By default it starts the unified CLI in daemon mode.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -217,7 +238,7 @@ make deploy-studio   # build + scp to remote host
 Contributions welcome! Here's how to get started:
 
 1. **Fork & branch:** `git checkout -b your-feature-name`
-2. **Run tests:** `make test-race` — all 1230+ must pass
+2. **Run tests:** `make test-race` — all 1236+ must pass
 3. **Lint:** `go vet ./...` and `gofmt -s -w .`
 4. **Submit a PR** with a clear description of what and why
 
@@ -240,8 +261,10 @@ mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ## Testing
 
 ```bash
-make test-race       # 1230+ tests with race detector
-go vet ./...         # static analysis
+make test-race       # 1236+ tests with race detector
+make coverage        # coverage report (coverage.out)
+make coverage-html   # HTML coverage report (coverage.html)
+make lint            # go vet + golangci-lint
 make all             # build + test + lint
 ```
 
@@ -260,11 +283,21 @@ make all             # build + test + lint
 | 23 | Community & Docs | 🔜 Planned |
 
 **Known limitations:**
-- No Docker image yet (planned)
-- No Python SDK on PyPI (gRPC client works, pip package planned)
-- Single-user — no auth/ACL system yet
+- ~~No Docker image yet (planned)~~ → Docker image available (see Docker section)
+- No Python SDK on PyPI (gRPC client works, pip package planned — Phase 22)
+- Single-user — no auth/ACL system yet (Phase 23)
 - No web UI (CLI only)
 - Browser tool requires ChromeDP installed
+
+**v1.0 blockers vs. v0.x accepted:**
+
+| Limitation | v1.0 Blocker? | Status |
+|------------|----------------|--------|
+| No Python SDK | No | Phase 22 |
+| No multi-user auth | Yes | Phase 23 |
+| No web UI | No | Future |
+| Single SQLite DB | No | Sufficient for personal/team use |
+| No built-in auth | Yes | Phase 23 |
 
 See [ROADMAP.md](ROADMAP.md) for detailed phase history and remaining items.
 
