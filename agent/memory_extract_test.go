@@ -1,3 +1,6 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
 package agent
 
 import (
@@ -5,20 +8,19 @@ import (
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
-	"github.com/aj-nt/mnemosyne/agent/provider"
+	"github.com/aj-nt/mnemosyne/client"
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
-// mockExtractProvider implements provider.Provider for testing
+// mockExtractProvider implements provider.Provider for extraction testing.
 type mockExtractProvider struct {
 	response agentctx.ParsedResponse
 	err      error
 }
 
-func (m *mockExtractProvider) Name() string { return "mock" }
-func (m *mockExtractProvider) Capabilities() agentctx.ProviderCapabilities {
-	return agentctx.ProviderCapabilities{}
-}
+func (m *mockExtractProvider) Name() string                                                                              { return "mock" }
+func (m *mockExtractProvider) Capabilities() agentctx.ProviderCapabilities                                                { return agentctx.ProviderCapabilities{} }
+func (m *mockExtractProvider) EndpointURL() string                                                                        { return "https://mock.test" }
 func (m *mockExtractProvider) Prepare(ctx context.Context, convCtx *agentctx.ConversationContext, req agentctx.PreparedRequest) (interface{}, error) {
 	return req, nil
 }
@@ -34,34 +36,21 @@ func (m *mockExtractProvider) Stream(ctx context.Context, req interface{}) (<-ch
 	return ch, nil
 }
 
-// mockExtractClient implements client.MnemoClient for testing
-type mockExtractClient struct {
+// recordingClient embeds NullMnemo and overrides AddMemory to record calls.
+type recordingClient struct {
+	client.NullMnemo
 	savedMemories []*pb.MemoryEntry
 }
 
-func (m *mockExtractClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
+func (r *recordingClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
 	entry := &pb.MemoryEntry{Key: key, Content: content, Category: category, Priority: priority}
-	m.savedMemories = append(m.savedMemories, entry)
+	r.savedMemories = append(r.savedMemories, entry)
 	return entry, nil
-}
-func (m *mockExtractClient) GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error) { return nil, nil }
-func (m *mockExtractClient) SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error) {
-	return nil, nil
-}
-func (m *mockExtractClient) ListMemories(ctx context.Context, target string, category *string, minPriority *int32) ([]*pb.MemoryEntry, error) {
-	return nil, nil
-}
-func (m *mockExtractClient) RemoveMemory(ctx context.Context, id string) error { return nil }
-func (m *mockExtractClient) ReplaceMemory(ctx context.Context, target, category, key, content string, priority int32) (*pb.MemoryEntry, error) {
-	return nil, nil
-}
-func (m *mockExtractClient) ConsolidateMemories(ctx context.Context, scope string, batchSize int) error {
-	return nil
 }
 
 func TestExtractMemories_EmptyMessages(t *testing.T) {
 	mockProv := &mockExtractProvider{}
-	mockClient := &mockExtractClient{}
+	mockClient := &recordingClient{}
 
 	err := ExtractMemories(context.Background(), []agentctx.Message{}, mockProv, mockClient, "session1", "test-agent")
 	if err != nil {
@@ -78,7 +67,7 @@ func TestExtractMemories_ExtractsFacts(t *testing.T) {
 			Text: `[{"key":"user_name","content":"User's name is AJ","category":"user","priority":3}]`,
 		},
 	}
-	mockClient := &mockExtractClient{}
+	mockClient := &recordingClient{}
 
 	messages := []agentctx.Message{
 		{Role: "user", Content: "My name is AJ"},
@@ -103,7 +92,7 @@ func TestExtractMemories_NothingWorthSaving(t *testing.T) {
 			Text: `[]`,
 		},
 	}
-	mockClient := &mockExtractClient{}
+	mockClient := &recordingClient{}
 
 	messages := []agentctx.Message{
 		{Role: "user", Content: "hello"},
