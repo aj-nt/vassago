@@ -1,4 +1,4 @@
-.PHONY: build test test-race lint coverage proto clean generate all deploy setup check-licenses install
+.PHONY: build test test-race test-python lint coverage proto clean generate all deploy setup check-licenses install
 
 # Binary output directory
 BINARY_DIR=bin
@@ -52,7 +52,7 @@ generate:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I proto proto/mnemosyne.proto proto/messaging.proto
 
-# Generate Python gRPC stubs from proto (for examples/python/)
+# Generate Python gRPC stubs from proto (for examples/python/ and SDK)
 proto-python:
 	pip3 install -q grpcio-tools 2>/dev/null
 	python3 -m grpc_tools.protoc \
@@ -61,6 +61,16 @@ proto-python:
 		--grpc_python_out=proto \
 		proto/mnemosyne.proto proto/messaging.proto
 	@echo "✓ Python stubs generated in proto/"
+	@echo "  Copying stubs to SDK..."
+	cp proto/mnemosyne_pb2.py sdk/python/src/mnemosyne/_proto/
+	cp proto/mnemosyne_pb2_grpc.py sdk/python/src/mnemosyne/_proto/
+	cp proto/messaging_pb2.py sdk/python/src/mnemosyne/_proto/
+	cp proto/messaging_pb2_grpc.py sdk/python/src/mnemosyne/_proto/
+	@echo "✓ SDK stubs updated"
+
+# Test Python SDK
+test-python:
+	cd sdk/python && PYTHONPATH=src python3 -m pytest tests/ -v
 
 # Clean build artifacts
 clean:
