@@ -122,9 +122,19 @@ type teaModel struct {
 	approvalCh  chan bool
 	pendingApprovalToolName string
 	pendingApprovalArgs    map[string]interface{}
+
+	// One-shot mode: auto-send a message and quit after response
+	oneShot    bool
+	oneShotMsg string
 }
 
 // --- Phases ---
+
+// oneShotMsg is sent by Init to auto-start a one-shot message.
+type oneShotMsg struct{ message string }
+
+// quitAfterDoneMsg is a sentinel to quit after the streaming finishes in one-shot mode.
+type quitAfterDoneMsg struct{}
 
 // RunInteractiveBubble starts an interactive chat session using Bubble Tea.
 func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
@@ -170,8 +180,55 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 	banner += "\n"
 	m.chatHistory = []string{banner}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	m.program = p // store for p.Send() in Approver callback
+	_, err := p.Run()
+	return err
+}
+
+// RunOneShotBubble runs a single query using the Bubble Tea TUI, then exits.
+// It shows the response in a scrollable viewport and quits when done.
+func RunOneShotBubble(ctx context.Context, a *agent.Agent, message string) error {
+	ta := textarea.New()
+	ta.Placeholder = "Sending..."
+	ta.Prompt = "❯ "
+	ta.CharLimit = 0
+	ta.ShowLineNumbers = false
+	ta.SetWidth(70)
+	ta.SetHeight(1)
+
+	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", "One-shot query")
+	hotBlock, _ := a.GetHotBlock(ctx)
+
+	vp := viewport.New(80, 20)
+
+	m := teaModel{
+		agent:        a,
+		ctx:          ctx,
+		sessionID:    sessionID,
+		toolDefs:     a.BuildToolDefinitions(),
+		hotBlock:     sanitizeUTF8(hotBlock),
+		input:        ta,
+		viewport:     vp,
+		eventCh:      make(chan agent.StreamEvent, 64),
+		approvalCh:   make(chan bool, 1),
+		width:        80,
+		height:       24,
+		phase:        phaseReady,
+		interrupt:    agentctx.NewInterruptSignal(),
+		historyIdx:   -1,
+		oneShot:      true,
+		oneShotMsg:   message,
+	}
+
+	// Show minimal startup info for one-shot
+	banner := fmt.Sprintf("  ⚕ %s\n", a.Config.AgentName)
+	banner += formatStartupInfo(0, utf8.RuneCountInString(m.hotBlock), "")
+	banner += "\n"
+	m.chatHistory = []string{banner}
+
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	m.program = p
 	_, err := p.Run()
 	return err
 }
@@ -179,6 +236,12 @@ func RunInteractiveBubble(ctx context.Context, a *agent.Agent) error {
 // --- tea.Model interface ---
 
 func (m teaModel) Init() tea.Cmd {
+	if m.oneShot {
+		// One-shot mode: auto-send the message immediately
+		return func() tea.Msg {
+			return oneShotMsg{message: m.oneShotMsg}
+		}
+	}
 	return textarea.Blink
 }
 
@@ -347,6 +410,25 @@ func (m teaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.thinkingTick()
 		}
 		return m, nil
+
+	case oneShotMsg:
+		// One-shot mode: auto-send the message
+		input := msg.message
+		m.chatHistory = append(m.chatHistory, styleUserLabel.Render("You: ")+input)
+		m.messages = append(m.messages, agentctx.Message{Role: "user", Content: input})
+		m.input.SetValue("")
+		m.input.Blur()
+		m.responding = true
+		m.thinking = true
+		m.phase = phaseThinking
+		m.turnText.Reset()
+		m.toolLogs = nil
+		m.err = nil
+		m.spinner = 0
+		return m, tea.Batch(
+			m.startAgentTurn(input),
+			m.thinkingTick(),
+		)
 
 	case approvalRequestMsg:
 		// A tool needs user approval — transition to approval mode
@@ -532,6 +614,11 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 		m.endTurn("")
 		m.input.Focus()
 
+		// In one-shot mode, quit after error
+		if m.oneShot {
+			return tea.Quit
+		}
+
 	case agentctx.StreamDone:
 		m.responding = false
 		m.thinking = false
@@ -545,6 +632,11 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 		}
 		m.endTurn("")
 		m.input.Focus()
+
+		// In one-shot mode, quit after the response is complete
+		if m.oneShot {
+			return tea.Quit
+		}
 	}
 	return nil
 }

@@ -34,6 +34,8 @@ func newTestModel() teaModel {
 	}
 }
 
+// --- Approval flow tests ---
+
 // TestApprovalRequestMsgTransition tests that receiving an approvalRequestMsg
 // transitions the model to phaseApproval and sets pending state.
 func TestApprovalRequestMsgTransition(t *testing.T) {
@@ -219,5 +221,55 @@ func TestApprovalYesInput(t *testing.T) {
 
 	if model.phase != phaseToolCall {
 		t.Errorf("expected phaseToolCall after approval, got %v", model.phase)
+	}
+}
+
+// --- One-shot mode tests ---
+
+// TestOneShotModelFields tests that one-shot model fields are set correctly.
+func TestOneShotModelFields(t *testing.T) {
+	m := newTestModel()
+	m.oneShot = true
+	m.oneShotMsg = "Hello, agent!"
+
+	if !m.oneShot {
+		t.Error("expected oneShot=true")
+	}
+	if m.oneShotMsg != "Hello, agent!" {
+		t.Errorf("expected oneShotMsg='Hello, agent!', got %q", m.oneShotMsg)
+	}
+}
+
+// TestOneShotInitReturnsMessage tests that Init() in one-shot mode returns a cmd
+// that produces an oneShotMsg.
+func TestOneShotInitReturnsMessage(t *testing.T) {
+	m := newTestModel()
+	m.oneShot = true
+	m.oneShotMsg = "test query"
+
+	cmd := m.Init()
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from one-shot Init()")
+	}
+
+	// Execute the cmd to get the message
+	msg := cmd()
+	osMsg, ok := msg.(oneShotMsg)
+	if !ok {
+		t.Fatalf("expected oneShotMsg, got %T", msg)
+	}
+	if osMsg.message != "test query" {
+		t.Errorf("expected message='test query', got %q", osMsg.message)
+	}
+}
+
+// TestInteractiveInitReturnsNonNil tests that Init() in interactive mode returns a cmd.
+func TestInteractiveInitReturnsNonNil(t *testing.T) {
+	m := newTestModel()
+	m.oneShot = false
+
+	cmd := m.Init()
+	if cmd == nil {
+		t.Error("expected non-nil cmd from interactive Init()")
 	}
 }
