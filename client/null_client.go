@@ -169,6 +169,30 @@ func (n *NullMnemo) SearchSkills(ctx context.Context, query, category string, li
 	return nil, nil
 }
 
+func (n *NullMnemo) AddSavedTool(ctx context.Context, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int32) (*pb.SavedToolEntry, error) {
+	return nil, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) GetSavedTool(ctx context.Context, id string) (*pb.SavedToolEntry, error) {
+	return nil, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) ListSavedTools(ctx context.Context, category, author string, limit int32) ([]*pb.SavedToolEntry, error) {
+	return nil, nil
+}
+
+func (n *NullMnemo) SearchSavedTools(ctx context.Context, query, category string, limit int32) ([]*pb.SavedToolEntry, error) {
+	return nil, nil
+}
+
+func (n *NullMnemo) UpdateSavedTool(ctx context.Context, id string, updates map[string]interface{}) (*pb.SavedToolEntry, error) {
+	return nil, fmt.Errorf("mnemo not connected")
+}
+
+func (n *NullMnemo) RemoveSavedTool(ctx context.Context, id string) (bool, error) {
+	return false, fmt.Errorf("mnemo not connected")
+}
+
 func (n *NullMnemo) Close() error {
 	return nil
 }

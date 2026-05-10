@@ -97,6 +97,27 @@ type MnemoClient interface {
 	RemoveSkill(ctx context.Context, id string) (bool, error)
 	SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error)
 
+
+	// --- Saved Tools ---
+
+	// AddSavedTool adds a new saved tool.
+	AddSavedTool(ctx context.Context, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int32) (*pb.SavedToolEntry, error)
+
+	// GetSavedTool retrieves a saved tool by ID.
+	GetSavedTool(ctx context.Context, id string) (*pb.SavedToolEntry, error)
+
+	// ListSavedTools lists saved tools with optional filters.
+	ListSavedTools(ctx context.Context, category, author string, limit int32) ([]*pb.SavedToolEntry, error)
+
+	// SearchSavedTools searches saved tools via FTS5.
+	SearchSavedTools(ctx context.Context, query, category string, limit int32) ([]*pb.SavedToolEntry, error)
+
+	// UpdateSavedTool updates fields on a saved tool.
+	UpdateSavedTool(ctx context.Context, id string, updates map[string]interface{}) (*pb.SavedToolEntry, error)
+
+	// RemoveSavedTool deletes a saved tool.
+	RemoveSavedTool(ctx context.Context, id string) (bool, error)
+
 	// Close closes the connection to the daemon.
 	Close() error
 }
