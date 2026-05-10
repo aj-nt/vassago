@@ -210,7 +210,9 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 			a.persistSession(ctx, sid, convCtx)
 		},
 		FinallyFunc: func(sid string, result *pipeline.LoopResult) {
-			a.extractAndPersistMemories(ctx, sid, convCtx, result)
+			if !skipMemoryExtraction(result) {
+				a.emitConversationComplete(sid, convCtx)
+			}
 		},
 	}
 
@@ -419,7 +421,9 @@ func (a *Agent) RunStreaming(ctx context.Context, convCtx *agentctx.Conversation
 			a.persistSession(ctx, sid, convCtx)
 		},
 		FinallyFunc: func(sid string, result *pipeline.LoopResult) {
-			a.extractAndPersistMemories(ctx, sid, convCtx, result)
+			if !skipMemoryExtraction(result) {
+				a.emitConversationComplete(sid, convCtx)
+			}
 		},
 	}
 

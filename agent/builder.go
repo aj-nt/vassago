@@ -141,5 +141,12 @@ func (b *AgentBuilder) Build() *Agent {
 		a.Stage5.SetEventBus(bus)
 	}
 
+	// Wire memory extraction subscriber to the event bus.
+	// Runs asynchronously with cheapest model, 3 retries, 30s timeout.
+	if b.mnemo != nil && b.registry != nil {
+		sub := NewMemoryExtractionSubscriber(b.registry, b.router, b.mnemo)
+		sub.Subscribe(bus)
+	}
+
 	return a
 }

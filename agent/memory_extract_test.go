@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -39,13 +40,22 @@ func (m *mockExtractProvider) Stream(ctx context.Context, req interface{}) (<-ch
 // recordingClient embeds NullMnemo and overrides AddMemory to record calls.
 type recordingClient struct {
 	client.NullMnemo
+	mu            sync.Mutex
 	savedMemories []*pb.MemoryEntry
 }
 
 func (r *recordingClient) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	entry := &pb.MemoryEntry{Key: key, Content: content, Category: category, Priority: priority}
 	r.savedMemories = append(r.savedMemories, entry)
 	return entry, nil
+}
+
+func (r *recordingClient) SavedMemories() []*pb.MemoryEntry {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.savedMemories
 }
 
 func TestExtractMemories_EmptyMessages(t *testing.T) {
@@ -56,8 +66,8 @@ func TestExtractMemories_EmptyMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if len(mockClient.savedMemories) != 0 {
-		t.Fatalf("expected 0 memories, got %d", len(mockClient.savedMemories))
+	if len(mockClient.SavedMemories()) != 0 {
+		t.Fatalf("expected 0 memories, got %d", len(mockClient.SavedMemories()))
 	}
 }
 
@@ -103,7 +113,7 @@ func TestExtractMemories_NothingWorthSaving(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if len(mockClient.savedMemories) != 0 {
-		t.Fatalf("expected 0 memories, got %d", len(mockClient.savedMemories))
+	if len(mockClient.SavedMemories()) != 0 {
+		t.Fatalf("expected 0 memories, got %d", len(mockClient.SavedMemories()))
 	}
 }
