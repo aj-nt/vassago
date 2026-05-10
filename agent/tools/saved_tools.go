@@ -13,9 +13,9 @@ import (
 
 // RegisterSavedToolTools adds saved tool management handlers to the registry.
 // The saved tools themselves (dynamic handlers) are registered separately
-// by the agent's RegisterSavedToolHandlers() which refreshes per-turn.
+// RegisterSavedToolTools adds saved tool management handlers to the registry.
 func RegisterSavedToolTools(registry *ToolRegistry, mnemo client.MnemoClient, agentID string) {
-	registry.Register("CreateTool", makeCreateTool(mnemo, agentID), CreateToolSchema)
+	registry.Register("CreateTool", makeCreateTool(registry, mnemo, agentID), CreateToolSchema)
 	registry.Register("GetTool", makeGetTool(mnemo), GetToolSchema)
 	registry.Register("ListTools", makeListTools(mnemo), ListToolsSchema)
 	registry.Register("SearchTools", makeSearchTools(mnemo), SearchToolsSchema)
@@ -23,7 +23,7 @@ func RegisterSavedToolTools(registry *ToolRegistry, mnemo client.MnemoClient, ag
 	registry.Register("RemoveTool", makeRemoveTool(mnemo), RemoveToolSchema)
 }
 
-func makeCreateTool(mnemo client.MnemoClient, agentID string) ToolHandler {
+func makeCreateTool(registry *ToolRegistry, mnemo client.MnemoClient, agentID string) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		name := strArg(args, "name", "")
 		description := strArg(args, "description", "")
@@ -58,6 +58,11 @@ func makeCreateTool(mnemo client.MnemoClient, agentID string) ToolHandler {
 		triggers := listArg(args, "triggers", []string{})
 		priority := intArg(args, "priority", 3)
 
+		// Validate priority bounds (defense-in-depth; gRPC layer also validates)
+		if priority < 1 || priority > 5 {
+			return "priority must be between 1 and 5", true
+		}
+
 		// Validate name: alphanumeric + underscores, 2-64 chars
 		if len(name) < 2 || len(name) > 64 {
 			return "tool name must be between 2 and 64 characters", true
@@ -74,7 +79,54 @@ func makeCreateTool(mnemo client.MnemoClient, agentID string) ToolHandler {
 		if err != nil {
 			return fmt.Sprintf("CreateTool failed: %v", err), true
 		}
-		return fmt.Sprintf("Tool created: [%s] %s (v%d, priority %d). Available next turn.", entry.Category, entry.Name, entry.Version, entry.Priority), false
+
+		// Register handler immediately so the tool is callable this session
+		if registry != nil {
+			var paramsSchema map[string]interface{}
+			json.Unmarshal([]byte(entry.Parameters), &paramsSchema)
+			registry.Register(entry.Name, makeInlineScriptHandler(entry.Name, entry.Script, entry.RequiresApprovalEveryCall, mnemo, registry), map[string]interface{}{
+				"name":        entry.Name,
+				"description": entry.Description,
+				"parameters":  paramsSchema,
+			})
+		}
+
+		return fmt.Sprintf("Tool created: [%s] %s (v%d, priority %d). Available immediately.", entry.Category, entry.Name, entry.Version, entry.Priority), false
+	}
+}
+
+// makeInlineScriptHandler creates a handler for a script-type saved tool
+// that substitutes parameters and delegates to Execute.
+func makeInlineScriptHandler(toolName, script string, requiresApproval bool, mnemo client.MnemoClient, registry *ToolRegistry) ToolHandler {
+	return func(args map[string]interface{}) (string, bool) {
+		executed := script
+		for key, val := range args {
+			placeholder := fmt.Sprintf("{{%s}}", key)
+			executed = strings.ReplaceAll(executed, placeholder, fmt.Sprint(val))
+		}
+
+		if strings.Contains(executed, "{{") {
+			var unresolved []string
+			for _, part := range strings.Split(executed, "{{") {
+				if idx := strings.Index(part, "}}"); idx > 0 {
+					unresolved = append(unresolved, part[:idx])
+				}
+			}
+			return fmt.Sprintf("Unresolved parameters in saved tool %q: %v", toolName, unresolved), true
+		}
+
+		execHandler, err := registry.Get("Execute")
+		if err != nil {
+			return fmt.Sprintf("Saved tool %q: Execute handler not found: %v", toolName, err), true
+		}
+
+		execArgs := map[string]interface{}{
+			"command":            executed,
+			"requires_approval":  requiresApproval,
+		}
+
+		result, isErr := execHandler(execArgs)
+		return fmt.Sprintf("[%s] %s", toolName, result), isErr
 	}
 }
 
