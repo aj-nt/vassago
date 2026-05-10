@@ -51,6 +51,12 @@ const (
 	Mnemosyne_ListSkills_FullMethodName                 = "/mnemosyne.Mnemosyne/ListSkills"
 	Mnemosyne_RemoveSkill_FullMethodName                = "/mnemosyne.Mnemosyne/RemoveSkill"
 	Mnemosyne_SearchSkills_FullMethodName               = "/mnemosyne.Mnemosyne/SearchSkills"
+	Mnemosyne_AddSavedTool_FullMethodName               = "/mnemosyne.Mnemosyne/AddSavedTool"
+	Mnemosyne_GetSavedTool_FullMethodName               = "/mnemosyne.Mnemosyne/GetSavedTool"
+	Mnemosyne_ListSavedTools_FullMethodName             = "/mnemosyne.Mnemosyne/ListSavedTools"
+	Mnemosyne_SearchSavedTools_FullMethodName           = "/mnemosyne.Mnemosyne/SearchSavedTools"
+	Mnemosyne_UpdateSavedTool_FullMethodName            = "/mnemosyne.Mnemosyne/UpdateSavedTool"
+	Mnemosyne_RemoveSavedTool_FullMethodName            = "/mnemosyne.Mnemosyne/RemoveSavedTool"
 )
 
 // MnemosyneClient is the client API for Mnemosyne service.
@@ -99,6 +105,13 @@ type MnemosyneClient interface {
 	ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*SkillList, error)
 	RemoveSkill(ctx context.Context, in *RemoveSkillRequest, opts ...grpc.CallOption) (*RemoveSkillResponse, error)
 	SearchSkills(ctx context.Context, in *SearchSkillsRequest, opts ...grpc.CallOption) (*SkillList, error)
+	// --- Saved Tool Management ---
+	AddSavedTool(ctx context.Context, in *AddSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error)
+	GetSavedTool(ctx context.Context, in *GetSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error)
+	ListSavedTools(ctx context.Context, in *ListSavedToolsRequest, opts ...grpc.CallOption) (*SavedToolList, error)
+	SearchSavedTools(ctx context.Context, in *SearchSavedToolsRequest, opts ...grpc.CallOption) (*SavedToolList, error)
+	UpdateSavedTool(ctx context.Context, in *UpdateSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error)
+	RemoveSavedTool(ctx context.Context, in *RemoveSavedToolRequest, opts ...grpc.CallOption) (*RemoveSavedToolResponse, error)
 }
 
 type mnemosyneClient struct {
@@ -426,6 +439,66 @@ func (c *mnemosyneClient) SearchSkills(ctx context.Context, in *SearchSkillsRequ
 	return out, nil
 }
 
+func (c *mnemosyneClient) AddSavedTool(ctx context.Context, in *AddSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedToolEntry)
+	err := c.cc.Invoke(ctx, Mnemosyne_AddSavedTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) GetSavedTool(ctx context.Context, in *GetSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedToolEntry)
+	err := c.cc.Invoke(ctx, Mnemosyne_GetSavedTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) ListSavedTools(ctx context.Context, in *ListSavedToolsRequest, opts ...grpc.CallOption) (*SavedToolList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedToolList)
+	err := c.cc.Invoke(ctx, Mnemosyne_ListSavedTools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) SearchSavedTools(ctx context.Context, in *SearchSavedToolsRequest, opts ...grpc.CallOption) (*SavedToolList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedToolList)
+	err := c.cc.Invoke(ctx, Mnemosyne_SearchSavedTools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) UpdateSavedTool(ctx context.Context, in *UpdateSavedToolRequest, opts ...grpc.CallOption) (*SavedToolEntry, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedToolEntry)
+	err := c.cc.Invoke(ctx, Mnemosyne_UpdateSavedTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mnemosyneClient) RemoveSavedTool(ctx context.Context, in *RemoveSavedToolRequest, opts ...grpc.CallOption) (*RemoveSavedToolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveSavedToolResponse)
+	err := c.cc.Invoke(ctx, Mnemosyne_RemoveSavedTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MnemosyneServer is the server API for Mnemosyne service.
 // All implementations must embed UnimplementedMnemosyneServer
 // for forward compatibility.
@@ -472,6 +545,13 @@ type MnemosyneServer interface {
 	ListSkills(context.Context, *ListSkillsRequest) (*SkillList, error)
 	RemoveSkill(context.Context, *RemoveSkillRequest) (*RemoveSkillResponse, error)
 	SearchSkills(context.Context, *SearchSkillsRequest) (*SkillList, error)
+	// --- Saved Tool Management ---
+	AddSavedTool(context.Context, *AddSavedToolRequest) (*SavedToolEntry, error)
+	GetSavedTool(context.Context, *GetSavedToolRequest) (*SavedToolEntry, error)
+	ListSavedTools(context.Context, *ListSavedToolsRequest) (*SavedToolList, error)
+	SearchSavedTools(context.Context, *SearchSavedToolsRequest) (*SavedToolList, error)
+	UpdateSavedTool(context.Context, *UpdateSavedToolRequest) (*SavedToolEntry, error)
+	RemoveSavedTool(context.Context, *RemoveSavedToolRequest) (*RemoveSavedToolResponse, error)
 	mustEmbedUnimplementedMnemosyneServer()
 }
 
@@ -568,6 +648,24 @@ func (UnimplementedMnemosyneServer) RemoveSkill(context.Context, *RemoveSkillReq
 }
 func (UnimplementedMnemosyneServer) SearchSkills(context.Context, *SearchSkillsRequest) (*SkillList, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchSkills not implemented")
+}
+func (UnimplementedMnemosyneServer) AddSavedTool(context.Context, *AddSavedToolRequest) (*SavedToolEntry, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddSavedTool not implemented")
+}
+func (UnimplementedMnemosyneServer) GetSavedTool(context.Context, *GetSavedToolRequest) (*SavedToolEntry, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSavedTool not implemented")
+}
+func (UnimplementedMnemosyneServer) ListSavedTools(context.Context, *ListSavedToolsRequest) (*SavedToolList, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSavedTools not implemented")
+}
+func (UnimplementedMnemosyneServer) SearchSavedTools(context.Context, *SearchSavedToolsRequest) (*SavedToolList, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchSavedTools not implemented")
+}
+func (UnimplementedMnemosyneServer) UpdateSavedTool(context.Context, *UpdateSavedToolRequest) (*SavedToolEntry, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateSavedTool not implemented")
+}
+func (UnimplementedMnemosyneServer) RemoveSavedTool(context.Context, *RemoveSavedToolRequest) (*RemoveSavedToolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveSavedTool not implemented")
 }
 func (UnimplementedMnemosyneServer) mustEmbedUnimplementedMnemosyneServer() {}
 func (UnimplementedMnemosyneServer) testEmbeddedByValue()                   {}
@@ -1091,6 +1189,114 @@ func _Mnemosyne_SearchSkills_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Mnemosyne_AddSavedTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddSavedToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).AddSavedTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_AddSavedTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).AddSavedTool(ctx, req.(*AddSavedToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_GetSavedTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSavedToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).GetSavedTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_GetSavedTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).GetSavedTool(ctx, req.(*GetSavedToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_ListSavedTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSavedToolsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).ListSavedTools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_ListSavedTools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).ListSavedTools(ctx, req.(*ListSavedToolsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_SearchSavedTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchSavedToolsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).SearchSavedTools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_SearchSavedTools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).SearchSavedTools(ctx, req.(*SearchSavedToolsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_UpdateSavedTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSavedToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).UpdateSavedTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_UpdateSavedTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).UpdateSavedTool(ctx, req.(*UpdateSavedToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Mnemosyne_RemoveSavedTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveSavedToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MnemosyneServer).RemoveSavedTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Mnemosyne_RemoveSavedTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MnemosyneServer).RemoveSavedTool(ctx, req.(*RemoveSavedToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Mnemosyne_ServiceDesc is the grpc.ServiceDesc for Mnemosyne service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1201,6 +1407,30 @@ var Mnemosyne_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchSkills",
 			Handler:    _Mnemosyne_SearchSkills_Handler,
+		},
+		{
+			MethodName: "AddSavedTool",
+			Handler:    _Mnemosyne_AddSavedTool_Handler,
+		},
+		{
+			MethodName: "GetSavedTool",
+			Handler:    _Mnemosyne_GetSavedTool_Handler,
+		},
+		{
+			MethodName: "ListSavedTools",
+			Handler:    _Mnemosyne_ListSavedTools_Handler,
+		},
+		{
+			MethodName: "SearchSavedTools",
+			Handler:    _Mnemosyne_SearchSavedTools_Handler,
+		},
+		{
+			MethodName: "UpdateSavedTool",
+			Handler:    _Mnemosyne_UpdateSavedTool_Handler,
+		},
+		{
+			MethodName: "RemoveSavedTool",
+			Handler:    _Mnemosyne_RemoveSavedTool_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -3883,6 +3883,666 @@ func (x *SearchSkillsRequest) GetLimit() int32 {
 	return 0
 }
 
+type SavedToolEntry struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	Id                        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                                                      // UUID
+	Name                      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                  // Unique tool name (e.g., "calculate_natal_chart")
+	Description               string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`                                                                    // LLM-readable description
+	Type                      string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`                                                                                  // "script" (only type in v1)
+	Parameters                string                 `protobuf:"bytes,5,opt,name=parameters,proto3" json:"parameters,omitempty"`                                                                      // JSON schema for inputs
+	Script                    string                 `protobuf:"bytes,6,opt,name=script,proto3" json:"script,omitempty"`                                                                              // Executable content (bash/python)
+	Category                  string                 `protobuf:"bytes,7,opt,name=category,proto3" json:"category,omitempty"`                                                                          // e.g., "astrology", "devops"
+	Triggers                  []string               `protobuf:"bytes,8,rep,name=triggers,proto3" json:"triggers,omitempty"`                                                                          // Trigger keywords for discovery
+	Author                    string                 `protobuf:"bytes,9,opt,name=author,proto3" json:"author,omitempty"`                                                                              // Agent ID that created it
+	Priority                  int32                  `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                                                        // 1-5
+	Version                   int32                  `protobuf:"varint,11,opt,name=version,proto3" json:"version,omitempty"`                                                                          // Incremented on each update
+	RequiresApprovalEveryCall bool                   `protobuf:"varint,12,opt,name=requires_approval_every_call,json=requiresApprovalEveryCall,proto3" json:"requires_approval_every_call,omitempty"` // true = ask every time, false = ask once
+	CreatedAt                 int64                  `protobuf:"varint,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                     // Unix timestamp
+	UpdatedAt                 int64                  `protobuf:"varint,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                     // Unix timestamp
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *SavedToolEntry) Reset() {
+	*x = SavedToolEntry{}
+	mi := &file_mnemosyne_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavedToolEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavedToolEntry) ProtoMessage() {}
+
+func (x *SavedToolEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavedToolEntry.ProtoReflect.Descriptor instead.
+func (*SavedToolEntry) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *SavedToolEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetParameters() string {
+	if x != nil {
+		return x.Parameters
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetScript() string {
+	if x != nil {
+		return x.Script
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetTriggers() []string {
+	if x != nil {
+		return x.Triggers
+	}
+	return nil
+}
+
+func (x *SavedToolEntry) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *SavedToolEntry) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *SavedToolEntry) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *SavedToolEntry) GetRequiresApprovalEveryCall() bool {
+	if x != nil {
+		return x.RequiresApprovalEveryCall
+	}
+	return false
+}
+
+func (x *SavedToolEntry) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *SavedToolEntry) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+type AddSavedToolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                // Required: unique tool name
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`  // Required: LLM-readable description
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`                // Required: "script"
+	Parameters    string                 `protobuf:"bytes,4,opt,name=parameters,proto3" json:"parameters,omitempty"`    // Required: JSON schema
+	Script        string                 `protobuf:"bytes,5,opt,name=script,proto3" json:"script,omitempty"`            // Required: executable content
+	Category      string                 `protobuf:"bytes,6,opt,name=category,proto3" json:"category,omitempty"`        // Optional: category
+	Triggers      []string               `protobuf:"bytes,7,rep,name=triggers,proto3" json:"triggers,omitempty"`        // Optional: trigger keywords
+	Author        string                 `protobuf:"bytes,8,opt,name=author,proto3" json:"author,omitempty"`            // Required: agent ID
+	Priority      *int32                 `protobuf:"varint,9,opt,name=priority,proto3,oneof" json:"priority,omitempty"` // Optional: priority (default: 3)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddSavedToolRequest) Reset() {
+	*x = AddSavedToolRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddSavedToolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddSavedToolRequest) ProtoMessage() {}
+
+func (x *AddSavedToolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddSavedToolRequest.ProtoReflect.Descriptor instead.
+func (*AddSavedToolRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *AddSavedToolRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetParameters() string {
+	if x != nil {
+		return x.Parameters
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetScript() string {
+	if x != nil {
+		return x.Script
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetTriggers() []string {
+	if x != nil {
+		return x.Triggers
+	}
+	return nil
+}
+
+func (x *AddSavedToolRequest) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *AddSavedToolRequest) GetPriority() int32 {
+	if x != nil && x.Priority != nil {
+		return *x.Priority
+	}
+	return 0
+}
+
+type GetSavedToolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Required: tool ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSavedToolRequest) Reset() {
+	*x = GetSavedToolRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSavedToolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSavedToolRequest) ProtoMessage() {}
+
+func (x *GetSavedToolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSavedToolRequest.ProtoReflect.Descriptor instead.
+func (*GetSavedToolRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *GetSavedToolRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListSavedToolsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Category      string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`  // Filter by category (empty = all)
+	Author        string                 `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`      // Filter by author (empty = all)
+	Limit         *int32                 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"` // Limit results
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSavedToolsRequest) Reset() {
+	*x = ListSavedToolsRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSavedToolsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSavedToolsRequest) ProtoMessage() {}
+
+func (x *ListSavedToolsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSavedToolsRequest.ProtoReflect.Descriptor instead.
+func (*ListSavedToolsRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *ListSavedToolsRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ListSavedToolsRequest) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *ListSavedToolsRequest) GetLimit() int32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+type SavedToolList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tools         []*SavedToolEntry      `protobuf:"bytes,1,rep,name=tools,proto3" json:"tools,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavedToolList) Reset() {
+	*x = SavedToolList{}
+	mi := &file_mnemosyne_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavedToolList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavedToolList) ProtoMessage() {}
+
+func (x *SavedToolList) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavedToolList.ProtoReflect.Descriptor instead.
+func (*SavedToolList) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *SavedToolList) GetTools() []*SavedToolEntry {
+	if x != nil {
+		return x.Tools
+	}
+	return nil
+}
+
+type SearchSavedToolsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`        // Required: search query
+	Category      string                 `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`  // Filter by category (empty = all)
+	Limit         *int32                 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"` // Limit results
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchSavedToolsRequest) Reset() {
+	*x = SearchSavedToolsRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchSavedToolsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchSavedToolsRequest) ProtoMessage() {}
+
+func (x *SearchSavedToolsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchSavedToolsRequest.ProtoReflect.Descriptor instead.
+func (*SearchSavedToolsRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *SearchSavedToolsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *SearchSavedToolsRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *SearchSavedToolsRequest) GetLimit() int32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+type UpdateSavedToolRequest struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	Id                        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                                                           // Required: tool ID to update
+	Name                      *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`                                                                                 // New name
+	Description               *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`                                                                   // New description
+	Parameters                *string                `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`                                                                     // New JSON schema
+	Script                    *string                `protobuf:"bytes,5,opt,name=script,proto3,oneof" json:"script,omitempty"`                                                                             // New executable content
+	Category                  *string                `protobuf:"bytes,6,opt,name=category,proto3,oneof" json:"category,omitempty"`                                                                         // New category
+	Triggers                  []string               `protobuf:"bytes,7,rep,name=triggers,proto3" json:"triggers,omitempty"`                                                                               // New triggers
+	Priority                  *int32                 `protobuf:"varint,8,opt,name=priority,proto3,oneof" json:"priority,omitempty"`                                                                        // New priority
+	RequiresApprovalEveryCall *bool                  `protobuf:"varint,9,opt,name=requires_approval_every_call,json=requiresApprovalEveryCall,proto3,oneof" json:"requires_approval_every_call,omitempty"` // New approval requirement
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *UpdateSavedToolRequest) Reset() {
+	*x = UpdateSavedToolRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSavedToolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSavedToolRequest) ProtoMessage() {}
+
+func (x *UpdateSavedToolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSavedToolRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSavedToolRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *UpdateSavedToolRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetParameters() string {
+	if x != nil && x.Parameters != nil {
+		return *x.Parameters
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetScript() string {
+	if x != nil && x.Script != nil {
+		return *x.Script
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateSavedToolRequest) GetTriggers() []string {
+	if x != nil {
+		return x.Triggers
+	}
+	return nil
+}
+
+func (x *UpdateSavedToolRequest) GetPriority() int32 {
+	if x != nil && x.Priority != nil {
+		return *x.Priority
+	}
+	return 0
+}
+
+func (x *UpdateSavedToolRequest) GetRequiresApprovalEveryCall() bool {
+	if x != nil && x.RequiresApprovalEveryCall != nil {
+		return *x.RequiresApprovalEveryCall
+	}
+	return false
+}
+
+type RemoveSavedToolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Required: tool ID to remove
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveSavedToolRequest) Reset() {
+	*x = RemoveSavedToolRequest{}
+	mi := &file_mnemosyne_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveSavedToolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveSavedToolRequest) ProtoMessage() {}
+
+func (x *RemoveSavedToolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveSavedToolRequest.ProtoReflect.Descriptor instead.
+func (*RemoveSavedToolRequest) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *RemoveSavedToolRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RemoveSavedToolResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Removed       bool                   `protobuf:"varint,1,opt,name=removed,proto3" json:"removed,omitempty"` // Whether removal was successful
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveSavedToolResponse) Reset() {
+	*x = RemoveSavedToolResponse{}
+	mi := &file_mnemosyne_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveSavedToolResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveSavedToolResponse) ProtoMessage() {}
+
+func (x *RemoveSavedToolResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mnemosyne_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveSavedToolResponse.ProtoReflect.Descriptor instead.
+func (*RemoveSavedToolResponse) Descriptor() ([]byte, []int) {
+	return file_mnemosyne_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *RemoveSavedToolResponse) GetRemoved() bool {
+	if x != nil {
+		return x.Removed
+	}
+	return false
+}
+
 var File_mnemosyne_proto protoreflect.FileDescriptor
 
 const file_mnemosyne_proto_rawDesc = "" +
@@ -4223,13 +4883,83 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1a\n" +
 	"\bcategory\x18\x02 \x01(\tR\bcategory\x12\x19\n" +
 	"\x05limit\x18\x03 \x01(\x05H\x00R\x05limit\x88\x01\x01B\b\n" +
-	"\x06_limit*\xb3\x01\n" +
+	"\x06_limit\"\xa7\x03\n" +
+	"\x0eSavedToolEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12\x1e\n" +
+	"\n" +
+	"parameters\x18\x05 \x01(\tR\n" +
+	"parameters\x12\x16\n" +
+	"\x06script\x18\x06 \x01(\tR\x06script\x12\x1a\n" +
+	"\bcategory\x18\a \x01(\tR\bcategory\x12\x1a\n" +
+	"\btriggers\x18\b \x03(\tR\btriggers\x12\x16\n" +
+	"\x06author\x18\t \x01(\tR\x06author\x12\x1a\n" +
+	"\bpriority\x18\n" +
+	" \x01(\x05R\bpriority\x12\x18\n" +
+	"\aversion\x18\v \x01(\x05R\aversion\x12?\n" +
+	"\x1crequires_approval_every_call\x18\f \x01(\bR\x19requiresApprovalEveryCall\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\r \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x0e \x01(\x03R\tupdatedAt\"\x95\x02\n" +
+	"\x13AddSavedToolRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1e\n" +
+	"\n" +
+	"parameters\x18\x04 \x01(\tR\n" +
+	"parameters\x12\x16\n" +
+	"\x06script\x18\x05 \x01(\tR\x06script\x12\x1a\n" +
+	"\bcategory\x18\x06 \x01(\tR\bcategory\x12\x1a\n" +
+	"\btriggers\x18\a \x03(\tR\btriggers\x12\x16\n" +
+	"\x06author\x18\b \x01(\tR\x06author\x12\x1f\n" +
+	"\bpriority\x18\t \x01(\x05H\x00R\bpriority\x88\x01\x01B\v\n" +
+	"\t_priority\"%\n" +
+	"\x13GetSavedToolRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"p\n" +
+	"\x15ListSavedToolsRequest\x12\x1a\n" +
+	"\bcategory\x18\x01 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06author\x18\x02 \x01(\tR\x06author\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\x05H\x00R\x05limit\x88\x01\x01B\b\n" +
+	"\x06_limit\"@\n" +
+	"\rSavedToolList\x12/\n" +
+	"\x05tools\x18\x01 \x03(\v2\x19.mnemosyne.SavedToolEntryR\x05tools\"p\n" +
+	"\x17SearchSavedToolsRequest\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1a\n" +
+	"\bcategory\x18\x02 \x01(\tR\bcategory\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\x05H\x00R\x05limit\x88\x01\x01B\b\n" +
+	"\x06_limit\"\xbc\x03\n" +
+	"\x16UpdateSavedToolRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x12#\n" +
+	"\n" +
+	"parameters\x18\x04 \x01(\tH\x02R\n" +
+	"parameters\x88\x01\x01\x12\x1b\n" +
+	"\x06script\x18\x05 \x01(\tH\x03R\x06script\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x06 \x01(\tH\x04R\bcategory\x88\x01\x01\x12\x1a\n" +
+	"\btriggers\x18\a \x03(\tR\btriggers\x12\x1f\n" +
+	"\bpriority\x18\b \x01(\x05H\x05R\bpriority\x88\x01\x01\x12D\n" +
+	"\x1crequires_approval_every_call\x18\t \x01(\bH\x06R\x19requiresApprovalEveryCall\x88\x01\x01B\a\n" +
+	"\x05_nameB\x0e\n" +
+	"\f_descriptionB\r\n" +
+	"\v_parametersB\t\n" +
+	"\a_scriptB\v\n" +
+	"\t_categoryB\v\n" +
+	"\t_priorityB\x1f\n" +
+	"\x1d_requires_approval_every_call\"(\n" +
+	"\x16RemoveSavedToolRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"3\n" +
+	"\x17RemoveSavedToolResponse\x12\x18\n" +
+	"\aremoved\x18\x01 \x01(\bR\aremoved*\xb3\x01\n" +
 	"\x10ConsolidateScope\x12!\n" +
 	"\x1dCONSOLIDATE_SCOPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15CONSOLIDATE_SCOPE_ALL\x10\x01\x12\"\n" +
 	"\x1eCONSOLIDATE_SCOPE_OBSERVATIONS\x10\x02\x12\x1e\n" +
 	"\x1aCONSOLIDATE_SCOPE_CATEGORY\x10\x03\x12\x1d\n" +
-	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\xa0\x10\n" +
+	"\x19CONSOLIDATE_SCOPE_EXPIRED\x10\x042\x81\x14\n" +
 	"\tMnemosyne\x12E\n" +
 	"\x04Ping\x12\x1d.mnemosyne.HealthCheckRequest\x1a\x1e.mnemosyne.HealthCheckResponse\x12F\n" +
 	"\tAddMemory\x12\x1b.mnemosyne.AddMemoryRequest\x1a\x1c.mnemosyne.AddMemoryResponse\x12@\n" +
@@ -4264,7 +4994,13 @@ const file_mnemosyne_proto_rawDesc = "" +
 	"\n" +
 	"ListSkills\x12\x1c.mnemosyne.ListSkillsRequest\x1a\x14.mnemosyne.SkillList\x12L\n" +
 	"\vRemoveSkill\x12\x1d.mnemosyne.RemoveSkillRequest\x1a\x1e.mnemosyne.RemoveSkillResponse\x12D\n" +
-	"\fSearchSkills\x12\x1e.mnemosyne.SearchSkillsRequest\x1a\x14.mnemosyne.SkillList2\x90\x01\n" +
+	"\fSearchSkills\x12\x1e.mnemosyne.SearchSkillsRequest\x1a\x14.mnemosyne.SkillList\x12I\n" +
+	"\fAddSavedTool\x12\x1e.mnemosyne.AddSavedToolRequest\x1a\x19.mnemosyne.SavedToolEntry\x12I\n" +
+	"\fGetSavedTool\x12\x1e.mnemosyne.GetSavedToolRequest\x1a\x19.mnemosyne.SavedToolEntry\x12L\n" +
+	"\x0eListSavedTools\x12 .mnemosyne.ListSavedToolsRequest\x1a\x18.mnemosyne.SavedToolList\x12P\n" +
+	"\x10SearchSavedTools\x12\".mnemosyne.SearchSavedToolsRequest\x1a\x18.mnemosyne.SavedToolList\x12O\n" +
+	"\x0fUpdateSavedTool\x12!.mnemosyne.UpdateSavedToolRequest\x1a\x19.mnemosyne.SavedToolEntry\x12X\n" +
+	"\x0fRemoveSavedTool\x12!.mnemosyne.RemoveSavedToolRequest\x1a\".mnemosyne.RemoveSavedToolResponse2\x90\x01\n" +
 	"\tAgentChat\x12<\n" +
 	"\n" +
 	"ChatStream\x12\x16.mnemosyne.ChatRequest\x1a\x14.mnemosyne.ChatEvent0\x01\x12E\n" +
@@ -4288,7 +5024,7 @@ func file_mnemosyne_proto_rawDescGZIP() []byte {
 }
 
 var file_mnemosyne_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
+var file_mnemosyne_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_mnemosyne_proto_goTypes = []any{
 	(ConsolidateScope)(0),                     // 0: mnemosyne.ConsolidateScope
 	(UpdateEvent_EventType)(0),                // 1: mnemosyne.UpdateEvent.EventType
@@ -4353,6 +5089,15 @@ var file_mnemosyne_proto_goTypes = []any{
 	(*RemoveSkillRequest)(nil),                // 60: mnemosyne.RemoveSkillRequest
 	(*RemoveSkillResponse)(nil),               // 61: mnemosyne.RemoveSkillResponse
 	(*SearchSkillsRequest)(nil),               // 62: mnemosyne.SearchSkillsRequest
+	(*SavedToolEntry)(nil),                    // 63: mnemosyne.SavedToolEntry
+	(*AddSavedToolRequest)(nil),               // 64: mnemosyne.AddSavedToolRequest
+	(*GetSavedToolRequest)(nil),               // 65: mnemosyne.GetSavedToolRequest
+	(*ListSavedToolsRequest)(nil),             // 66: mnemosyne.ListSavedToolsRequest
+	(*SavedToolList)(nil),                     // 67: mnemosyne.SavedToolList
+	(*SearchSavedToolsRequest)(nil),           // 68: mnemosyne.SearchSavedToolsRequest
+	(*UpdateSavedToolRequest)(nil),            // 69: mnemosyne.UpdateSavedToolRequest
+	(*RemoveSavedToolRequest)(nil),            // 70: mnemosyne.RemoveSavedToolRequest
+	(*RemoveSavedToolResponse)(nil),           // 71: mnemosyne.RemoveSavedToolResponse
 }
 var file_mnemosyne_proto_depIdxs = []int32{
 	3,  // 0: mnemosyne.AddMemoryResponse.entry:type_name -> mnemosyne.MemoryEntry
@@ -4374,81 +5119,94 @@ var file_mnemosyne_proto_depIdxs = []int32{
 	2,  // 16: mnemosyne.ChatEvent.event_type:type_name -> mnemosyne.ChatEvent.EventType
 	49, // 17: mnemosyne.CronJobList.jobs:type_name -> mnemosyne.CronJob
 	55, // 18: mnemosyne.SkillList.skills:type_name -> mnemosyne.SkillEntry
-	41, // 19: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
-	4,  // 20: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
-	6,  // 21: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
-	7,  // 22: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
-	8,  // 23: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
-	10, // 24: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
-	12, // 25: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
-	14, // 26: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
-	16, // 27: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
-	19, // 28: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
-	23, // 29: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
-	24, // 30: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
-	25, // 31: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
-	27, // 32: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
-	28, // 33: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
-	30, // 34: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
-	33, // 35: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
-	36, // 36: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
-	38, // 37: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
-	39, // 38: mnemosyne.Mnemosyne.ChatStream:input_type -> mnemosyne.ChatRequest
-	45, // 39: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
-	46, // 40: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
-	47, // 41: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
-	48, // 42: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
-	56, // 43: mnemosyne.Mnemosyne.AddSkill:input_type -> mnemosyne.AddSkillRequest
-	57, // 44: mnemosyne.Mnemosyne.GetSkill:input_type -> mnemosyne.GetSkillRequest
-	58, // 45: mnemosyne.Mnemosyne.ListSkills:input_type -> mnemosyne.ListSkillsRequest
-	60, // 46: mnemosyne.Mnemosyne.RemoveSkill:input_type -> mnemosyne.RemoveSkillRequest
-	62, // 47: mnemosyne.Mnemosyne.SearchSkills:input_type -> mnemosyne.SearchSkillsRequest
-	39, // 48: mnemosyne.AgentChat.ChatStream:input_type -> mnemosyne.ChatRequest
-	41, // 49: mnemosyne.AgentChat.Ping:input_type -> mnemosyne.HealthCheckRequest
-	50, // 50: mnemosyne.CronService.CreateCronJob:input_type -> mnemosyne.CreateCronJobRequest
-	51, // 51: mnemosyne.CronService.ListCronJobs:input_type -> mnemosyne.ListCronJobsRequest
-	53, // 52: mnemosyne.CronService.UpdateCronJob:input_type -> mnemosyne.UpdateCronJobRequest
-	54, // 53: mnemosyne.CronService.DeleteCronJob:input_type -> mnemosyne.DeleteCronJobRequest
-	42, // 54: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
-	5,  // 55: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
-	3,  // 56: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
-	3,  // 57: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
-	9,  // 58: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
-	11, // 59: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
-	13, // 60: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
-	15, // 61: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
-	17, // 62: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
-	20, // 63: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
-	21, // 64: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
-	21, // 65: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
-	26, // 66: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
-	21, // 67: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
-	29, // 68: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
-	32, // 69: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
-	34, // 70: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
-	37, // 71: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
-	43, // 72: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
-	40, // 73: mnemosyne.Mnemosyne.ChatStream:output_type -> mnemosyne.ChatEvent
-	44, // 74: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
-	44, // 75: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
-	44, // 76: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
-	43, // 77: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
-	55, // 78: mnemosyne.Mnemosyne.AddSkill:output_type -> mnemosyne.SkillEntry
-	55, // 79: mnemosyne.Mnemosyne.GetSkill:output_type -> mnemosyne.SkillEntry
-	59, // 80: mnemosyne.Mnemosyne.ListSkills:output_type -> mnemosyne.SkillList
-	61, // 81: mnemosyne.Mnemosyne.RemoveSkill:output_type -> mnemosyne.RemoveSkillResponse
-	59, // 82: mnemosyne.Mnemosyne.SearchSkills:output_type -> mnemosyne.SkillList
-	40, // 83: mnemosyne.AgentChat.ChatStream:output_type -> mnemosyne.ChatEvent
-	42, // 84: mnemosyne.AgentChat.Ping:output_type -> mnemosyne.HealthCheckResponse
-	49, // 85: mnemosyne.CronService.CreateCronJob:output_type -> mnemosyne.CronJob
-	52, // 86: mnemosyne.CronService.ListCronJobs:output_type -> mnemosyne.CronJobList
-	49, // 87: mnemosyne.CronService.UpdateCronJob:output_type -> mnemosyne.CronJob
-	43, // 88: mnemosyne.CronService.DeleteCronJob:output_type -> mnemosyne.Empty
-	54, // [54:89] is the sub-list for method output_type
-	19, // [19:54] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	63, // 19: mnemosyne.SavedToolList.tools:type_name -> mnemosyne.SavedToolEntry
+	41, // 20: mnemosyne.Mnemosyne.Ping:input_type -> mnemosyne.HealthCheckRequest
+	4,  // 21: mnemosyne.Mnemosyne.AddMemory:input_type -> mnemosyne.AddMemoryRequest
+	6,  // 22: mnemosyne.Mnemosyne.GetMemory:input_type -> mnemosyne.GetMemoryRequest
+	7,  // 23: mnemosyne.Mnemosyne.UpdateMemory:input_type -> mnemosyne.UpdateMemoryRequest
+	8,  // 24: mnemosyne.Mnemosyne.RemoveMemory:input_type -> mnemosyne.RemoveMemoryRequest
+	10, // 25: mnemosyne.Mnemosyne.ListMemories:input_type -> mnemosyne.ListMemoriesRequest
+	12, // 26: mnemosyne.Mnemosyne.Search:input_type -> mnemosyne.SearchRequest
+	14, // 27: mnemosyne.Mnemosyne.SearchSessions:input_type -> mnemosyne.SearchSessionsRequest
+	16, // 28: mnemosyne.Mnemosyne.ListSessions:input_type -> mnemosyne.ListSessionsRequest
+	19, // 29: mnemosyne.Mnemosyne.GetHotBlock:input_type -> mnemosyne.HotBlockRequest
+	23, // 30: mnemosyne.Mnemosyne.CreateSession:input_type -> mnemosyne.CreateSessionRequest
+	24, // 31: mnemosyne.Mnemosyne.AddMessages:input_type -> mnemosyne.AddMessagesRequest
+	25, // 32: mnemosyne.Mnemosyne.EndSession:input_type -> mnemosyne.EndSessionRequest
+	27, // 33: mnemosyne.Mnemosyne.GetSession:input_type -> mnemosyne.GetSessionRequest
+	28, // 34: mnemosyne.Mnemosyne.Consolidate:input_type -> mnemosyne.ConsolidateRequest
+	30, // 35: mnemosyne.Mnemosyne.GetConsolidationCandidates:input_type -> mnemosyne.GetConsolidationCandidatesRequest
+	33, // 36: mnemosyne.Mnemosyne.Subscribe:input_type -> mnemosyne.SubscribeRequest
+	36, // 37: mnemosyne.Mnemosyne.RegisterAgent:input_type -> mnemosyne.RegisterAgentRequest
+	38, // 38: mnemosyne.Mnemosyne.Heartbeat:input_type -> mnemosyne.AgentId
+	39, // 39: mnemosyne.Mnemosyne.ChatStream:input_type -> mnemosyne.ChatRequest
+	45, // 40: mnemosyne.Mnemosyne.AddTodo:input_type -> mnemosyne.AddTodoRequest
+	46, // 41: mnemosyne.Mnemosyne.ListTodos:input_type -> mnemosyne.ListTodosRequest
+	47, // 42: mnemosyne.Mnemosyne.CompleteTodo:input_type -> mnemosyne.CompleteTodoRequest
+	48, // 43: mnemosyne.Mnemosyne.RemoveTodo:input_type -> mnemosyne.RemoveTodoRequest
+	56, // 44: mnemosyne.Mnemosyne.AddSkill:input_type -> mnemosyne.AddSkillRequest
+	57, // 45: mnemosyne.Mnemosyne.GetSkill:input_type -> mnemosyne.GetSkillRequest
+	58, // 46: mnemosyne.Mnemosyne.ListSkills:input_type -> mnemosyne.ListSkillsRequest
+	60, // 47: mnemosyne.Mnemosyne.RemoveSkill:input_type -> mnemosyne.RemoveSkillRequest
+	62, // 48: mnemosyne.Mnemosyne.SearchSkills:input_type -> mnemosyne.SearchSkillsRequest
+	64, // 49: mnemosyne.Mnemosyne.AddSavedTool:input_type -> mnemosyne.AddSavedToolRequest
+	65, // 50: mnemosyne.Mnemosyne.GetSavedTool:input_type -> mnemosyne.GetSavedToolRequest
+	66, // 51: mnemosyne.Mnemosyne.ListSavedTools:input_type -> mnemosyne.ListSavedToolsRequest
+	68, // 52: mnemosyne.Mnemosyne.SearchSavedTools:input_type -> mnemosyne.SearchSavedToolsRequest
+	69, // 53: mnemosyne.Mnemosyne.UpdateSavedTool:input_type -> mnemosyne.UpdateSavedToolRequest
+	70, // 54: mnemosyne.Mnemosyne.RemoveSavedTool:input_type -> mnemosyne.RemoveSavedToolRequest
+	39, // 55: mnemosyne.AgentChat.ChatStream:input_type -> mnemosyne.ChatRequest
+	41, // 56: mnemosyne.AgentChat.Ping:input_type -> mnemosyne.HealthCheckRequest
+	50, // 57: mnemosyne.CronService.CreateCronJob:input_type -> mnemosyne.CreateCronJobRequest
+	51, // 58: mnemosyne.CronService.ListCronJobs:input_type -> mnemosyne.ListCronJobsRequest
+	53, // 59: mnemosyne.CronService.UpdateCronJob:input_type -> mnemosyne.UpdateCronJobRequest
+	54, // 60: mnemosyne.CronService.DeleteCronJob:input_type -> mnemosyne.DeleteCronJobRequest
+	42, // 61: mnemosyne.Mnemosyne.Ping:output_type -> mnemosyne.HealthCheckResponse
+	5,  // 62: mnemosyne.Mnemosyne.AddMemory:output_type -> mnemosyne.AddMemoryResponse
+	3,  // 63: mnemosyne.Mnemosyne.GetMemory:output_type -> mnemosyne.MemoryEntry
+	3,  // 64: mnemosyne.Mnemosyne.UpdateMemory:output_type -> mnemosyne.MemoryEntry
+	9,  // 65: mnemosyne.Mnemosyne.RemoveMemory:output_type -> mnemosyne.RemoveMemoryResponse
+	11, // 66: mnemosyne.Mnemosyne.ListMemories:output_type -> mnemosyne.MemoryList
+	13, // 67: mnemosyne.Mnemosyne.Search:output_type -> mnemosyne.SearchResponse
+	15, // 68: mnemosyne.Mnemosyne.SearchSessions:output_type -> mnemosyne.SearchSessionsResponse
+	17, // 69: mnemosyne.Mnemosyne.ListSessions:output_type -> mnemosyne.ListSessionsResponse
+	20, // 70: mnemosyne.Mnemosyne.GetHotBlock:output_type -> mnemosyne.HotBlockResponse
+	21, // 71: mnemosyne.Mnemosyne.CreateSession:output_type -> mnemosyne.Session
+	21, // 72: mnemosyne.Mnemosyne.AddMessages:output_type -> mnemosyne.Session
+	26, // 73: mnemosyne.Mnemosyne.EndSession:output_type -> mnemosyne.EndSessionResponse
+	21, // 74: mnemosyne.Mnemosyne.GetSession:output_type -> mnemosyne.Session
+	29, // 75: mnemosyne.Mnemosyne.Consolidate:output_type -> mnemosyne.ConsolidateResponse
+	32, // 76: mnemosyne.Mnemosyne.GetConsolidationCandidates:output_type -> mnemosyne.ConsolidationCandidatesResponse
+	34, // 77: mnemosyne.Mnemosyne.Subscribe:output_type -> mnemosyne.UpdateEvent
+	37, // 78: mnemosyne.Mnemosyne.RegisterAgent:output_type -> mnemosyne.RegisterAgentResponse
+	43, // 79: mnemosyne.Mnemosyne.Heartbeat:output_type -> mnemosyne.Empty
+	40, // 80: mnemosyne.Mnemosyne.ChatStream:output_type -> mnemosyne.ChatEvent
+	44, // 81: mnemosyne.Mnemosyne.AddTodo:output_type -> mnemosyne.TodoItem
+	44, // 82: mnemosyne.Mnemosyne.ListTodos:output_type -> mnemosyne.TodoItem
+	44, // 83: mnemosyne.Mnemosyne.CompleteTodo:output_type -> mnemosyne.TodoItem
+	43, // 84: mnemosyne.Mnemosyne.RemoveTodo:output_type -> mnemosyne.Empty
+	55, // 85: mnemosyne.Mnemosyne.AddSkill:output_type -> mnemosyne.SkillEntry
+	55, // 86: mnemosyne.Mnemosyne.GetSkill:output_type -> mnemosyne.SkillEntry
+	59, // 87: mnemosyne.Mnemosyne.ListSkills:output_type -> mnemosyne.SkillList
+	61, // 88: mnemosyne.Mnemosyne.RemoveSkill:output_type -> mnemosyne.RemoveSkillResponse
+	59, // 89: mnemosyne.Mnemosyne.SearchSkills:output_type -> mnemosyne.SkillList
+	63, // 90: mnemosyne.Mnemosyne.AddSavedTool:output_type -> mnemosyne.SavedToolEntry
+	63, // 91: mnemosyne.Mnemosyne.GetSavedTool:output_type -> mnemosyne.SavedToolEntry
+	67, // 92: mnemosyne.Mnemosyne.ListSavedTools:output_type -> mnemosyne.SavedToolList
+	67, // 93: mnemosyne.Mnemosyne.SearchSavedTools:output_type -> mnemosyne.SavedToolList
+	63, // 94: mnemosyne.Mnemosyne.UpdateSavedTool:output_type -> mnemosyne.SavedToolEntry
+	71, // 95: mnemosyne.Mnemosyne.RemoveSavedTool:output_type -> mnemosyne.RemoveSavedToolResponse
+	40, // 96: mnemosyne.AgentChat.ChatStream:output_type -> mnemosyne.ChatEvent
+	42, // 97: mnemosyne.AgentChat.Ping:output_type -> mnemosyne.HealthCheckResponse
+	49, // 98: mnemosyne.CronService.CreateCronJob:output_type -> mnemosyne.CronJob
+	52, // 99: mnemosyne.CronService.ListCronJobs:output_type -> mnemosyne.CronJobList
+	49, // 100: mnemosyne.CronService.UpdateCronJob:output_type -> mnemosyne.CronJob
+	43, // 101: mnemosyne.CronService.DeleteCronJob:output_type -> mnemosyne.Empty
+	61, // [61:102] is the sub-list for method output_type
+	20, // [20:61] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_mnemosyne_proto_init() }
@@ -4470,13 +5228,17 @@ func file_mnemosyne_proto_init() {
 	file_mnemosyne_proto_msgTypes[53].OneofWrappers = []any{}
 	file_mnemosyne_proto_msgTypes[55].OneofWrappers = []any{}
 	file_mnemosyne_proto_msgTypes[59].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[61].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[63].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[65].OneofWrappers = []any{}
+	file_mnemosyne_proto_msgTypes[66].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mnemosyne_proto_rawDesc), len(file_mnemosyne_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   60,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

@@ -63,6 +63,14 @@ service Mnemosyne {
   rpc ListSkills(ListSkillsRequest) returns (SkillList);
   rpc RemoveSkill(RemoveSkillRequest) returns (RemoveSkillResponse);
   rpc SearchSkills(SearchSkillsRequest) returns (SkillList);
+
+  // --- Saved Tool Management ---
+  rpc AddSavedTool(AddSavedToolRequest) returns (SavedToolEntry);
+  rpc GetSavedTool(GetSavedToolRequest) returns (SavedToolEntry);
+  rpc ListSavedTools(ListSavedToolsRequest) returns (SavedToolList);
+  rpc SearchSavedTools(SearchSavedToolsRequest) returns (SavedToolList);
+  rpc UpdateSavedTool(UpdateSavedToolRequest) returns (SavedToolEntry);
+  rpc RemoveSavedTool(RemoveSavedToolRequest) returns (RemoveSavedToolResponse);
 }
 
 // AgentChat is a lightweight gRPC service exposed by the agent binary
@@ -499,4 +507,75 @@ message SearchSkillsRequest {
   string query = 1;              // Required: search query
   string category = 2;           // Filter by category (empty = all)
   optional int32 limit = 3;      // Limit results
+}
+
+// --- Saved Tool Messages ---
+
+message SavedToolEntry {
+  string id = 1;                        // UUID
+  string name = 2;                       // Unique tool name (e.g., "calculate_natal_chart")
+  string description = 3;               // LLM-readable description
+  string type = 4;                       // "script" (only type in v1)
+  string parameters = 5;                // JSON schema for inputs
+  string script = 6;                     // Executable content (bash/python)
+  string category = 7;                  // e.g., "astrology", "devops"
+  repeated string triggers = 8;        // Trigger keywords for discovery
+  string author = 9;                    // Agent ID that created it
+  int32 priority = 10;                  // 1-5
+  int32 version = 11;                   // Incremented on each update
+  bool requires_approval_every_call = 12;  // true = ask every time, false = ask once
+  int64 created_at = 13;               // Unix timestamp
+  int64 updated_at = 14;               // Unix timestamp
+}
+
+message AddSavedToolRequest {
+  string name = 1;                       // Required: unique tool name
+  string description = 2;               // Required: LLM-readable description
+  string type = 3;                       // Required: "script"
+  string parameters = 4;                // Required: JSON schema
+  string script = 5;                     // Required: executable content
+  string category = 6;                  // Optional: category
+  repeated string triggers = 7;        // Optional: trigger keywords
+  string author = 8;                    // Required: agent ID
+  optional int32 priority = 9;         // Optional: priority (default: 3)
+}
+
+message GetSavedToolRequest {
+  string id = 1;                        // Required: tool ID
+}
+
+message ListSavedToolsRequest {
+  string category = 1;                  // Filter by category (empty = all)
+  string author = 2;                    // Filter by author (empty = all)
+  optional int32 limit = 3;            // Limit results
+}
+
+message SavedToolList {
+  repeated SavedToolEntry tools = 1;
+}
+
+message SearchSavedToolsRequest {
+  string query = 1;                     // Required: search query
+  string category = 2;                  // Filter by category (empty = all)
+  optional int32 limit = 3;            // Limit results
+}
+
+message UpdateSavedToolRequest {
+  string id = 1;                        // Required: tool ID to update
+  optional string name = 2;            // New name
+  optional string description = 3;     // New description
+  optional string parameters = 4;       // New JSON schema
+  optional string script = 5;           // New executable content
+  optional string category = 6;        // New category
+  repeated string triggers = 7;        // New triggers
+  optional int32 priority = 8;         // New priority
+  optional bool requires_approval_every_call = 9; // New approval requirement
+}
+
+message RemoveSavedToolRequest {
+  string id = 1;                        // Required: tool ID to remove
+}
+
+message RemoveSavedToolResponse {
+  bool removed = 1;                     // Whether removal was successful
 }
