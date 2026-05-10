@@ -82,7 +82,11 @@ func (a *Agent) Close() {
 // Falls back to the registry's primary if no router is configured.
 func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.Provider, error) {
 	if a.Router == nil {
-		return a.Registry.GetPrimary()
+		p, err := a.Registry.GetPrimary()
+		if err == nil {
+			convCtx.SetTokenCounter(nil) // Use default (chars/4) when no router
+		}
+		return p, err
 	}
 
 	// Build routing context from conversation state
@@ -91,7 +95,7 @@ func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.
 		UserMessage:     firstUserMessage(convCtx.Messages),
 		HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
 		ToolCallCount:   countToolResults(convCtx.Messages),
-		PromptCharCount: convCtx.TokenCount() * 4, // Rough: tokens→chars
+		PromptCharCount: convCtx.CharCount(),
 	}
 
 	modelCfg, err := a.Router.Select(routingCtx)
@@ -99,6 +103,9 @@ func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.
 		// Fallback to primary provider on routing error
 		return a.Registry.GetPrimary()
 	}
+
+	// Update token counter for the selected model
+	convCtx.SetTokenCounter(agentctx.CounterForModel(modelCfg.Name))
 
 	p, err := a.Registry.Get(modelCfg.Provider)
 	if err != nil {

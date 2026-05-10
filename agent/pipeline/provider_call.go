@@ -39,7 +39,7 @@ func (s *ProviderCallStage) Process(ctx context.Context, convCtx *agentctx.Conve
 			UserMessage:     firstUserMessage(convCtx.Messages),
 			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
 			ToolCallCount:   countToolResults(convCtx.Messages),
-			PromptCharCount: convCtx.TokenCount() * 4,
+			PromptCharCount: convCtx.CharCount(),
 		}
 		modelCfg, selectErr := s.Router.Select(routingCtx)
 		if selectErr != nil {

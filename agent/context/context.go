@@ -62,6 +62,10 @@ type ConversationContext struct {
 	// DuplicateProgressCount is the number of consecutive iterations whose
 	// progress signature duplicates a recent one. Reset to 0 on novel progress.
 	DuplicateProgressCount int
+
+	// tokenCounter is the active token counter for this conversation.
+	// Set via SetTokenCounter(). Defaults to DefaultTokenCounter (chars/4).
+	tokenCounter TokenCounter
 }
 
 // AddMessage appends a message to the conversation.
@@ -79,8 +83,9 @@ func (c *ConversationContext) LastAssistantMessage() *Message {
 	return nil
 }
 
-// TokenCount estimates the total token count (rough: 4 chars per token).
-func (c *ConversationContext) TokenCount() int {
+// CharCount returns the total character count of the conversation.
+// Used as a cheap proxy when tokens aren't needed.
+func (c *ConversationContext) CharCount() int {
 	total := len(c.SystemPrompt)
 	for _, m := range c.Messages {
 		total += len(m.Content)
@@ -88,7 +93,18 @@ func (c *ConversationContext) TokenCount() int {
 			total += len(tc.Name) + len(tc.Arguments)
 		}
 	}
-	return total / 4
+	return total
+}
+
+// TokenCount estimates the total token count using the model-specific
+// TokenCounter if available, falling back to chars/4.
+func (c *ConversationContext) TokenCount() int {
+	counter := c.getTokenCounter()
+	total := counter.CountTokens(c.SystemPrompt)
+	for _, m := range c.Messages {
+		total += CountMessageTokens(counter, m)
+	}
+	return total
 }
 
 // IsOverTokenLimit checks whether the context exceeds the given max token limit,

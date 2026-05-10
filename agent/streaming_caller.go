@@ -46,10 +46,11 @@ func (c *streamingCaller) Call(ctx context.Context, convCtx *agentctx.Conversati
 			UserMessage:     firstUserMessage(convCtx.Messages),
 			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
 			ToolCallCount:   countToolResults(convCtx.Messages),
-			PromptCharCount: convCtx.TokenCount() * 4,
+			PromptCharCount: convCtx.CharCount(),
 		})
 		if selectErr == nil {
 			modelName = modelCfg.Name
+			convCtx.SetTokenCounter(agentctx.CounterForModel(modelCfg.Name))
 		}
 	}
 
