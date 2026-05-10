@@ -14,6 +14,7 @@ import (
 // AddMemoryParams holds the parameters for AddMemory.
 // Introduced to improve readability — 7 positional parameters is past the Fowler threshold.
 type AddMemoryParams struct {
+	Owner       string
 	Target      string
 	Category    string
 	Key         string
@@ -32,6 +33,9 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 	if params.SourceAgent == "" {
 		return nil, fmt.Errorf("source_agent must not be empty")
 	}
+	if params.Owner == "" {
+		params.Owner = "default"
+	}
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -47,7 +51,7 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 
 	// Check if entry exists with this target+key
 	var existingID string
-	err = tx.QueryRow("SELECT id FROM memories WHERE target = ? AND key = ?", params.Target, params.Key).Scan(&existingID)
+	err = tx.QueryRow("SELECT id FROM memories WHERE target = ? AND key = ? AND owner = ?", params.Target, params.Key, params.Owner).Scan(&existingID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("check existing: %w", err)
 	}
@@ -78,9 +82,9 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 	id := uuid.New().String()
 	sanitizedContent := sanitizeUTF8(params.Content)
 	_, err = tx.Exec(`
-		INSERT INTO memories (id, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, params.Target, params.Category, params.Key, sanitizedContent, params.Priority, params.SourceAgent, now, now, now, params.ExpiresAt,
+		INSERT INTO memories (id, owner, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, params.Owner, params.Target, params.Category, params.Key, sanitizedContent, params.Priority, params.SourceAgent, now, now, now, params.ExpiresAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert memory: %w", err)
