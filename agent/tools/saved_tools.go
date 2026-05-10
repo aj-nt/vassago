@@ -19,8 +19,8 @@ func RegisterSavedToolTools(registry *ToolRegistry, mnemo client.MnemoClient, ag
 	registry.Register("GetTool", makeGetTool(mnemo), GetToolSchema)
 	registry.Register("ListTools", makeListTools(mnemo), ListToolsSchema)
 	registry.Register("SearchTools", makeSearchTools(mnemo), SearchToolsSchema)
-	registry.Register("UpdateTool", makeUpdateTool(mnemo), UpdateToolSchema)
-	registry.Register("RemoveTool", makeRemoveTool(mnemo), RemoveToolSchema)
+	registry.Register("UpdateTool", makeUpdateTool(registry, mnemo), UpdateToolSchema)
+	registry.Register("RemoveTool", makeRemoveTool(registry, mnemo), RemoveToolSchema)
 }
 
 func makeCreateTool(registry *ToolRegistry, mnemo client.MnemoClient, agentID string) ToolHandler {
@@ -212,11 +212,19 @@ func makeSearchTools(mnemo client.MnemoClient) ToolHandler {
 	}
 }
 
-func makeUpdateTool(mnemo client.MnemoClient) ToolHandler {
+func makeUpdateTool(registry *ToolRegistry, mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		id := strArg(args, "id", "")
 		if id == "" {
 			return "id is required", true
+		}
+
+		// Fetch current entry to get the existing name (for registry cleanup)
+		ctx, cancel := withTimeout(DefaultTimeout)
+		current, err := mnemo.GetSavedTool(ctx, id)
+		cancel()
+		if err != nil {
+			return fmt.Sprintf("UpdateTool failed: tool not found: %v", err), true
 		}
 
 		updates := make(map[string]interface{})
@@ -263,32 +271,58 @@ func makeUpdateTool(mnemo client.MnemoClient) ToolHandler {
 			updates["requires_approval_every_call"] = v
 		}
 
-		ctx, cancel := withTimeout(DefaultTimeout)
-		defer cancel()
-		entry, err := mnemo.UpdateSavedTool(ctx, id, updates)
+		ctx2, cancel2 := withTimeout(DefaultTimeout)
+		defer cancel2()
+		entry, err := mnemo.UpdateSavedTool(ctx2, id, updates)
 		if err != nil {
 			return fmt.Sprintf("UpdateTool failed: %v", err), true
 		}
-		return fmt.Sprintf("Tool updated: [%s] %s (now v%d). Changes take effect next turn.", entry.Category, entry.Name, entry.Version), false
+
+		// Re-register handler immediately with updated script/schema
+		if registry != nil {
+			// Unregister old name if it changed
+			oldName := current.Name
+			if oldName != entry.Name {
+				registry.Unregister(oldName)
+			}
+			var paramsSchema map[string]interface{}
+			json.Unmarshal([]byte(entry.Parameters), &paramsSchema)
+			registry.Register(entry.Name, makeInlineScriptHandler(entry.Name, entry.Script, entry.RequiresApprovalEveryCall, mnemo, registry), map[string]interface{}{
+				"name":        entry.Name,
+				"description": entry.Description,
+				"parameters":  paramsSchema,
+			})
+		}
+
+		return fmt.Sprintf("Tool updated: [%s] %s (now v%d). Changes take effect immediately.", entry.Category, entry.Name, entry.Version), false
 	}
 }
 
-func makeRemoveTool(mnemo client.MnemoClient) ToolHandler {
+func makeRemoveTool(registry *ToolRegistry, mnemo client.MnemoClient) ToolHandler {
 	return func(args map[string]interface{}) (string, bool) {
 		id := strArg(args, "id", "")
 		if id == "" {
 			return "id is required", true
 		}
 
+		// Fetch the tool first to get its name (needed for registry cleanup)
 		ctx, cancel := withTimeout(DefaultTimeout)
-		defer cancel()
-		removed, err := mnemo.RemoveSavedTool(ctx, id)
+		current, err := mnemo.GetSavedTool(ctx, id)
+		cancel()
+
+		ctx2, cancel2 := withTimeout(DefaultTimeout)
+		defer cancel2()
+		removed, err := mnemo.RemoveSavedTool(ctx2, id)
 		if err != nil {
 			return fmt.Sprintf("RemoveTool failed: %v", err), true
 		}
 
 		if removed {
-			return fmt.Sprintf("Tool %s removed. Changes take effect next turn.", id), false
+			// Unregister handler immediately by name so tool is no longer callable
+			if registry != nil && current != nil {
+				registry.Unregister(current.Name)
+			}
+			return fmt.Sprintf("Tool %s removed. Changes take effect immediately.", id), false
 		}
 		return fmt.Sprintf("Tool %s not found.", id), false
 	}

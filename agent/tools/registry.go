@@ -37,6 +37,16 @@ func (r *ToolRegistry) Get(name string) (ToolHandler, error) {
 	return h, nil
 }
 
+// Unregister removes a tool handler by name. Returns false if not found.
+func (r *ToolRegistry) Unregister(name string) bool {
+	_, ok := r.handlers[name]
+	if ok {
+		delete(r.handlers, name)
+		delete(r.schemas, name)
+	}
+	return ok
+}
+
 // List returns all registered tool names.
 func (r *ToolRegistry) List() []string {
 	names := make([]string, 0, len(r.handlers))
