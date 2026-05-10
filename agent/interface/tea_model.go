@@ -614,9 +614,12 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 		m.endTurn("")
 		m.input.Focus()
 
-		// In one-shot mode, quit after error
+		// In one-shot mode, quit after showing the error
 		if m.oneShot {
-			return tea.Quit
+			m.rebuildViewport()
+			return tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+				return tea.Quit()
+			})
 		}
 
 	case agentctx.StreamDone:
@@ -633,9 +636,13 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 		m.endTurn("")
 		m.input.Focus()
 
-		// In one-shot mode, quit after the response is complete
+		// In one-shot mode, quit after a brief pause so the final render
+		// shows the completed response with status line.
 		if m.oneShot {
-			return tea.Quit
+			m.rebuildViewport()
+			return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+				return tea.Quit()
+			})
 		}
 	}
 	return nil
