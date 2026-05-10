@@ -35,7 +35,7 @@ type Agent struct {
 	Stage1 *pipeline.RequestPrepStage
 	Stage2 *pipeline.ProviderCallStage
 	Stage3 *pipeline.ResponseProcessingStage
-	Stage4 *pipeline.ToolDispatchStage
+	Stage4 *pipeline.ParallelToolDispatchStage
 	Stage5 *pipeline.ContextManagementStage
 }
 
