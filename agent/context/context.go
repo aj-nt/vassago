@@ -133,6 +133,35 @@ func (c *ConversationContext) AppendToolResults(results []ToolResult) {
 	}
 }
 
+// ToolResultCount returns the number of tool result messages in the conversation.
+func (c *ConversationContext) ToolResultCount() int {
+	count := 0
+	for _, m := range c.Messages {
+		if m.Role == "tool" {
+			count++
+		}
+	}
+	return count
+}
+
+// FirstUserMessage returns the content of the first user message, or "".
+func (c *ConversationContext) FirstUserMessage() string {
+	for _, m := range c.Messages {
+		if m.Role == "user" {
+			return m.Content
+		}
+	}
+	return ""
+}
+
+// LastMessageIsToolResult returns true if the most recent message is a tool result.
+func (c *ConversationContext) LastMessageIsToolResult() bool {
+	if len(c.Messages) == 0 {
+		return false
+	}
+	return c.Messages[len(c.Messages)-1].Role == "tool"
+}
+
 // SummarizeLargeToolResults replaces tool result content larger than threshold
 // with a summary placeholder. Used during aggressive compaction.
 func (c *ConversationContext) SummarizeLargeToolResults(threshold int) {

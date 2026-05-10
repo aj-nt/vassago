@@ -43,9 +43,9 @@ func (c *streamingCaller) Call(ctx context.Context, convCtx *agentctx.Conversati
 	if c.agent.Router != nil {
 		modelCfg, selectErr := c.agent.Router.Select(provider.RoutingContext{
 			Iteration:       convCtx.Iteration,
-			UserMessage:     firstUserMessage(convCtx.Messages),
-			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
-			ToolCallCount:   countToolResults(convCtx.Messages),
+			UserMessage:     convCtx.FirstUserMessage(),
+			HasToolResults:  convCtx.LastMessageIsToolResult(),
+			ToolCallCount:   convCtx.ToolResultCount(),
 			PromptCharCount: convCtx.CharCount(),
 		})
 		if selectErr == nil {

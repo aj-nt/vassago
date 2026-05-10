@@ -92,9 +92,9 @@ func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.
 	// Build routing context from conversation state
 	routingCtx := provider.RoutingContext{
 		Iteration:       convCtx.Iteration,
-		UserMessage:     firstUserMessage(convCtx.Messages),
-		HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
-		ToolCallCount:   countToolResults(convCtx.Messages),
+		UserMessage:     convCtx.FirstUserMessage(),
+		HasToolResults:  convCtx.LastMessageIsToolResult(),
+		ToolCallCount:   convCtx.ToolResultCount(),
 		PromptCharCount: convCtx.CharCount(),
 	}
 
@@ -130,35 +130,6 @@ func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.
 		return p, nil
 	}
 	return p, nil
-}
-
-// firstUserMessage returns the first user message content.
-func firstUserMessage(msgs []agentctx.Message) string {
-	for _, m := range msgs {
-		if m.Role == "user" {
-			return m.Content
-		}
-	}
-	return ""
-}
-
-// lastMessageIsToolResult checks if the last message is a tool result.
-func lastMessageIsToolResult(msgs []agentctx.Message) bool {
-	if len(msgs) == 0 {
-		return false
-	}
-	return msgs[len(msgs)-1].Role == "tool"
-}
-
-// countToolResults counts tool result messages.
-func countToolResults(msgs []agentctx.Message) int {
-	count := 0
-	for _, m := range msgs {
-		if m.Role == "tool" {
-			count++
-		}
-	}
-	return count
 }
 
 // Run executes the agent loop for a user message.

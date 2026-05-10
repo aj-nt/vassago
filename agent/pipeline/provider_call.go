@@ -36,9 +36,9 @@ func (s *ProviderCallStage) Process(ctx context.Context, convCtx *agentctx.Conve
 		// Use router to select provider
 		routingCtx := provider.RoutingContext{
 			Iteration:       convCtx.Iteration,
-			UserMessage:     firstUserMessage(convCtx.Messages),
-			HasToolResults:  lastMessageIsToolResult(convCtx.Messages),
-			ToolCallCount:   countToolResults(convCtx.Messages),
+			UserMessage:     convCtx.FirstUserMessage(),
+			HasToolResults:  convCtx.LastMessageIsToolResult(),
+			ToolCallCount:   convCtx.ToolResultCount(),
 			PromptCharCount: convCtx.CharCount(),
 		}
 		modelCfg, selectErr := s.Router.Select(routingCtx)
@@ -90,31 +90,4 @@ func populateModelProvider(result agentctx.ProviderResult, p provider.Provider, 
 	result.Model = modelName
 	result.Provider = p.Name()
 	return result
-}
-
-// Helper functions for routing context.
-func firstUserMessage(msgs []agentctx.Message) string {
-	for _, m := range msgs {
-		if m.Role == "user" {
-			return m.Content
-		}
-	}
-	return ""
-}
-
-func lastMessageIsToolResult(msgs []agentctx.Message) bool {
-	if len(msgs) == 0 {
-		return false
-	}
-	return msgs[len(msgs)-1].Role == "tool"
-}
-
-func countToolResults(msgs []agentctx.Message) int {
-	count := 0
-	for _, m := range msgs {
-		if m.Role == "tool" {
-			count++
-		}
-	}
-	return count
 }

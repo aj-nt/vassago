@@ -16,13 +16,6 @@ type PipelineThresholds struct {
 	// AppendAndContinueHandler.
 	AggressiveSummaryThreshold int
 
-	// RepetitiveLoopThreshold is the number of consecutive same-tool calls
-	// that triggers a repetitive loop detection YIELD.
-	// DEPRECATED: superseded by ProgressDetectionHandler. Set to 0 to disable.
-	// RepetitiveLoopHandler only checks tool name, not result content, so it
-	// fires on legitimate multi-step work (e.g., reading 3 files).
-	RepetitiveLoopThreshold int
-
 	// ProgressYieldThreshold is the number of consecutive no-progress
 	// iterations (same tool names, same result pattern) before yielding.
 	// Default: 5. Reading 3 files in sequence produces 3 identical
@@ -31,21 +24,11 @@ type PipelineThresholds struct {
 	// SearchMemories/not_found repeated 5 times.
 	ProgressYieldThreshold int
 
-	// ConsecutiveLoopThreshold is the LEGACY threshold for consecutive
-	// tool-only iterations (any tools) that triggers a YIELD.
-	// DEPRECATED: superseded by ProgressYieldThreshold. Set to 0 to disable.
-	ConsecutiveLoopThreshold int
-
-	// NarrationNudgeThreshold is the LEGACY threshold for injecting a
-	// system nudge after N consecutive tool-only iterations.
-	// DEPRECATED: superseded by ProgressDetectionHandler. Set to 0 to disable.
-	NarrationNudgeThreshold int
-
 	// IntentLoopThreshold is the number of times the same intent bucket
 	// (e.g., "search", "read", "execute") must appear in recent progress
 	// history to trigger an intent nudge. This catches cross-tool loops
 	// where the agent switches tools but pursues the same goal.
-	// Default: 3 (3 iterations of "search" even if using FileSearch,
+	// Default: 5 (5 iterations of "search" even if using FileSearch,
 	// SearchMemories, and Execute).
 	IntentLoopThreshold int
 
@@ -67,11 +50,8 @@ type PipelineThresholds struct {
 func DefaultThresholds() PipelineThresholds {
 	return PipelineThresholds{
 		AggressiveSummaryThreshold: 500,
-		RepetitiveLoopThreshold:    0,  // disabled — ProgressDetection replaces it
-		ProgressYieldThreshold:     5,  // need 5+ consecutive identical signatures to YIELD
-		IntentLoopThreshold:        5,  // 5+ same-intent iterations triggers nudge
-		ConsecutiveLoopThreshold:   0,  // disabled — ProgressDetection replaces it
-		NarrationNudgeThreshold:   0,  // disabled — ProgressDetection replaces it
+		ProgressYieldThreshold:     5,
+		IntentLoopThreshold:        5,
 		StuckMinFailures:           2,
 		StuckHistoryWindow:         3,
 		MaxConsecutiveErrors:       3,

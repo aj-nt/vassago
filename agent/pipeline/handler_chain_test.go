@@ -122,104 +122,11 @@ func TestStuckHandler_YieldsOnConsecutiveNotFound(t *testing.T) {
 
 // --- RepetitiveLoopHandler tests ---
 
-func TestRepetitiveLoopHandler_DetectsLoop(t *testing.T) {
-	thresholds := DefaultThresholds()
-	thresholds.RepetitiveLoopThreshold = 3 // re-enable for this test
-	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
-	args, _ := json.Marshal(map[string]interface{}{})
-	convCtx := &agentctx.ConversationContext{
-		Messages: []agentctx.Message{
-			{Role: "user", Content: "check memory"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
-		},
-		MaxIterations: 20,
-		Iteration:     3,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if !handled {
-		t.Error("Expected handler to handle the loop request")
-	}
-	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD when repetitive loop detected, got %v", action)
-	}
-}
 
-func TestRepetitiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
-	thresholds := DefaultThresholds()
-	thresholds.RepetitiveLoopThreshold = 3 // re-enable for this test
-	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
-	args, _ := json.Marshal(map[string]interface{}{})
-	convCtx := &agentctx.ConversationContext{
-		Messages:          []agentctx.Message{{Role: "user", Content: "hello"}},
-		MaxIterations:     20,
-		CompactedThisTurn: true, // should skip loop detection
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if handled {
-		t.Errorf("Expected handler to skip loop detection after compaction, got action=%v handled=%v", action, handled)
-	}
-}
 
 // --- ConsecutiveLoopHandler tests ---
 
-func TestConsecutiveLoopHandler_DetectsLoop(t *testing.T) {
-	thresholds := DefaultThresholds()
-	thresholds.ConsecutiveLoopThreshold = 3 // re-enable deprecated handler for this test
-	handler := &ConsecutiveLoopHandler{Thresholds: thresholds}
-	messages := []agentctx.Message{
-		{Role: "user", Content: "check this"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "found files", ToolCallID: "1"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "file contents", ToolCallID: "2"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "command output", ToolCallID: "3"},
-	}
-	convCtx := &agentctx.ConversationContext{
-		Messages:      messages,
-		MaxIterations: 20,
-		Iteration:     4,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if !handled {
-		t.Error("Expected handler to detect consecutive loop")
-	}
-	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD, got %v", action)
-	}
-}
 
-func TestConsecutiveLoopHandler_SkipsAfterCompaction(t *testing.T) {
-	handler := &ConsecutiveLoopHandler{Thresholds: DefaultThresholds()}
-	convCtx := &agentctx.ConversationContext{
-		Messages:          []agentctx.Message{{Role: "user", Content: "hello"}},
-		MaxIterations:     20,
-		CompactedThisTurn: true,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if handled {
-		t.Errorf("Expected handler to skip after compaction, got action=%v handled=%v", action, handled)
-	}
-}
 
 // --- AppendAndContinueHandler tests ---
 
@@ -303,10 +210,7 @@ func TestHandlerChain_CallsHandlersInOrder(t *testing.T) {
 	// Create a chain where the overflow handler stops the request
 	chain := NewHandlerChain(
 		&OverflowHandler{MaxContextTokens: 10, Thresholds: DefaultThresholds()}, // very low limit
-		&StuckHandler{Thresholds: DefaultThresholds()},
-		&RepetitiveLoopHandler{Thresholds: DefaultThresholds()},
-		&ConsecutiveLoopHandler{Thresholds: DefaultThresholds()},
-		&AppendAndContinueHandler{},
+		&StuckHandler{Thresholds: DefaultThresholds()},&AppendAndContinueHandler{},
 	)
 
 	convCtx := &agentctx.ConversationContext{
@@ -325,9 +229,7 @@ func TestHandlerChain_CallsHandlersInOrder(t *testing.T) {
 func TestHandlerChain_PassesThroughWhenFirstHandlerDeclines(t *testing.T) {
 	chain := NewHandlerChain(
 		&OverflowHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()}, // no limit → passes through
-		&StuckHandler{Thresholds: DefaultThresholds()},                        // no stuck results → passes through
-		&RepetitiveLoopHandler{Thresholds: DefaultThresholds()},               // not repetitive → passes through
-		&ConsecutiveLoopHandler{Thresholds: DefaultThresholds()},              // not consecutive → passes through
+		&StuckHandler{Thresholds: DefaultThresholds()},                        // no stuck results → passes through// not repetitive → passes through// not consecutive → passes through
 		&AppendAndContinueHandler{MaxContextTokens: 0, Thresholds: DefaultThresholds()},
 	)
 
@@ -381,80 +283,15 @@ func TestContextManagementStage_ResetsCompactedFlag(t *testing.T) {
 
 // --- Config override tests ---
 
-func TestPipelineThresholds_CustomRepetitiveThreshold(t *testing.T) {
-	// With a higher threshold (5), 3 identical calls should NOT trigger loop detection
-	thresholds := DefaultThresholds()
-	thresholds.RepetitiveLoopThreshold = 5
 
-	handler := &RepetitiveLoopHandler{Thresholds: thresholds}
-	args, _ := json.Marshal(map[string]interface{}{})
-	convCtx := &agentctx.ConversationContext{
-		Messages: []agentctx.Message{
-			{Role: "user", Content: "check memory"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
-		},
-		MaxIterations: 20,
-		Iteration:     3,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if handled {
-		t.Errorf("Expected handler to pass with threshold=5 and only 3 calls, got action=%v handled=%v", action, handled)
-	}
-}
-
-func TestPipelineThresholds_CustomConsecutiveThreshold(t *testing.T) {
-	// With threshold=3, 3 consecutive iterations should trigger loop detection
-	thresholds := DefaultThresholds()
-	thresholds.ConsecutiveLoopThreshold = 3
-
-	handler := &ConsecutiveLoopHandler{Thresholds: thresholds}
-	messages := []agentctx.Message{
-		{Role: "user", Content: "check this"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "found files", ToolCallID: "1"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "file contents", ToolCallID: "2"},
-	}
-	convCtx := &agentctx.ConversationContext{
-		Messages:      messages,
-		MaxIterations: 20,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)}},
-		FinishReason: "tool_use",
-	}
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if !handled {
-		t.Error("Expected handler to detect loop with threshold=3 and 3 consecutive calls")
-	}
-	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD, got %v", action)
-	}
-}
 
 func TestDefaultThresholds(t *testing.T) {
 	th := DefaultThresholds()
 	if th.AggressiveSummaryThreshold != 500 {
 		t.Errorf("Expected AggressiveSummaryThreshold=500, got %d", th.AggressiveSummaryThreshold)
 	}
-	if th.RepetitiveLoopThreshold != 0 {
-		t.Errorf("Expected RepetitiveLoopThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.RepetitiveLoopThreshold)
-	}
 	if th.ProgressYieldThreshold != 5 {
 		t.Errorf("Expected ProgressYieldThreshold=5, got %d", th.ProgressYieldThreshold)
-	}
-	if th.ConsecutiveLoopThreshold != 0 {
-		t.Errorf("Expected ConsecutiveLoopThreshold=0 (disabled, superseded by ProgressYieldThreshold), got %d", th.ConsecutiveLoopThreshold)
-	}
-	if th.NarrationNudgeThreshold != 0 {
-		t.Errorf("Expected NarrationNudgeThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.NarrationNudgeThreshold)
 	}
 	if th.StuckMinFailures != 2 {
 		t.Errorf("Expected StuckMinFailures=2, got %d", th.StuckMinFailures)
@@ -473,9 +310,6 @@ func TestBlockingThresholds(t *testing.T) {
 		t.Errorf("Expected MaxConsecutiveErrors=1 for blocking mode, got %d", th.MaxConsecutiveErrors)
 	}
 	// Other thresholds should match defaults
-	if th.RepetitiveLoopThreshold != 0 {
-		t.Errorf("Expected RepetitiveLoopThreshold=0 (disabled, superseded by ProgressDetection), got %d", th.RepetitiveLoopThreshold)
-	}
 }
 
 // --- Observer event tests ---
@@ -516,127 +350,8 @@ func TestStuckHandler_EmitsEvent(t *testing.T) {
 	}
 }
 
-func TestRepetitiveLoopHandler_EmitsEvent(t *testing.T) {
-	bus := eventbus.NewEventBus()
-	ch := bus.Subscribe("repetitive_loop")
 
-	// Use explicit thresholds — handler is disabled by default (threshold=0)
-	thresholds := DefaultThresholds()
-	thresholds.RepetitiveLoopThreshold = 3
-	handler := &RepetitiveLoopHandler{Thresholds: thresholds, EventBus: bus}
-	args, _ := json.Marshal(map[string]interface{}{})
-	convCtx := &agentctx.ConversationContext{
-		Messages: []agentctx.Message{
-			{Role: "user", Content: "check memory"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
-		},
-		MaxIterations: 20,
-		Iteration:     3,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
-		FinishReason: "tool_use",
-	}
 
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if !handled || action != agentctx.StageActionYIELD {
-		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
-	}
-
-	select {
-	case evt := <-ch:
-		loopEvt, ok := evt.Data.(LoopDetectionEvent)
-		if !ok {
-			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
-		}
-		if loopEvt.Kind != "repetitive_loop" {
-			t.Errorf("Expected kind 'repetitive_loop', got %q", loopEvt.Kind)
-		}
-		if loopEvt.ToolName != "GetHotBlock" {
-			t.Errorf("Expected tool name 'GetHotBlock', got %q", loopEvt.ToolName)
-		}
-	default:
-		t.Error("Expected to receive repetitive_loop event from EventBus")
-	}
-}
-
-func TestRepetitiveLoopHandler_DisabledByDefault(t *testing.T) {
-	// When RepetitiveLoopThreshold=0 (default), handler should return CONTINUE
-	bus := eventbus.NewEventBus()
-	handler := &RepetitiveLoopHandler{Thresholds: DefaultThresholds(), EventBus: bus}
-	args, _ := json.Marshal(map[string]interface{}{})
-	convCtx := &agentctx.ConversationContext{
-		Messages: []agentctx.Message{
-			{Role: "user", Content: "check memory"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "1"},
-			{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "GetHotBlock", Arguments: args}}},
-			{Role: "tool", Content: "hot block data", ToolCallID: "2"},
-		},
-		MaxIterations: 20,
-		Iteration:     3,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "3", Name: "GetHotBlock", Arguments: args}},
-		FinishReason: "tool_use",
-	}
-
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if action != agentctx.StageActionCONTINUE || handled != false {
-		t.Errorf("Expected CONTINUE/false when RepetitiveLoopThreshold=0, got %v/%v", action, handled)
-	}
-}
-
-func TestConsecutiveLoopHandler_EmitsEvent(t *testing.T) {
-	bus := eventbus.NewEventBus()
-	ch := bus.Subscribe("consecutive_loop")
-
-	thresholds := DefaultThresholds()
-	thresholds.ConsecutiveLoopThreshold = 3 // re-enable deprecated handler for this test
-	handler := &ConsecutiveLoopHandler{Thresholds: thresholds, EventBus: bus}
-	messages := []agentctx.Message{
-		{Role: "user", Content: "check this"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "1", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "found files", ToolCallID: "1"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "2", Name: "FileRead", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "file contents", ToolCallID: "2"},
-		{Role: "assistant", ToolCalls: []agentctx.ToolCall{{ID: "3", Name: "Execute", Arguments: json.RawMessage(`{}`)}}},
-		{Role: "tool", Content: "command output", ToolCallID: "3"},
-	}
-	convCtx := &agentctx.ConversationContext{
-		Messages:      messages,
-		MaxIterations: 20,
-		Iteration:     4,
-	}
-	parsed := agentctx.ParsedResponse{
-		ToolCalls:    []agentctx.ToolCall{{ID: "4", Name: "FileSearch", Arguments: json.RawMessage(`{}`)}},
-		FinishReason: "tool_use",
-	}
-
-	action, handled := handler.Handle(convCtx, nil, parsed)
-	if !handled || action != agentctx.StageActionYIELD {
-		t.Fatalf("Expected YIELD, handled=true, got %v, %v", action, handled)
-	}
-
-	select {
-	case evt := <-ch:
-		loopEvt, ok := evt.Data.(LoopDetectionEvent)
-		if !ok {
-			t.Fatalf("Expected LoopDetectionEvent, got %T", evt.Data)
-		}
-		if loopEvt.Kind != "consecutive_loop" {
-			t.Errorf("Expected kind 'consecutive_loop', got %q", loopEvt.Kind)
-		}
-		if loopEvt.Iteration != 4 {
-			t.Errorf("Expected iteration 4, got %d", loopEvt.Iteration)
-		}
-	default:
-		t.Error("Expected to receive consecutive_loop event from EventBus")
-	}
-}
 
 func TestOverflowHandler_EmitsCompactEvent(t *testing.T) {
 	bus := eventbus.NewEventBus()

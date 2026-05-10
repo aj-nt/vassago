@@ -468,3 +468,103 @@ func TestEffectiveMaxTokens(t *testing.T) {
 		})
 	}
 }
+
+// --- Phase 33-refactor: ConversationContext message inspection methods ---
+
+func TestConversationContext_FirstUserMessage(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "system", Content: "You are a helpful assistant."},
+			{Role: "user", Content: "Hello, what's the weather?"},
+			{Role: "assistant", Content: "Let me check."},
+		},
+	}
+
+	if got := ctx.FirstUserMessage(); got != "Hello, what's the weather?" {
+		t.Errorf("FirstUserMessage() = %q, want %q", got, "Hello, what's the weather?")
+	}
+}
+
+func TestConversationContext_FirstUserMessage_None(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "assistant", Content: "No user here."},
+		},
+	}
+
+	if got := ctx.FirstUserMessage(); got != "" {
+		t.Errorf("FirstUserMessage() = %q, want empty string", got)
+	}
+}
+
+func TestConversationContext_FirstUserMessage_Empty(t *testing.T) {
+	ctx := &ConversationContext{}
+
+	if got := ctx.FirstUserMessage(); got != "" {
+		t.Errorf("FirstUserMessage() = %q, want empty string", got)
+	}
+}
+
+func TestConversationContext_LastMessageIsToolResult(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "user", Content: "Search for foo"},
+			{Role: "assistant", Content: "", ToolCalls: []ToolCall{{ID: "1", Name: "Search"}}},
+			{Role: "tool", Content: "found foo.txt", ToolCallID: "1"},
+		},
+	}
+
+	if !ctx.LastMessageIsToolResult() {
+		t.Error("LastMessageIsToolResult() = false, want true")
+	}
+}
+
+func TestConversationContext_LastMessageIsToolResult_False(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi there!"},
+		},
+	}
+
+	if ctx.LastMessageIsToolResult() {
+		t.Error("LastMessageIsToolResult() = true, want false")
+	}
+}
+
+func TestConversationContext_LastMessageIsToolResult_Empty(t *testing.T) {
+	ctx := &ConversationContext{}
+
+	if ctx.LastMessageIsToolResult() {
+		t.Error("LastMessageIsToolResult() = true, want false for empty context")
+	}
+}
+
+func TestConversationContext_ToolResultCount(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "user", Content: "Search"},
+			{Role: "tool", Content: "result 1"},
+			{Role: "tool", Content: "result 2"},
+			{Role: "assistant", Content: "Done."},
+			{Role: "tool", Content: "result 3"},
+		},
+	}
+
+	if got := ctx.ToolResultCount(); got != 3 {
+		t.Errorf("ToolResultCount() = %d, want 3", got)
+	}
+}
+
+func TestConversationContext_ToolResultCount_Zero(t *testing.T) {
+	ctx := &ConversationContext{
+		Messages: []Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi!"},
+		},
+	}
+
+	if got := ctx.ToolResultCount(); got != 0 {
+		t.Errorf("ToolResultCount() = %d, want 0", got)
+	}
+}
