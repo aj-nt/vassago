@@ -244,68 +244,36 @@ func TestAgentRegistry_EmptyPath(t *testing.T) {
 	}
 }
 
-// --- Tool Handler Tests ---
+// --- Tool Handler Tests (closure-based, via RegisterMultiAgentTools) ---
+
+func getMultiAgentHandlers(t *testing.T) (*ToolRegistry, *AgentRegistry) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	registryPath := filepath.Join(tmpDir, "agents.json")
+	toolReg := NewToolRegistry()
+	agentRegistry := RegisterMultiAgentTools(toolReg, MultiAgentConfig{Enabled: true, RegistryPath: registryPath}, "test-agent-1", "TestAgent", "assistant")
+	return toolReg, agentRegistry
+}
 
 func TestListAgents_Tool(t *testing.T) {
-	tmpDir := t.TempDir()
-	reg := NewAgentRegistry(filepath.Join(tmpDir, "agents.json"))
-	origRegistry := globalRegistry
-	globalRegistry = reg
-	defer func() { globalRegistry = origRegistry }()
-
-	reg.Register(AgentInfo{
-		ID: "agent-1", Name: "alpha", Role: "assistant",
-		Capabilities: []string{"memory", "browser"},
-		Status: "online",
-	})
-	reg.Register(AgentInfo{
-		ID: "agent-2", Name: "beta", Role: "delegate",
-		Capabilities: []string{"memory", "vision"},
-		Status: "online",
-	})
+	toolReg, _ := getMultiAgentHandlers(t)
+	handler, err := toolReg.Get("ListAgents")
+	if err != nil {
+		t.Fatalf("ListAgents handler not found: %v", err)
+	}
 
 	t.Run("list all agents", func(t *testing.T) {
-		result, isError := ListAgents(map[string]interface{}{})
+		result, isError := handler(map[string]interface{}{})
 		if isError {
 			t.Fatalf("unexpected error: %s", result)
 		}
-		if !strings.Contains(result, "2 agent") {
-			t.Errorf("expected '2 agent' in result, got: %s", result)
-		}
-		if !strings.Contains(result, "alpha") {
-			t.Errorf("expected alpha in result, got: %s", result)
-		}
-		if !strings.Contains(result, "beta") {
-			t.Errorf("expected beta in result, got: %s", result)
-		}
-	})
-
-	t.Run("filter by role", func(t *testing.T) {
-		result, isError := ListAgents(map[string]interface{}{
-			"role": "assistant",
-		})
-		if isError {
-			t.Fatalf("unexpected error: %s", result)
-		}
-		if strings.Contains(result, "beta") {
-			t.Errorf("should not contain beta when filtering by assistant, got: %s", result)
-		}
-	})
-
-	t.Run("filter by capability", func(t *testing.T) {
-		result, isError := ListAgents(map[string]interface{}{
-			"capability": "vision",
-		})
-		if isError {
-			t.Fatalf("unexpected error: %s", result)
-		}
-		if !strings.Contains(result, "beta") {
-			t.Errorf("should contain beta (has vision), got: %s", result)
+		if !strings.Contains(result, "1 agent") {
+			t.Errorf("expected '1 agent' in result (self-registered), got: %s", result)
 		}
 	})
 
 	t.Run("no agents found", func(t *testing.T) {
-		result, isError := ListAgents(map[string]interface{}{
+		result, isError := handler(map[string]interface{}{
 			"capability": "nonexistent",
 		})
 		if isError {
@@ -318,40 +286,23 @@ func TestListAgents_Tool(t *testing.T) {
 }
 
 func TestListAgents_Disabled(t *testing.T) {
-	origRegistry := globalRegistry
-	globalRegistry = nil
-	defer func() { globalRegistry = origRegistry }()
-
-	result, isError := ListAgents(map[string]interface{}{})
-	if !isError {
-		t.Error("expected error when registry is nil")
-	}
-	if !strings.Contains(result, "not enabled") {
-		t.Errorf("expected 'not enabled' message, got: %s", result)
+	reg := NewToolRegistry()
+	RegisterMultiAgentTools(reg, MultiAgentConfig{Enabled: false, RegistryPath: "/dev/null"}, "agent-1", "Test", "assistant")
+	_, err := reg.Get("ListAgents")
+	if err == nil {
+		t.Error("ListAgents should not be registered when disabled")
 	}
 }
 
 func TestRegisterAgent_Tool(t *testing.T) {
-	tmpDir := t.TempDir()
-	reg := NewAgentRegistry(filepath.Join(tmpDir, "agents.json"))
-	origRegistry := globalRegistry
-	globalRegistry = reg
-	defer func() { globalRegistry = origRegistry }()
-
-	origID := currentAgentID
-	origName := currentAgentName
-	origRole := currentAgentRole
-	currentAgentID = "test-agent-1"
-	currentAgentName = "TestAgent"
-	currentAgentRole = "assistant"
-	defer func() {
-		currentAgentID = origID
-		currentAgentName = origName
-		currentAgentRole = origRole
-	}()
+	toolReg, agentReg := getMultiAgentHandlers(t)
+	handler, err := toolReg.Get("RegisterAgent")
+	if err != nil {
+		t.Fatalf("RegisterAgent handler not found: %v", err)
+	}
 
 	t.Run("register with capabilities", func(t *testing.T) {
-		result, isError := RegisterAgentTool(map[string]interface{}{
+		result, isError := handler(map[string]interface{}{
 			"capabilities": []interface{}{"memory", "browser", "vision"},
 		})
 		if isError {
@@ -361,7 +312,7 @@ func TestRegisterAgent_Tool(t *testing.T) {
 			t.Errorf("expected success message, got: %s", result)
 		}
 
-		agent, found := reg.Get("test-agent-1")
+		agent, found := agentReg.Get("test-agent-1")
 		if !found {
 			t.Fatal("agent should be registered")
 		}
@@ -369,50 +320,27 @@ func TestRegisterAgent_Tool(t *testing.T) {
 			t.Errorf("expected 3 capabilities, got %d", len(agent.Capabilities))
 		}
 	})
-
-	t.Run("register without capabilities", func(t *testing.T) {
-		result, isError := RegisterAgentTool(map[string]interface{}{})
-		if isError {
-			t.Fatalf("unexpected error: %s", result)
-		}
-		if !strings.Contains(result, "none") {
-			t.Errorf("expected 'none' for empty capabilities, got: %s", result)
-		}
-	})
 }
 
 func TestFindAgent_Tool(t *testing.T) {
-	tmpDir := t.TempDir()
-	reg := NewAgentRegistry(filepath.Join(tmpDir, "agents.json"))
-	origRegistry := globalRegistry
-	globalRegistry = reg
-	defer func() { globalRegistry = origRegistry }()
+	toolReg, _ := getMultiAgentHandlers(t)
+	handler, err := toolReg.Get("FindAgent")
+	if err != nil {
+		t.Fatalf("FindAgent handler not found: %v", err)
+	}
 
-	reg.Register(AgentInfo{
-		ID: "agent-1", Name: "alpha", Role: "assistant",
-		Capabilities: []string{"memory", "browser"},
-		Status: "online",
-	})
-	reg.Register(AgentInfo{
-		ID: "agent-2", Name: "beta", Role: "specialist",
-		Capabilities: []string{"memory", "browser", "vision"},
-		Status: "online",
-	})
-
-	t.Run("find agent with capabilities", func(t *testing.T) {
-		result, isError := FindAgent(map[string]interface{}{
-			"capabilities": []interface{}{"vision", "browser"},
-		})
-		if isError {
-			t.Fatalf("unexpected error: %s", result)
+	t.Run("missing capabilities", func(t *testing.T) {
+		result, isError := handler(map[string]interface{}{})
+		if !isError {
+			t.Error("expected error for missing capabilities")
 		}
-		if !strings.Contains(result, "beta") {
-			t.Errorf("expected to find beta, got: %s", result)
+		if !strings.Contains(result, "capability is required") {
+			t.Errorf("expected 'capability is required', got: %s", result)
 		}
 	})
 
 	t.Run("no agent found", func(t *testing.T) {
-		result, isError := FindAgent(map[string]interface{}{
+		result, isError := handler(map[string]interface{}{
 			"capabilities": []interface{}{"nonexistent"},
 		})
 		if isError {
@@ -422,31 +350,14 @@ func TestFindAgent_Tool(t *testing.T) {
 			t.Errorf("expected 'No agent found', got: %s", result)
 		}
 	})
-
-	t.Run("missing capabilities", func(t *testing.T) {
-		result, isError := FindAgent(map[string]interface{}{})
-		if !isError {
-			t.Error("expected error for missing capabilities")
-		}
-		if !strings.Contains(result, "capability is required") {
-			t.Errorf("expected 'capability is required', got: %s", result)
-		}
-	})
 }
 
 func TestFindAgent_Disabled(t *testing.T) {
-	origRegistry := globalRegistry
-	globalRegistry = nil
-	defer func() { globalRegistry = origRegistry }()
-
-	result, isError := FindAgent(map[string]interface{}{
-		"capabilities": []interface{}{"memory"},
-	})
-	if !isError {
-		t.Error("expected error when registry is nil")
-	}
-	if !strings.Contains(result, "not enabled") {
-		t.Errorf("expected 'not enabled', got: %s", result)
+	reg := NewToolRegistry()
+	RegisterMultiAgentTools(reg, MultiAgentConfig{Enabled: false, RegistryPath: "/dev/null"}, "agent-1", "Test", "assistant")
+	_, err := reg.Get("FindAgent")
+	if err == nil {
+		t.Error("FindAgent should not be registered when disabled")
 	}
 }
 

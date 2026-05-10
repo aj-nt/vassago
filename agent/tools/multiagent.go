@@ -181,15 +181,6 @@ func (r *AgentRegistry) save() {
 	os.WriteFile(r.path, data, 0644)
 }
 
-// --- Global Registry ---
-
-var globalRegistry *AgentRegistry
-
-// SetAgentRegistry sets the global agent registry.
-func SetAgentRegistry(reg *AgentRegistry) {
-	globalRegistry = reg
-}
-
 // --- MultiAgent Config ---
 
 type MultiAgentConfig struct {
@@ -206,9 +197,8 @@ func DefaultMultiAgentConfig() MultiAgentConfig {
 	}
 }
 
-// --- ListAgents Tool ---
+// --- Tool Schemas ---
 
-// ListAgentsSchema is the JSON schema for the ListAgents tool.
 var ListAgentsSchema = map[string]interface{}{
 	"name":        "ListAgents",
 	"description": "List registered agents. Optionally filter by role or capability.",
@@ -227,46 +217,6 @@ var ListAgentsSchema = map[string]interface{}{
 	},
 }
 
-// ListAgents tool handler
-func ListAgents(args map[string]interface{}) (string, bool) {
-	if globalRegistry == nil {
-		return "Multi-agent registry is not enabled", true
-	}
-
-	role := strArg(args, "role", "")
-	capability := strArg(args, "capability", "")
-
-	var agents []AgentInfo
-	if capability != "" {
-		agents = globalRegistry.ListByCapability(capability)
-	} else if role != "" {
-		agents = globalRegistry.ListByRole(role)
-	} else {
-		agents = globalRegistry.List()
-	}
-
-	if len(agents) == 0 {
-		return "No agents found", false
-	}
-
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Found %d agent(s):\n", len(agents)))
-	for _, a := range agents {
-		caps := strings.Join(a.Capabilities, ", ")
-		if caps == "" {
-			caps = "none"
-		}
-		b.WriteString(fmt.Sprintf("  %s (%s) — role: %s, caps: %s, status: %s\n",
-			a.Name, a.ID, a.Role, caps, a.Status))
-	}
-
-	const maxResultChars = 4000
-	return truncateOutput(b.String(), maxResultChars), false
-}
-
-// --- RegisterAgent Tool ---
-
-// RegisterAgentSchema is the JSON schema for the RegisterAgent tool.
 var RegisterAgentSchema = map[string]interface{}{
 	"name":        "RegisterAgent",
 	"description": "Register this agent's capabilities in the multi-agent registry so other agents can discover it.",
@@ -282,49 +232,6 @@ var RegisterAgentSchema = map[string]interface{}{
 	},
 }
 
-// RegisterAgentTool registers this agent in the multi-agent registry.
-func RegisterAgentTool(args map[string]interface{}) (string, bool) {
-	if globalRegistry == nil {
-		return "Multi-agent registry is not enabled", true
-	}
-
-	// Get capabilities from args
-	var capabilities []string
-	if caps, ok := args["capabilities"]; ok {
-		switch v := caps.(type) {
-		case []string:
-			capabilities = v
-		case []interface{}:
-			for _, item := range v {
-				if s, ok := item.(string); ok {
-					capabilities = append(capabilities, s)
-				}
-			}
-		}
-	}
-
-	// Build agent info from global state
-	info := AgentInfo{
-		ID:           currentAgentID,
-		Name:         currentAgentName,
-		Role:         currentAgentRole,
-		Capabilities: capabilities,
-		Status:       "online",
-		LastSeen:     time.Now().Unix(),
-	}
-
-	globalRegistry.Register(info)
-
-	caps := strings.Join(capabilities, ", ")
-	if caps == "" {
-		caps = "none"
-	}
-	return fmt.Sprintf("Registered agent %s (%s) with capabilities: %s", info.Name, info.ID, caps), false
-}
-
-// --- FindAgent Tool ---
-
-// FindAgentSchema is the JSON schema for the FindAgent tool.
 var FindAgentSchema = map[string]interface{}{
 	"name":        "FindAgent",
 	"description": "Find the best agent for a task by searching for required capabilities.",
@@ -341,85 +248,125 @@ var FindAgentSchema = map[string]interface{}{
 	},
 }
 
-// FindAgent tool handler
-func FindAgent(args map[string]interface{}) (string, bool) {
-	if globalRegistry == nil {
-		return "Multi-agent registry is not enabled", true
-	}
-
-	// Parse capabilities
-	var capabilities []string
-	if caps, ok := args["capabilities"]; ok {
-		switch v := caps.(type) {
-		case []string:
-			capabilities = v
-		case []interface{}:
-			for _, item := range v {
-				if s, ok := item.(string); ok {
-					capabilities = append(capabilities, s)
-				}
-			}
-		}
-	}
-
-	if len(capabilities) == 0 {
-		return "At least one capability is required", true
-	}
-
-	agent, found := globalRegistry.FindBestAgent(capabilities)
-	if !found {
-		capsStr := strings.Join(capabilities, ", ")
-		return fmt.Sprintf("No agent found with capabilities: %s", capsStr), false
-	}
-
-	return fmt.Sprintf("Best agent: %s (%s) — role: %s, caps: %s, status: %s",
-		agent.Name, agent.ID, agent.Role,
-		strings.Join(agent.Capabilities, ", "),
-		agent.Status), false
-}
-
-// --- Agent Identity (set by main.go) ---
-
-var (
-	currentAgentID   string
-	currentAgentName string
-	currentAgentRole string
-)
-
-// SetAgentIdentity sets the current agent's identity for the multi-agent tools.
-func SetAgentIdentity(id, name, role string) {
-	currentAgentID = id
-	currentAgentName = name
-	currentAgentRole = role
-}
-
 // --- Registration ---
 
 // RegisterMultiAgentTools adds multi-agent orchestration tools to the registry.
-func RegisterMultiAgentTools(registry *ToolRegistry, cfg MultiAgentConfig, agentID, agentName, agentRole string) {
+// All mutable state (registry, agent identity) is captured in closures —
+// no package-level globals. Each call creates its own AgentRegistry.
+// Returns the AgentRegistry for test inspection.
+func RegisterMultiAgentTools(toolReg *ToolRegistry, cfg MultiAgentConfig, agentID, agentName, agentRole string) *AgentRegistry {
 	if !cfg.Enabled {
-		return
+		return nil
 	}
 
-	// Set agent identity
-	SetAgentIdentity(agentID, agentName, agentRole)
-
-	// Initialize global registry
-	if globalRegistry == nil {
-		globalRegistry = NewAgentRegistry(cfg.RegistryPath)
-	}
+	agentRegistry := NewAgentRegistry(cfg.RegistryPath)
 
 	// Register self
-	globalRegistry.Register(AgentInfo{
+	agentRegistry.Register(AgentInfo{
 		ID:           agentID,
 		Name:         agentName,
 		Role:         agentRole,
-		Capabilities: []string{}, // Will be updated by RegisterAgent tool
+		Capabilities: []string{}, // Updated by RegisterAgent tool below
 		Status:       "online",
 		LastSeen:     time.Now().Unix(),
 	})
 
-	registry.Register("ListAgents", ListAgents, ListAgentsSchema)
-	registry.Register("RegisterAgent", RegisterAgentTool, RegisterAgentSchema)
-	registry.Register("FindAgent", FindAgent, FindAgentSchema)
+	// ListAgents — captures agentRegistry
+	toolReg.Register("ListAgents", func(args map[string]interface{}) (string, bool) {
+		role := strArg(args, "role", "")
+		capability := strArg(args, "capability", "")
+
+		var agents []AgentInfo
+		if capability != "" {
+			agents = agentRegistry.ListByCapability(capability)
+		} else if role != "" {
+			agents = agentRegistry.ListByRole(role)
+		} else {
+			agents = agentRegistry.List()
+		}
+
+		if len(agents) == 0 {
+			return "No agents found", false
+		}
+
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("Found %d agent(s):\n", len(agents)))
+		for _, a := range agents {
+			caps := strings.Join(a.Capabilities, ", ")
+			if caps == "" {
+				caps = "none"
+			}
+			b.WriteString(fmt.Sprintf("  %s (%s) — role: %s, caps: %s, status: %s\n",
+				a.Name, a.ID, a.Role, caps, a.Status))
+		}
+		const maxResultChars = 4000
+		return truncateOutput(b.String(), maxResultChars), false
+	}, ListAgentsSchema)
+
+	// RegisterAgent — captures agentRegistry, agentID, agentName, agentRole
+	toolReg.Register("RegisterAgent", func(args map[string]interface{}) (string, bool) {
+		var capabilities []string
+		if caps, ok := args["capabilities"]; ok {
+			switch v := caps.(type) {
+			case []string:
+				capabilities = v
+			case []interface{}:
+				for _, item := range v {
+					if s, ok := item.(string); ok {
+						capabilities = append(capabilities, s)
+					}
+				}
+			}
+		}
+
+		info := AgentInfo{
+			ID:           agentID,
+			Name:         agentName,
+			Role:         agentRole,
+			Capabilities: capabilities,
+			Status:       "online",
+			LastSeen:     time.Now().Unix(),
+		}
+		agentRegistry.Register(info)
+
+		caps := strings.Join(capabilities, ", ")
+		if caps == "" {
+			caps = "none"
+		}
+		return fmt.Sprintf("Registered agent %s (%s) with capabilities: %s", info.Name, info.ID, caps), false
+	}, RegisterAgentSchema)
+
+	// FindAgent — captures agentRegistry
+	toolReg.Register("FindAgent", func(args map[string]interface{}) (string, bool) {
+		var capabilities []string
+		if caps, ok := args["capabilities"]; ok {
+			switch v := caps.(type) {
+			case []string:
+				capabilities = v
+			case []interface{}:
+				for _, item := range v {
+					if s, ok := item.(string); ok {
+						capabilities = append(capabilities, s)
+					}
+				}
+			}
+		}
+
+		if len(capabilities) == 0 {
+			return "At least one capability is required", true
+		}
+
+		agent, found := agentRegistry.FindBestAgent(capabilities)
+		if !found {
+			capsStr := strings.Join(capabilities, ", ")
+			return fmt.Sprintf("No agent found with capabilities: %s", capsStr), false
+		}
+
+		return fmt.Sprintf("Best agent: %s (%s) — role: %s, caps: %s, status: %s",
+			agent.Name, agent.ID, agent.Role,
+			strings.Join(agent.Capabilities, ", "),
+			agent.Status), false
+	}, FindAgentSchema)
+
+	return agentRegistry
 }
