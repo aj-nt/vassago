@@ -231,23 +231,13 @@ func (a *Agent) RunWithContext(ctx context.Context, convCtx *agentctx.Conversati
 	}, nil
 }
 
-// extractAndPersistMemories is the FinallyFunc — runs after every conversation
-// via defer, extracting key facts from the conversation and saving them as memories.
-func (a *Agent) extractAndPersistMemories(ctx context.Context, sessionID string, convCtx *agentctx.ConversationContext, result *pipeline.LoopResult) {
-	if a.Mnemo == nil || a.Registry == nil {
-		return
-	}
-	// Skip extraction on context overflow or error — nothing useful to save
-	if result != nil && (result.ContextOverflow || result.StoppedOnError) {
-		return
-	}
-	prov, err := a.selectProvider(convCtx)
-	if err != nil || prov == nil {
-		log.Printf("[memory-extract] no provider available: %v", err)
-		return
-	}
-	ExtractMemories(ctx, convCtx.Messages, prov, a.Mnemo, sessionID, a.Config.AgentName)
-}
+// --- Memory Extraction ---
+//
+// Memory extraction is decoupled from the pipeline loop via the EventBus.
+// When a conversation completes, FinallyFunc emits a conversation_complete event.
+// MemoryExtractionSubscriber (wired in AgentBuilder.Build()) listens for these
+// events and runs extraction asynchronously with the cheapest model.
+// See memory_extraction_subscriber.go for the subscriber implementation.
 
 // SetHotBlockCache sets the hot block cache for Telepathy-driven updates.
 // Must be called before the agent starts processing (before Run).
