@@ -17,165 +17,217 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 ## Planned
 
 ### Phase 25: Saved Tools — Runtime Tool Creation and Sharing
+### Phase 25: Saved Tools — Runtime Tool Creation and Sharing
 
-**Problem:** Tools are compiled Go functions. The set of tools is fixed at build time. An agent cannot create a new tool during a session, and it cannot share a procedure it discovers with other agents or future sessions. Skills (procedural knowledge) tell the agent *how* to think about something, but they're passive — the agent reads them, it doesn't call them. What's missing is **executable procedural memory**: procedures the agent creates, saves to the DB, and calls as first-class tools in future sessions.
+**Problem:** Tools are compiled Go functions. The set of tools is fixed at build time. An agent cannot create a new tool during a session, and it cannot share a procedure it discovers with other agents or future sessions. Skills (procedural knowledge) are prompt-injected — the agent reads them but doesn't "call" them. What's missing is **executable procedural memory**: procedures the agent creates, saves to the DB, and calls as first-class tools in future sessions.
 
-**Example use case:** An agent works through an astrology chart calculation that involves multiple steps (ephemeris lookup, chart generation, interpretation). Currently it re-derives the approach each session. With Saved Tools, it creates `calculate_natal_chart` once — parametrized, validated, reproducible — and every future session calls it like any other tool.
+**Example use cases:**
+
+| Tool Type | Example | What it does |
+|-----------|---------|--------------|
+| `script` | `deploy_service` | Takes `{env: staging\|prod, service: string}`, substitutes into a bash template, runs via Execute with approval |
+| `script` | `calculate_natal_chart` | Takes `{birth_date, birth_time, latitude, longitude}`, runs a Python script that computes planetary positions |
+| `prompt_template` | `code_review` | Takes `{language, code, focus_area}`, formats a structured review prompt, returns the LLM's analysis |
+| `prompt_template` | `debugging_protocol` | Takes `{error_message, language, stack_trace}`, formats a systematic debugging prompt |
+
+**Relationship to existing features:**
+
+| Feature | What it is | Persistent? | Callable by LLM? | Executable? |
+|---------|-----------|-------------|-------------------|-------------|
+| **Memories** | Factual knowledge | DB + FTS5 | No (hot block) | No |
+| **Skills** | Procedural knowledge (how-to) | DB + FTS5 | No (system prompt) | No |
+| **Saved Tools** | Callable procedures | DB + FTS5 | **Yes** (as tool defs) | **Yes** |
+| **Compiled Tools** | Go functions | Binary | Yes | Yes |
 
 #### Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Session Start                      │
-│                                                       │
-│  Compiled Tools          Saved Tools                  │
-│  (Go ToolRegistry)        (from DB via gRPC)          │
-│       │                        │                       │
-│       └──────────┬─────────────┘                       │
-│                  ▼                                     │
-│         Tool Definitions → LLM                         │
-│         (offered as callable functions)                 │
-│                                                       │
-│  System Prompt: Skills + Hot Block                     │
-│  (procedural knowledge, not callable)                  │
-└─────────────────────────────────────────────────────┘
-```
-
-**SavedTool DB schema:**
+**Database schema (v11 migration):**
 
 ```sql
 CREATE TABLE saved_tools (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL UNIQUE,      -- e.g., "calculate_natal_chart"
-    description TEXT NOT NULL,            -- LLM-readable description
-    type        TEXT NOT NULL,             -- "script" | "prompt_template"
-    parameters  TEXT NOT NULL,             -- JSON schema for inputs
-    script      TEXT NOT NULL,             -- executable content (bash, python, prompt template)
-    category    TEXT NOT NULL DEFAULT '',   -- e.g., "astrology", "devops"
-    triggers    TEXT NOT NULL DEFAULT '[]', -- JSON array of trigger keywords
-    author      TEXT NOT NULL,             -- agent ID that created it
-    priority    INTEGER NOT NULL DEFAULT 3, -- 1-5, like memories
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
+    id          TEXT PRIMARY KEY,       -- UUID
+    name        TEXT NOT NULL UNIQUE,    -- e.g., "calculate_natal_chart"
+    description TEXT NOT NULL,           -- LLM-readable description for tool schema
+    type        TEXT NOT NULL,           -- "script" or "prompt_template"
+    parameters  TEXT NOT NULL,           -- JSON schema for inputs (like compiled tool schemas)
+    script      TEXT NOT NULL DEFAULT '', -- executable content (bash/python/prompt template)
+    category    TEXT NOT NULL DEFAULT '', -- e.g., "astrology", "devops"
+    triggers    TEXT NOT NULL DEFAULT '[]', -- JSON array of trigger keywords for discovery
+    author      TEXT NOT NULL,           -- agent ID that created it
+    priority    INTEGER NOT NULL DEFAULT 3, -- 1-5, like skills
+    created_at  INTEGER NOT NULL,       -- Unix timestamp
+    updated_at  INTEGER NOT NULL         -- Unix timestamp
 );
 
-CREATE VIRTUAL TABLE saved_tools_fts USING fts5(name, description, triggers, category, content=sa
-ved_tools);
+CREATE VIRTUAL TABLE saved_tools_fts USING fts5(
+    name, description, triggers, category, content=saved_tools
+);
 ```
 
-**Three tool types:**
+**gRPC messages (proto/mnemosyne.proto):**
 
-1. **`script`** — A parameterized bash or Python script. The agent defines the script template with `{{param}}` placeholders. When called, parameters are substituted and executed via the existing `Execute` tool (with all its security checks: path validation, command validation, approval). Example: a deployment script that takes `environment` and `service` parameters.
+```protobuf
+message AddSavedToolRequest {
+    string name = 1;
+    string description = 2;
+    string type = 3;           // "script" or "prompt_template"
+    string parameters = 4;      // JSON schema
+    string script = 5;         // template content
+    string category = 6;
+    repeated string triggers = 7;
+    string author = 8;
+    int32 priority = 9;
+}
 
-2. **`prompt_template`** — A reusable LLM prompt template. The agent defines a structured prompt with `{{param}}` placeholders. When called, parameters are substituted and the result is injected as a user message. Not executed — just formulated. Example: a code review template that takes `language`, `code`, and `focus_area` parameters.
+message SavedToolEntry {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    string type = 4;
+    string parameters = 5;
+    string script = 6;
+    string category = 7;
+    repeated string triggers = 8;
+    string author = 9;
+    int32 priority = 10;
+    int64 created_at = 11;
+    int64 updated_at = 12;
+}
 
-**Tool lifecycle:**
-
+// CRUD: AddSavedTool, GetSavedTool, ListSavedTools, SearchSavedTools,
+//       UpdateSavedTool, RemoveSavedTool
 ```
-Agent discovers a repeatable pattern
-       │
-       ▼
-Agent calls CreateTool (new built-in tool)
-  - specifies name, description, type, parameters, script/template
-  - optional: triggers (keywords for auto-suggestion)
-  - optional: category (for organization)
-       │
-       ▼
-Tool saved to daemon DB
-  - Available to ALL agents immediately
-  - FTS5 searchable like memories/skills
-       │
-       ▼
-On next session start:
-  - GetSavedToolDefinitions() fetches all tools
-  - Each saved tool registered as a ToolHandler in ToolRegistry
-  - LLM sees it alongside compiled-in tools
-  - Agent calls it like any other tool
-```
 
-**New built-in agent tools:**
+**Agent tool implementations (agent/tools/saved_tools.go):**
 
-| Tool | Purpose |
-|------|---------|
-| `CreateTool` | Save a new tool (name, description, type, params, script) |
-| `GetTool` | Retrieve a saved tool's definition |
-| `ListTools` | List saved tools, optionally filtered by category |
-| `SearchTools` | FTS5 search across tool names, descriptions, triggers |
-| `UpdateTool` | Modify an existing saved tool |
-| `RemoveTool` | Delete a saved tool |
+6 new tools: `CreateTool`, `GetTool`, `ListTools`, `SearchTools`, `UpdateTool`, `RemoveTool`
 
-**New gRPC methods:**
+`CreateTool` validates and stores the tool definition. Key validation:
+- `name` must be unique, alphanumeric + underscores, 2-64 chars
+- `type` must be "script" or "prompt_template"
+- `parameters` must be valid JSON Schema (at minimum: type=object, properties listed)
+- `script` must be non-empty
+- Script-type tools undergo the same command validation as Execute (no subshells, no dangerous commands)
 
-| Method | Purpose |
-|--------|---------|
-| `AddSavedTool` | Create a new saved tool |
-| `GetSavedTool` | Retrieve by ID |
-| `ListSavedTools` | List by category/author |
-| `SearchSavedTools` | FTS5 search |
-| `RemoveSavedTool` | Delete a saved tool |
-| `UpdateSavedTool` | Modify an existing tool |
+**Runtime tool loading (agent/agent.go):**
 
-**Runtime registration:**
-
-In `agent/agent.go`, alongside `GetSkillBlock()`:
+At session start, after compiled tools are registered:
 
 ```go
-func (a *Agent) GetSavedToolDefinitions() ([]agentctx.ToolDefinition, error) {
-    tools, err := a.Mnemo.SearchSavedTools(ctx, "", 50)
+// GetSavedToolDefinitions fetches active saved tools and returns them as
+// ToolDefinitions for the LLM. Only tools whose triggers match the
+// conversation context are included (triggered loading).
+// If no triggers match, the top tools by priority are loaded (up to 10).
+func (a *Agent) GetSavedToolDefinitions(convCtx *agentctx.ConversationContext) []agentctx.ToolDefinition {
+    tools, err := a.Mnemo.SearchSavedTools(ctx, "", "", 50)
+    // Filter by trigger matching against the user's first message
     // Convert each SavedTool to a ToolDefinition
-    // Register each as a dynamic ToolHandler that:
-    //   - For "script" type: substitutes params into script, calls Execute
-    //   - For "prompt_template" type: substitutes params, returns formatted string
 }
+
+// RegisterSavedToolHandlers creates dynamic ToolHandlers for saved tools.
+// Each handler:
+//   - For "script" type: substitutes {{param}} in script, calls Execute with approval
+//   - For "prompt_template" type: substitutes {{param}} in template, returns formatted string
+func (a *Agent) RegisterSavedToolHandlers(registry *tools.ToolRegistry, savedTools []SavedToolEntry) {
+    for _, st := range savedTools {
+        switch st.Type {
+        case "script":
+            registry.Register(st.Name, makeScriptToolHandler(st), st.Parameters)
+        case "prompt_template":
+            registry.Register(st.Name, makePromptTemplateHandler(st), st.Parameters)
+        }
+    }
+}
+```
+
+**Script type execution flow:**
+
+```
+LLM calls: CalculateNatalChart(birth_date="1990-01-15", birth_time="23:09", latitude="47.0435", longitude="-122.9142")
+    │
+    ▼
+SavedToolHandler looks up "CalculateNatalChart" in DB
+    │
+    ▼
+Parameter substitution: script template has {{birth_date}}, {{birth_time}}, etc.
+    │
+    ▼
+Result: a concrete bash/python command
+    │
+    ▼
+Calls existing Execute tool with security checks (path validation, command validation, approval)
+    │
+    ▼
+Returns result to LLM
+```
+
+**Prompt template execution flow:**
+
+```
+LLM calls: CodeReview(language="python", code="def foo(): ...", focus_area="security")
+    │
+    ▼
+SavedToolHandler looks up "CodeReview" in DB
+    │
+    ▼
+Parameter substitution: template has {{language}}, {{code}}, {{focus_area}}
+    │
+    ▼
+Result: a fully-formed prompt string
+    │
+    ▼
+Returns the formatted string as the tool result (no execution, no security risk)
 ```
 
 **Security model:**
 
-- **Script tools** inherit all `Execute` tool security: path validation, command validation, approval for dangerous commands. Saved scripts go through the same `NeedsApproval()` check. No new attack surface.
-- **`NeedsApproval` check on `CreateTool`** — creating a tool requires user approval (it's a persistent change). The agent explains what the tool does and the user confirms.
-- **`UpdateTool`/`RemoveTool`** — also require approval. The agent that created a tool can update it; other agents can only use it.
-- **Script content validation** — `CreateTool` validates that the script doesn't contain obviously malicious patterns (same checks as `Execute`). Saved tools can't bypass the approval system.
-- **Audit trail** — `author` field tracks which agent created each tool, `created_at`/`updated_at` for traceability.
+- **CreateTool requires approval** — persistent tools are a security boundary. The agent must explain what the tool does, and the user confirms (existing approval system from Phase 3b).
+- **Script tools inherit all Execute security** — `NeedsApproval()`, path validation, command validation. A saved script doesn't bypass any checks.
+- **UpdateTool/RemoveTool require approval** — same as CreateTool.
+- **No new code execution surface** — scripts run through the existing Execute handler. No eval, no arbitrary code execution beyond what Execute already allows.
+- **Audit trail** — `author` field tracks which agent created each tool. `created_at`/`updated_at` for traceability.
+- **Trigger-based loading** — not all 50 tools go to the LLM every turn. Only tools whose triggers match the conversation (or top-priority defaults) are injected, keeping the system prompt manageable.
 
-**Relationship to existing features:**
+**Discovery and context management:**
 
-| Feature | What it is | Persistence | Callable by LLM | Executable |
-|---------|-----------|-------------|-----------------|------------|
-| **Memories** | Factual knowledge | DB + FTS5 | No (hot block injection) | No |
-| **Skills** | Procedural knowledge (how-to) | DB + FTS5 | No (system prompt) | No |
-| **Saved Tools** | Callable procedures | DB + FTS5 | **Yes** (as tool definitions) | **Yes** (via Execute or prompt injection) |
-| **Compiled Tools** | Go functions | Binary | Yes | Yes |
+- `GetSavedToolDefinitions()` is called alongside `GetSkillBlock()` at session start
+- Tools are injected into the tool list sent to the LLM (the `tools` array in the OpenAI request)
+- Trigger matching: if the user says "deploy to staging", tools with triggers ["deploy", "staging"] are loaded
+- Fallback: if no triggers match, load the top 10 by priority
+- After tool creation, the new tool is immediately available in the current session (no restart needed)
 
-Skills and Saved Tools complement each other: a Skill might say "use the `deploy_service` tool for deployments" and the corresponding Saved Tool provides the actual script.
+#### Implementation phases
 
-**Implementation phases:**
-
-**25A: Storage layer** (SQLite + gRPC)
-- `saved_tools` table + FTS5 index in daemon DB
-- Schema migration (v10 → v11)
-- CRUD methods in `daemon/internal/store/saved_tools.go`
-- gRPC methods: AddSavedTool, GetSavedTool, ListSavedTools, SearchSavedTools, RemoveSavedTool, UpdateSavedTool
+**25A: Storage layer** (daemon/internal/store/saved_tools.go)
+- `saved_tools` table + FTS5, schema migration v10→v11
+- Store CRUD: AddSavedTool, GetSavedTool, ListSavedTools, SearchSavedTools, UpdateSavedTool, RemoveSavedTool
+- gRPC service methods: AddSavedTool, GetSavedTool, ListSavedTools, SearchSavedTools, UpdateSavedTool, RemoveSavedTool
 - gRPC handler tests
+- Estimated: ~300 lines store, ~150 lines gRPC, ~100 lines tests
 
-**25B: Agent tools** (CreateTool, GetTool, etc.)
-- New file: `agent/tools/saved_tools.go`
-- RegisterSavedToolTools() — 6 tool handlers + JSON schemas
+**25B: Agent tools** (agent/tools/saved_tools.go)
+- 6 tool handlers + JSON schemas: CreateTool, GetTool, ListTools, SearchTools, UpdateTool, RemoveTool
+- RegisterSavedToolTools() wiring in setup.go
+- Tool approval for CreateTool/UpdateTool/RemoveTool (leverages Phase 3b approval system)
 - Agent tool tests
-- Wire into tool registry in `agent/setup/setup.go`
+- Estimated: ~400 lines + ~150 lines tests
 
-**25C: Runtime tool loading**
-- `GetSavedToolDefinitions()` in agent.go
-- Dynamic ToolHandler registration from DB at session start
-- Script execution: parameter substitution → Execute (with security checks)
-- Prompt template execution: parameter substitution → formatted string return
-- Integration test: create tool, verify it appears in next session's tool list, call it
+**25C: Runtime tool loading and execution** (agent/agent.go)
+- `GetSavedToolDefinitions()` — fetch and convert to ToolDefinitions
+- `RegisterSavedToolHandlers()` — create dynamic handlers
+- Script handler: parameter substitution → Execute with security
+- Prompt template handler: parameter substitution → string return
+- Trigger-based loading with priority fallback
+- Integration test: create tool, verify it appears in tool list, call it
+- Estimated: ~250 lines + ~100 lines tests
 
-**25D: TUI + UX**
-- `/tools` command in both TUI and old CLI to list saved tools
-- `/tools create` wizard in TUI
-- Approval prompt for CreateTool/UpdateTool/RemoveTool (using existing Phase 3b approval flow)
+**25D: TUI discovery** (agent/interface/tea_model.go)
+- `/tools` command — list saved tools with name, type, description
+- `/tools create` — interactive wizard in TUI (future, not blocking)
+- One-shot: `mnemosyne chat --message "create a tool that..."` works naturally
+- Estimated: ~100 lines
 
-**Estimated effort:** 2-3 sessions for 25A+B, 1-2 sessions for 25C, 1 session for 25D.
+**Total estimated effort:** 4-5 sessions for 25A-D.
 
 ---
 
