@@ -6,12 +6,12 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync/atomic"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	"github.com/aj-nt/mnemosyne/agent/pipeline"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 	"github.com/aj-nt/mnemosyne/agent/tools"
@@ -101,8 +101,21 @@ func (a *Agent) selectProvider(convCtx *agentctx.ConversationContext) (provider.
 	modelCfg, err := a.Router.Select(routingCtx)
 	if err != nil {
 		// Fallback to primary provider on routing error
+		agentlog.RouterSelect(agentlog.RouterSelectArgs{
+			Strategy:       "fallback",
+			SelectedModel:  "primary",
+			SelectedReason: fmt.Sprintf("router error: %v", err),
+			Iteration:      convCtx.Iteration,
+		})
 		return a.Registry.GetPrimary()
 	}
+
+	agentlog.RouterSelect(agentlog.RouterSelectArgs{
+		Strategy:       string(a.Router.Strategy()),
+		SelectedModel:  modelCfg.Name,
+		SelectedReason: fmt.Sprintf("iteration=%d tools=%d chars=%d", routingCtx.Iteration, routingCtx.ToolCallCount, routingCtx.PromptCharCount),
+		Iteration:      convCtx.Iteration,
+	})
 
 	// Update token counter for the selected model
 	convCtx.SetTokenCounter(agentctx.CounterForModel(modelCfg.Name))
@@ -154,7 +167,7 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 	// Get hot block from daemon
 	hotBlock, err := a.GetHotBlock(ctx)
 	if err != nil {
-		log.Printf("Warning: failed to get hot block: %v", err)
+		agentlog.Warn("failed to get hot block", "error", err)
 		hotBlock = ""
 	}
 
@@ -340,7 +353,7 @@ func (a *Agent) persistSession(ctx context.Context, sessionID string, convCtx *a
 		msgs[i] = memoclient.Message{Role: m.Role, Content: m.Content}
 	}
 	if err := a.Mnemo.AddMessages(ctx, sessionID, msgs); err != nil {
-		log.Printf("Warning: failed to persist session: %v", err)
+		agentlog.Warn("failed to persist session", "error", err)
 	}
 }
 

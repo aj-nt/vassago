@@ -9,6 +9,7 @@ import (
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // ProviderCaller abstracts how the LLM provider is called (blocking vs streaming).
@@ -134,6 +135,25 @@ func RunPipelineLoop(ctx context.Context, convCtx *agentctx.ConversationContext,
 
 		// Stage 5: Context Management
 		action := cfg.Stages.Stage5.Process(convCtx, dispatch.ToolResults, parsed)
+
+		// Emit pipeline iteration span
+		modelName := parsed.Model
+		providerName := parsed.Provider
+		if modelName == "" {
+			modelName = "unknown"
+		}
+		if providerName == "" {
+			providerName = "unknown"
+		}
+		agentlog.PipelineIteration(agentlog.PipelineIterationArgs{
+			Iteration: convCtx.Iteration,
+			Model:     modelName,
+			Provider:  providerName,
+			ToolCount: len(dispatch.ToolResults),
+			Action:    action.String(),
+		})
+		agentlog.MetricsIncTurns()
+		agentlog.MetricsAddToolsCalled(len(dispatch.ToolResults))
 
 		// Emit iteration end event
 		if cfg.EventBus != nil {

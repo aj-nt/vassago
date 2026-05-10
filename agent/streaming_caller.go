@@ -7,10 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	"github.com/aj-nt/mnemosyne/agent/pipeline"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 )
@@ -87,7 +87,7 @@ func (c *streamingCaller) callNonStreaming(ctx context.Context, convCtx *agentct
 		// If not the primary provider, try primary as fallback
 		if p.Name() != c.agent.Registry.Primary() {
 			if primary, err := c.agent.Registry.GetPrimary(); err == nil {
-				log.Printf("Provider %q failed, falling back to primary %q: %v", p.Name(), primary.Name(), result.Error)
+				agentlog.Printf("Provider %q failed, falling back to primary %q: %v", p.Name(), primary.Name(), result.Error)
 				req, prepErr := primary.Prepare(ctx, convCtx, prepared)
 				if prepErr == nil {
 					fallbackResult, execErr := primary.Execute(ctx, req)
@@ -166,7 +166,7 @@ func (c *streamingCaller) processStreamingEvents(streamCh <-chan agentctx.Stream
 			// If not the primary provider, try the primary as immediate fallback
 			if p.Name() != c.agent.Registry.Primary() {
 				if primary, err := c.agent.Registry.GetPrimary(); err == nil {
-					log.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
+					agentlog.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
 					// Execute with primary provider (non-streaming)
 					// This is a best-effort fallback — we can only do stages 2-3 here
 					// since stages 4-5 are handled by the pipeline loop.

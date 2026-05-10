@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	"log"
 	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -13,6 +12,7 @@ import (
 	"github.com/aj-nt/mnemosyne/agent/pipeline"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 	memoclient "github.com/aj-nt/mnemosyne/client"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // ConversationCompletePayload is the data carried by conversation_complete events.
@@ -79,7 +79,7 @@ func (s *MemoryExtractionSubscriber) extract(payload ConversationCompletePayload
 	// the cheapest model that can do text completion is fine.
 	prov := s.cheapestProvider()
 	if prov == nil {
-		log.Printf("[memory-extract] session %s: no provider available, skipping extraction", payload.SessionID)
+		agentlog.Printf("[memory-extract] session %s: no provider available, skipping extraction", payload.SessionID)
 		return
 	}
 
@@ -88,7 +88,7 @@ func (s *MemoryExtractionSubscriber) extract(payload ConversationCompletePayload
 	for attempt := 0; attempt < s.maxRetry; attempt++ {
 		if attempt > 0 {
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-			log.Printf("[memory-extract] session %s: retry %d/%d after %v", payload.SessionID, attempt+1, s.maxRetry, backoff)
+			agentlog.Printf("[memory-extract] session %s: retry %d/%d after %v", payload.SessionID, attempt+1, s.maxRetry, backoff)
 			time.Sleep(backoff)
 		}
 
@@ -97,15 +97,15 @@ func (s *MemoryExtractionSubscriber) extract(payload ConversationCompletePayload
 		cancel()
 
 		if err == nil {
-			log.Printf("[memory-extract] session %s: extraction complete", payload.SessionID)
+			agentlog.Printf("[memory-extract] session %s: extraction complete", payload.SessionID)
 			return
 		}
 
 		lastErr = err
-		log.Printf("[memory-extract] session %s: attempt %d failed: %v", payload.SessionID, attempt+1, err)
+		agentlog.Printf("[memory-extract] session %s: attempt %d failed: %v", payload.SessionID, attempt+1, err)
 	}
 
-	log.Printf("[memory-extract] session %s: all %d attempts failed, last error: %v", payload.SessionID, s.maxRetry, lastErr)
+	agentlog.Printf("[memory-extract] session %s: all %d attempts failed, last error: %v", payload.SessionID, s.maxRetry, lastErr)
 }
 
 // cheapestProvider returns the cheapest available provider.

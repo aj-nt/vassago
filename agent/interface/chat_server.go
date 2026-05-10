@@ -6,7 +6,6 @@ package iface
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +14,7 @@ import (
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	pb "github.com/aj-nt/mnemosyne/proto"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // ChatServer implements the gRPC AgentChat service for the agent binary.
@@ -76,7 +76,7 @@ func (cs *ChatServer) ChatStream(req *pb.ChatRequest, stream pb.AgentChat_ChatSt
 	// Refresh the hot block
 	hotBlock, err := cs.agent.GetHotBlock(ctx)
 	if err != nil {
-		log.Printf("ChatStream: hot block error: %v", err)
+		agentlog.Printf("ChatStream: hot block error: %v", err)
 		hotBlock = ""
 	}
 
@@ -216,7 +216,7 @@ func (cs *ChatServer) getOrCreateSession(ctx context.Context, sessionID, agentID
 		// Session not found — create a new one
 		newID, createErr := cs.mnemo.CreateSession(ctx, agentID, "grpc", "")
 		if createErr != nil {
-			log.Printf("ChatStream: failed to create session for unknown ID %s: %v", sessionID, createErr)
+			agentlog.Printf("ChatStream: failed to create session for unknown ID %s: %v", sessionID, createErr)
 			// Fall back to using the provided ID locally
 			sess := &chatSession{
 				sessionID: sessionID,
@@ -285,6 +285,6 @@ func (cs *ChatServer) persistSession(ctx context.Context, sess *chatSession) {
 	defer cancel()
 
 	if err := cs.mnemo.AddMessages(persistCtx, sess.sessionID, msgs); err != nil {
-		log.Printf("ChatStream: session persist failed: %v", err)
+		agentlog.Printf("ChatStream: session persist failed: %v", err)
 	}
 }

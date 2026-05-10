@@ -35,5 +35,13 @@ func (c *BlockingCaller) Call(ctx context.Context, convCtx *agentctx.Conversatio
 		return agentctx.ParsedResponse{}, false, err
 	}
 
+	// Populate model/provider from ProviderResult for observability
+	if result.Model != "" {
+		parsed.Model = result.Model
+	}
+	if result.Provider != "" {
+		parsed.Provider = result.Provider
+	}
+
 	return parsed, true, nil
 }

@@ -85,6 +85,13 @@ func (s *ProviderCallStage) Process(ctx context.Context, convCtx *agentctx.Conve
 	return result
 }
 
+// populateModelProvider adds model/provider info to a ProviderResult for observability.
+func populateModelProvider(result agentctx.ProviderResult, p provider.Provider, modelName string) agentctx.ProviderResult {
+	result.Model = modelName
+	result.Provider = p.Name()
+	return result
+}
+
 // Helper functions for routing context.
 func firstUserMessage(msgs []agentctx.Message) string {
 	for _, m := range msgs {

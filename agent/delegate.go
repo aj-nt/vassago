@@ -6,12 +6,12 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 	"github.com/aj-nt/mnemosyne/agent/tools"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // SubAgentRunnerImpl implements tools.SubAgentRunner using the Agent package.
@@ -55,7 +55,7 @@ func (r *SubAgentRunnerImpl) RunSubAgent(prompt string, agentID string, maxTurns
 		registeredID, _, err := r.Mnemo.RegisterAgent(regCtx, agentID, subCfg.AgentName, "delegate")
 		regCancel()
 		if err != nil {
-			log.Printf("Delegate: sub-agent registration failed: %v", err)
+			agentlog.Printf("Delegate: sub-agent registration failed: %v", err)
 		} else if registeredID != "" {
 			subCfg.AgentID = registeredID
 		}

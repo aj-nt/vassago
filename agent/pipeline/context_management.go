@@ -5,11 +5,11 @@ package pipeline
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // LoopDetectionEvent is the data payload for loop detection events.
@@ -290,7 +290,7 @@ func (h *ConsecutiveLoopHandler) Handle(convCtx *agentctx.ConversationContext, t
 	}
 
 	if isConsecutiveToolIterationLoop(convCtx.Messages, parsed.ToolCalls, h.Thresholds.ConsecutiveLoopThreshold) {
-		log.Printf("ConsecutiveLoopHandler: YIELD — %d+ tool iterations without text response (iteration %d)", h.Thresholds.ConsecutiveLoopThreshold, convCtx.Iteration)
+		agentlog.Printf("ConsecutiveLoopHandler: YIELD — %d+ tool iterations without text response (iteration %d)", h.Thresholds.ConsecutiveLoopThreshold, convCtx.Iteration)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "consecutive_loop",
 			Iteration: convCtx.Iteration,
@@ -420,7 +420,7 @@ func (h *ProgressDetectionHandler) Handle(convCtx *agentctx.ConversationContext,
 
 	// Yield zone: ProgressYieldThreshold or more consecutive duplicates
 	if convCtx.DuplicateProgressCount >= h.Thresholds.ProgressYieldThreshold {
-		log.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s, intent: %s)",
+		agentlog.Printf("ProgressDetectionHandler: YIELD — %d consecutive no-progress iterations (iteration %d, signature: %s/%s, intent: %s)",
 			convCtx.DuplicateProgressCount, convCtx.Iteration, sig.ToolNames, sig.ResultTag, sig.IntentTag)
 		emitEvent(h.EventBus, LoopDetectionEvent{
 			Kind:      "progress_stall",
