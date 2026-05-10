@@ -38,7 +38,7 @@ func (s *Service) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb
 		config.CharLimit = 4000 // Default from DESIGN.md
 	}
 
-	result, err := s.store.ComputeHotBlock(req.Target, config)
+	result, err := s.store.ComputeHotBlock(ownerFromCtx(ctx), req.Target, config)
 	if err != nil {
 		slog.Error("GetHotBlock failed", "error", err, "target", req.Target)
 		return nil, status.Errorf(codes.Internal, "compute hot block: %v", err)

@@ -11,7 +11,7 @@ import (
 // Search performs a full-text search using FTS5.
 // Multi-word queries use OR semantics by default.
 // Special tokens (colons, dots) are quoted to prevent FTS5 column filter errors.
-func (s *Store) Search(query string, target string, limit int) ([]*MemoryEntry, error) {
+func (s *Store) Search(owner, query string, target string, limit int) ([]*MemoryEntry, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -24,12 +24,12 @@ func (s *Store) Search(query string, target string, limit int) ([]*MemoryEntry, 
 
 	// Build the query with optional target filter
 	sqlQuery := `
-		SELECT m.id, m.target, m.category, m.key, m.content, m.priority,
+		SELECT m.id, m.owner, m.target, m.category, m.key, m.content, m.priority,
 		       m.source_agent, m.created_at, m.updated_at, m.accessed_at, m.expires_at
 		FROM memories m
 		JOIN memories_fts fts ON m.rowid = fts.rowid
-		WHERE memories_fts MATCH ?`
-	args := []any{sanitized}
+		WHERE memories_fts MATCH ? AND m.owner = ?`
+	args := []any{sanitized, owner}
 
 	if target != "" {
 		sqlQuery += " AND m.target = ?"

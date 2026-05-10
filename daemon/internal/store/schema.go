@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 5 // 1:todos, 2:cron, 3:skills, 4:saved_tools
+const SchemaVersion = 6 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -16,6 +16,7 @@ var SchemaStmts = []string{
 
 	`CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     target TEXT NOT NULL CHECK(target IN ('memory', 'user')),
     category TEXT NOT NULL,
     key TEXT NOT NULL,

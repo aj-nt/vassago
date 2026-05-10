@@ -84,7 +84,7 @@ func TestImportHermesDB_Memories(t *testing.T) {
 	}
 
 	// Verify the memories are in Mnemosyne
-	entries, err := mnemoStore.ListMemories("memory", "", 0)
+	entries, err := mnemoStore.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list memories: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestImportHermesDB_Memories(t *testing.T) {
 		t.Errorf("expected at least 2 memory entries, got %d", len(entries))
 	}
 
-	userEntries, err := mnemoStore.ListMemories("user", "", 0)
+	userEntries, err := mnemoStore.ListMemories("default", "user", "", 0)
 	if err != nil {
 		t.Fatalf("list user entries: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestImportHermesDB_Idempotent(t *testing.T) {
 	}
 
 	// Verify only 1 memory exists (deduplicated by key)
-	entries, err := mnemoStore.ListMemories("memory", "", 0)
+	entries, err := mnemoStore.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list memories: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestImportHermesDB_ExpiredMemories(t *testing.T) {
 	}
 
 	// Run expiry — should remove the expired one
-	removed, err := mnemoStore.ExpireStaleMemories()
+	removed, err := mnemoStore.ExpireStaleMemories("default")
 	if err != nil {
 		t.Fatalf("expire stale memories: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestImportHermesDB_DefaultAgent(t *testing.T) {
 	}
 
 	// Verify the memory has "hermes-import" as source_agent
-	entries, err := mnemoStore.ListMemories("memory", "", 0)
+	entries, err := mnemoStore.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list memories: %v", err)
 	}

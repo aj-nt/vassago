@@ -10,6 +10,7 @@ import (
 func addTestMemory(t *testing.T, s *Store, target, category, key, content string, priority int32, expiresAt int64) *MemoryEntry {
 	t.Helper()
 	entry, err := s.AddMemory(AddMemoryParams{
+		Owner:       "default",
 		Target:      target,
 		Category:    category,
 		Key:         key,
@@ -36,7 +37,7 @@ func TestGetConsolidationCandidates_Expired(t *testing.T) {
 	// Add a future-expired memory (expires_at far in future)
 	addTestMemory(t, s, "memory", "environment", "future-server", "future content", 3, 9999999999)
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeExpired, "", 10)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeExpired, "", 10)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates expired: %v", err)
 	}
@@ -60,7 +61,7 @@ func TestGetConsolidationCandidates_Idle(t *testing.T) {
 	// Add a recently accessed memory (accessed_at is current time by default)
 	addTestMemory(t, s, "memory", "project", "recent-project", "recent stuff", 2, 0)
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeIdle, "", 10)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeIdle, "", 10)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates idle: %v", err)
 	}
@@ -82,7 +83,7 @@ func TestGetConsolidationCandidates_Observations(t *testing.T) {
 	// Non-observation (should NOT be a candidate)
 	addTestMemory(t, s, "memory", "environment", "env-1", "env stuff", 1, 0)
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeObservations, "", 10)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeObservations, "", 10)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates observations: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestGetConsolidationCandidates_Category(t *testing.T) {
 	addTestMemory(t, s, "memory", "environment", "env-important", "important env", 4, 0) // priority > 2, should NOT be candidate
 	addTestMemory(t, s, "memory", "project", "proj-1", "project stuff", 2, 0)            // wrong category
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeCategory, "environment", 10)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeCategory, "environment", 10)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates category: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestGetConsolidationCandidates_All(t *testing.T) {
 	addTestMemory(t, s, "memory", "environment", "low-prio", "low priority", 1, 0)
 	addTestMemory(t, s, "memory", "environment", "high-prio", "high priority", 5, 0)
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeAll, "", 10)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeAll, "", 10)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates all: %v", err)
 	}
@@ -134,7 +135,7 @@ func TestGetConsolidationCandidates_All(t *testing.T) {
 func TestGetConsolidationCandidates_CategoryRequired(t *testing.T) {
 	s := testStore(t)
 
-	_, err := s.GetConsolidationCandidates(ConsolidateScopeCategory, "", 10)
+	_, err := s.GetConsolidationCandidates("default", ConsolidateScopeCategory, "", 10)
 	if err == nil {
 		t.Error("expected error for CATEGORY scope without category")
 	}
@@ -148,7 +149,7 @@ func TestGetConsolidationCandidates_BatchSize(t *testing.T) {
 		addTestMemory(t, s, "memory", "environment", "batch-test-"+string(rune('A'+i)), "content", 2, 1000)
 	}
 
-	candidates, err := s.GetConsolidationCandidates(ConsolidateScopeExpired, "", 3)
+	candidates, err := s.GetConsolidationCandidates("default", ConsolidateScopeExpired, "", 3)
 	if err != nil {
 		t.Fatalf("GetConsolidationCandidates batch size: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestConsolidate_Expired(t *testing.T) {
 	// Add a non-expired memory
 	addTestMemory(t, s, "memory", "environment", "not-expired", "current content", 3, 0)
 
-	result, err := s.Consolidate(ConsolidateScopeExpired, "", 0)
+	result, err := s.Consolidate("default", ConsolidateScopeExpired, "", 0)
 	if err != nil {
 		t.Fatalf("Consolidate expired: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestConsolidate_Expired(t *testing.T) {
 	}
 
 	// Verify the expired one is gone and non-expired remains
-	entries, err := s.ListMemories("memory", "", 0)
+	entries, err := s.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list memories: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestConsolidate_Idle(t *testing.T) {
 	// Add a recently accessed memory
 	addTestMemory(t, s, "memory", "project", "recent-project", "recent stuff", 2, 0)
 
-	result, err := s.Consolidate(ConsolidateScopeIdle, "", 0)
+	result, err := s.Consolidate("default", ConsolidateScopeIdle, "", 0)
 	if err != nil {
 		t.Fatalf("Consolidate idle: %v", err)
 	}
@@ -222,7 +223,7 @@ func TestConsolidate_Observations(t *testing.T) {
 	// Add a recent observation (should NOT be removed)
 	addTestMemory(t, s, "memory", "observation", "recent-obs", "recent observation", 2, 0)
 
-	result, err := s.Consolidate(ConsolidateScopeObservations, "", 0)
+	result, err := s.Consolidate("default", ConsolidateScopeObservations, "", 0)
 	if err != nil {
 		t.Fatalf("Consolidate observations: %v", err)
 	}
@@ -238,7 +239,7 @@ func TestConsolidate_Category(t *testing.T) {
 	addTestMemory(t, s, "memory", "environment", "env-high", "high env", 4, 0) // priority > 2, should survive
 	addTestMemory(t, s, "memory", "project", "proj-low", "low proj", 2, 0)    // wrong category, should survive
 
-	result, err := s.Consolidate(ConsolidateScopeCategory, "environment", 0)
+	result, err := s.Consolidate("default", ConsolidateScopeCategory, "environment", 0)
 	if err != nil {
 		t.Fatalf("Consolidate category: %v", err)
 	}
@@ -246,7 +247,7 @@ func TestConsolidate_Category(t *testing.T) {
 		t.Errorf("expected 1 removed, got %d", result.Removed)
 	}
 
-	entries, _ := s.ListMemories("memory", "", 0)
+	entries, _ := s.ListMemories("default", "memory", "", 0)
 	if len(entries) != 2 {
 		t.Errorf("expected 2 remaining memories, got %d", len(entries))
 	}
@@ -255,7 +256,7 @@ func TestConsolidate_Category(t *testing.T) {
 func TestConsolidate_CategoryRequired(t *testing.T) {
 	s := testStore(t)
 
-	_, err := s.Consolidate(ConsolidateScopeCategory, "", 0)
+	_, err := s.Consolidate("default", ConsolidateScopeCategory, "", 0)
 	if err == nil {
 		t.Error("expected error for CATEGORY scope without category")
 	}
@@ -270,7 +271,7 @@ func TestConsolidate_All(t *testing.T) {
 	entry := addTestMemory(t, s, "memory", "project", "idle", "idle stuff", 2, 0)
 	s.DB().Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", 1000, entry.ID) //nolint:errcheck
 
-	result, err := s.Consolidate(ConsolidateScopeAll, "", 0)
+	result, err := s.Consolidate("default", ConsolidateScopeAll, "", 0)
 	if err != nil {
 		t.Fatalf("Consolidate all: %v", err)
 	}
@@ -290,7 +291,7 @@ func TestExpireStaleMemories(t *testing.T) {
 	// Add fresh memory (no expiry)
 	addTestMemory(t, s, "memory", "environment", "fresh", "fresh content", 3, 0)
 
-	removed, err := s.ExpireStaleMemories()
+	removed, err := s.ExpireStaleMemories("default")
 	if err != nil {
 		t.Fatalf("ExpireStaleMemories: %v", err)
 	}
@@ -299,7 +300,7 @@ func TestExpireStaleMemories(t *testing.T) {
 	}
 
 	// Verify only the fresh one remains
-	entries, _ := s.ListMemories("memory", "", 0)
+	entries, _ := s.ListMemories("default", "memory", "", 0)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 remaining memory, got %d", len(entries))
 	}
@@ -316,7 +317,7 @@ func TestConsolidate_EmptyDB(t *testing.T) {
 		ConsolidateScopeAll,
 	}
 	for _, scope := range scopes {
-		result, err := s.Consolidate(scope, "", 0)
+		result, err := s.Consolidate("default", scope, "", 0)
 		if err != nil {
 			t.Errorf("Consolidate scope %d on empty DB: %v", scope, err)
 		}

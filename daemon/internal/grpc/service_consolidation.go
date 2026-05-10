@@ -25,7 +25,7 @@ func (s *Service) Consolidate(ctx context.Context, req *pb.ConsolidateRequest) (
 	if req.Category != nil {
 		category = *req.Category
 	}
-	result, err := s.store.Consolidate(scope, category, batchSize)
+	result, err := s.store.Consolidate(ownerFromCtx(ctx), scope, category, batchSize)
 	if err != nil {
 		slog.Error("Consolidate failed", "error", err, "scope", req.Scope)
 		return nil, status.Errorf(codes.Internal, "consolidate: %v", err)
@@ -49,7 +49,7 @@ func (s *Service) GetConsolidationCandidates(ctx context.Context, req *pb.GetCon
 	if req.Category != nil {
 		category = *req.Category
 	}
-	candidates, err := s.store.GetConsolidationCandidates(scope, category, batchSize)
+	candidates, err := s.store.GetConsolidationCandidates(ownerFromCtx(ctx), scope, category, batchSize)
 	if err != nil {
 		slog.Error("GetConsolidationCandidates failed", "error", err, "scope", req.Scope)
 		return nil, status.Errorf(codes.Internal, "consolidation candidates: %v", err)

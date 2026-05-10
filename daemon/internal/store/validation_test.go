@@ -71,7 +71,7 @@ func TestListMemories_pagination(t *testing.T) {
 	}
 
 	// Test paginated query with limit 2, offset 0
-	results, err := s.ListMemoriesPaginated("memory", "", 0, 2, 0)
+	results, err := s.ListMemoriesPaginated("default", "memory", "", 0, 2, 0)
 	if err != nil {
 		t.Fatalf("paginated list: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestListMemories_pagination(t *testing.T) {
 	}
 
 	// Test paginated query with limit 2, offset 2
-	results2, err := s.ListMemoriesPaginated("memory", "", 0, 2, 2)
+	results2, err := s.ListMemoriesPaginated("default", "memory", "", 0, 2, 2)
 	if err != nil {
 		t.Fatalf("paginated list offset: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestAddMemory_transactionAtomicity(t *testing.T) {
 	}
 
 	// Should have only one entry
-	entries, _ := s.ListMemories("memory", "environment", 0)
+	entries, _ := s.ListMemories("default", "memory", "environment", 0)
 	keyCount := 0
 	for _, e := range entries {
 		if e.Key == "atomic_key" {
@@ -172,7 +172,7 @@ func TestSearch_limitBounds(t *testing.T) {
 	// Test with limit > 1000 should be clamped
 	addMemory(s, "memory", "environment", "k1", "searchable content here", 3, "agent-001", 0) //nolint:errcheck
 
-	_, err := s.Search("content", "", 5000) // Should be clamped to 1000
+	_, err := s.Search("default", "content", "", 5000) // Should be clamped to 1000
 	if err != nil {
 		t.Errorf("search with large limit: %v", err)
 	}

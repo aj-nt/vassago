@@ -112,7 +112,7 @@ func TestRedTeam_SQLInjection(t *testing.T) {
 				t.Fatalf("Store rejected content with SQL string (parameterized query should handle this): %v", err)
 			}
 			// Verify the table still exists by searching
-			results, err := store.Search("DROP TABLE", "", 10)
+			results, err := store.Search("default", "DROP TABLE", "", 10)
 			if err != nil {
 				t.Fatalf("Search failed after SQL injection content was stored: %v", err)
 			}
@@ -137,7 +137,7 @@ func TestRedTeam_SQLInjection(t *testing.T) {
 				t.Logf("Store rejected SQL injection in target field: %v", err)
 			}
 			// Table should still exist
-			if _, err := store.Search("anything", "", 1); err != nil {
+			if _, err := store.Search("default", "anything", "", 1); err != nil {
 				t.Errorf("Search broken after SQL injection in target: %v", err)
 			}
 		})
@@ -154,7 +154,7 @@ func TestRedTeam_SQLInjection(t *testing.T) {
 			if err != nil {
 				t.Logf("Store rejected SQL injection in category field: %v", err)
 			}
-			if _, err := store.Search("anything", "", 1); err != nil {
+			if _, err := store.Search("default", "anything", "", 1); err != nil {
 				t.Errorf("Search broken after SQL injection in category: %v", err)
 			}
 		})
@@ -197,7 +197,7 @@ func TestRedTeam_FTS5Injection(t *testing.T) {
 	for _, tc := range injectionQueries {
 		t.Run(tc.name, func(t *testing.T) {
 			// Should NOT panic, should return results or empty — never crash
-			results, err := store.Search(tc.query, "", 10)
+			results, err := store.Search("default", tc.query, "", 10)
 			if err != nil {
 				t.Logf("Search returned error (acceptable): %v", err)
 			}
@@ -398,7 +398,7 @@ func TestRedTeam_HotBlockWithEmptyDB(t *testing.T) {
 	defer cleanup()
 
 	// Empty DB — hot block should return empty content, not panic
-	result, err := store.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := store.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:     4000,
 		BoostPriority: 2,
 	})
@@ -432,7 +432,7 @@ func TestRedTeam_HotBlockStarvation(t *testing.T) {
 		}
 	}
 
-	result, err := store.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := store.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:     4000,
 		BoostPriority: 2,
 	})
@@ -464,7 +464,7 @@ func TestRedTeam_HotBlockCharLimitOverflow(t *testing.T) {
 		}
 	}
 
-	result, err := store.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := store.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:       500, // Very small limit
 		BoostPriority:   2,
 		BoostCategories:  []string{"project"},

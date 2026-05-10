@@ -17,7 +17,7 @@ func TestComputeHotBlock_basic(t *testing.T) {
 	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                          //nolint:errcheck
 
 	// Memory hot block
-	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:     4000,
 		BoostPriority: 2,
 	})
@@ -40,7 +40,7 @@ func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
 	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)                //nolint:errcheck
 	addMemory(s, "memory", "environment", "k3", "Yet another entry that makes it longer", 2, testAgentHotBlock, 0) //nolint:errcheck
 
-	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:     50, // Very small limit
 		BoostPriority: 2,
 	})
@@ -59,7 +59,7 @@ func TestComputeHotBlock_boostCategories(t *testing.T) {
 	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0)       //nolint:errcheck
 
 	// With "project" boosted, it should come first
-	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:       4000,
 		BoostPriority:   2,
 		BoostCategories: []string{"project"},
@@ -81,7 +81,7 @@ func TestComputeHotBlock_suppressCategories(t *testing.T) {
 	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)           //nolint:errcheck
 	addMemory(s, "memory", "observation", "obs1", "Less important observation", 3, testAgentHotBlock, 0) //nolint:errcheck
 
-	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:          4000,
 		BoostPriority:      2,
 		SuppressCategories: []string{"observation"},
@@ -106,7 +106,7 @@ func TestComputeHotBlock_expiredObservations(t *testing.T) {
 	// Add a non-expired observation
 	addMemory(s, "memory", "observation", "fresh", "This is recent", 3, testAgentHotBlock, 0) //nolint:errcheck // no expiry //nolint:errcheck
 
-	result, err := s.ComputeHotBlock("memory", HotBlockConfig{
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:     4000,
 		BoostPriority: 2,
 	})
