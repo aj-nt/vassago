@@ -369,7 +369,7 @@ func (d *Daemon) Run() error {
 	slog.Info("mnemosyne daemon started", "db", d.config.Store.Path)
 
 	// Startup: expire stale memories
-	if removed, err := d.store.ExpireStaleMemories(); err != nil {
+	if removed, err := d.store.ExpireStaleMemories("default"); err != nil {
 		slog.Error("startup expiry sweep failed", "error", err)
 	} else if removed > 0 {
 		slog.Info("startup: expired stale memories", "count", removed)
@@ -452,12 +452,12 @@ func (d *Daemon) runAutoConsolidation(ctx context.Context) {
 			slog.Info("auto-consolidation stopped")
 			return
 		case <-ticker.C:
-			if result, err := d.store.Consolidate(store.ConsolidateScopeExpired, "", 0); err != nil {
+			if result, err := d.store.Consolidate("default", store.ConsolidateScopeExpired, "", 0); err != nil {
 				slog.Error("auto-consolidation (expired) failed", "error", err)
 			} else if result.Removed > 0 {
 				slog.Info("auto-consolidation: expired memories removed", "count", result.Removed)
 			}
-			if result, err := d.store.Consolidate(store.ConsolidateScopeIdle, "", 0); err != nil {
+			if result, err := d.store.Consolidate("default", store.ConsolidateScopeIdle, "", 0); err != nil {
 				slog.Error("auto-consolidation (idle) failed", "error", err)
 			} else if result.Removed > 0 {
 				slog.Info("auto-consolidation: idle memories removed", "count", result.Removed)

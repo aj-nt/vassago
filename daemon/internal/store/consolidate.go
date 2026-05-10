@@ -35,16 +35,16 @@ type ConsolidationCandidate struct {
 
 // GetConsolidationCandidates returns memory entries that match the given consolidation scope.
 // batchSize limits the number of candidates returned (0 or negative = no limit).
-func (s *Store) GetConsolidationCandidates(scope ConsolidationScope, category string, batchSize int) ([]*ConsolidationCandidate, error) {
+func (s *Store) GetConsolidationCandidates(owner string, scope ConsolidationScope, category string, batchSize int) ([]*ConsolidationCandidate, error) {
 	if batchSize <= 0 {
 		batchSize = 100
 	}
 
 	query := `
-		SELECT id, target, category, key, content, priority, source_agent,
+		SELECT id, owner, target, category, key, content, priority, source_agent,
 		       created_at, updated_at, accessed_at, expires_at
-		FROM memories WHERE 1=1`
-	var args []any
+		FROM memories WHERE owner = ?`
+	var args = []any{owner}
 
 	now := time.Now().Unix()
 
@@ -102,7 +102,7 @@ func (s *Store) GetConsolidationCandidates(scope ConsolidationScope, category st
 // OBSERVATIONS: removes observations older than 7 days with priority <= 2.
 // CATEGORY: removes entries in the specified category with priority <= 2.
 // ALL: delegates to EXPIRED + IDLE.
-func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize int) (*ConsolidateResult, error) {
+func (s *Store) Consolidate(owner string, scope ConsolidationScope, category string, batchSize int) (*ConsolidateResult, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
@@ -111,7 +111,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 	switch scope {
 	case ConsolidateScopeExpired:
 		result, err := s.db.Exec(
-			"DELETE FROM memories WHERE expires_at > 0 AND expires_at < ?", now)
+			"DELETE FROM memories WHERE owner = ? AND expires_at > 0 AND expires_at < ?", owner, now)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate expired: %w", err)
 		}
@@ -124,7 +124,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 	case ConsolidateScopeIdle:
 		cutoff := now - int64(30*24*60*60)
 		result, err := s.db.Exec(
-			"DELETE FROM memories WHERE accessed_at > 0 AND accessed_at < ? AND priority <= 2", cutoff)
+			"DELETE FROM memories WHERE owner = ? AND accessed_at > 0 AND accessed_at < ? AND priority <= 2", owner, cutoff)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate idle: %w", err)
 		}
@@ -137,7 +137,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 	case ConsolidateScopeObservations:
 		weekAgo := now - int64(7*24*60*60)
 		result, err := s.db.Exec(
-			"DELETE FROM memories WHERE category = 'observation' AND created_at < ? AND priority <= 2", weekAgo)
+			"DELETE FROM memories WHERE owner = ? AND category = 'observation' AND created_at < ? AND priority <= 2", owner, weekAgo)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate observations: %w", err)
 		}
@@ -152,7 +152,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 			return nil, fmt.Errorf("category is required for CATEGORY scope")
 		}
 		result, err := s.db.Exec(
-			"DELETE FROM memories WHERE category = ? AND priority <= 2", category)
+			"DELETE FROM memories WHERE owner = ? AND category = ? AND priority <= 2", owner, category)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate category %s: %w", category, err)
 		}
@@ -165,7 +165,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 	case ConsolidateScopeAll:
 		// ALL deletes expired + idle entries in one transaction
 		expiredResult, err := s.db.Exec(
-			"DELETE FROM memories WHERE expires_at > 0 AND expires_at < ?", now)
+			"DELETE FROM memories WHERE owner = ? AND expires_at > 0 AND expires_at < ?", owner, now)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate all (expired): %w", err)
 		}
@@ -173,7 +173,7 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 
 		idleCutoff := now - int64(30*24*60*60)
 		idleResult, err := s.db.Exec(
-			"DELETE FROM memories WHERE accessed_at > 0 AND accessed_at < ? AND priority <= 2", idleCutoff)
+			"DELETE FROM memories WHERE owner = ? AND accessed_at > 0 AND accessed_at < ? AND priority <= 2", owner, idleCutoff)
 		if err != nil {
 			return nil, fmt.Errorf("consolidate all (idle): %w", err)
 		}
@@ -192,12 +192,12 @@ func (s *Store) Consolidate(scope ConsolidationScope, category string, batchSize
 
 // ExpireStaleMemories removes all memories that have passed their expires_at timestamp.
 // This is the startup sweep — run once when the daemon starts.
-func (s *Store) ExpireStaleMemories() (int, error) {
+func (s *Store) ExpireStaleMemories(owner string) (int, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
 	result, err := s.db.Exec(
-		"DELETE FROM memories WHERE expires_at > 0 AND expires_at < ?", time.Now().Unix())
+		"DELETE FROM memories WHERE owner = ? AND expires_at > 0 AND expires_at < ?", owner, time.Now().Unix())
 	if err != nil {
 		return 0, fmt.Errorf("expire stale memories: %w", err)
 	}

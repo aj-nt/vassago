@@ -14,7 +14,7 @@ func TestSearch_basic(t *testing.T) {
 	addMemory(s, "memory", "environment", "host2", "The database is PostgreSQL", 3, testAgent, 0)     //nolint:errcheck
 	addMemory(s, "memory", "project", "proj1", "Migration scripts needed", 2, testAgent, 0)          //nolint:errcheck
 
-	results, err := s.Search("server port", "", 10)
+	results, err := s.Search("default", "server port", "", 10)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestSearch_ORsemantics(t *testing.T) {
 	addMemory(s, "memory", "environment", "k2", "Dog elephant fox", 3, testAgent, 0)      //nolint:errcheck
 
 	// Multi-word with no operators should use OR — match any term
-	results, err := s.Search("apple elephant", "", 10)
+	results, err := s.Search("default", "apple elephant", "", 10)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestSearch_colonHandling(t *testing.T) {
 	addMemory(s, "memory", "environment", "path", "Config at /usr/local/bin:tool", 3, testAgent, 0) //nolint:errcheck
 
 	// Colons should not crash (they're quoted by sanitizeFTS5)
-	results, err := s.Search("local:tool", "", 10)
+	results, err := s.Search("default", "local:tool", "", 10)
 	if err != nil {
 		t.Fatalf("search with colon: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestSearch_targetFilter(t *testing.T) {
 	addMemory(s, "memory", "environment", "t1", "Agent environment note", 3, testAgent, 0) //nolint:errcheck
 	addMemory(s, "user", "user", "t2", "User environment note", 3, testAgent, 0) //nolint:errcheck
 
-	results, err := s.Search("environment", "memory", 10)
+	results, err := s.Search("default", "environment", "memory", 10)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestSearch_emptyQuery(t *testing.T) {
 	addMemory(s, "memory", "environment", "t1", "Some content", 3, testAgent, 0) //nolint:errcheck
 
 	// Empty query should not crash
-	_, err := s.Search("", "", 10)
+	_, err := s.Search("default", "", "", 10)
 	if err != nil {
 		t.Fatalf("empty search: %v", err)
 	}

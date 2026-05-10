@@ -89,7 +89,7 @@ func TestAddMemory_differentTargetsSameKey(t *testing.T) {
 		t.Fatalf("add user target: %v", err)
 	}
 
-	entries, err := s.ListMemories("", "", 0)
+	entries, err := s.ListMemories("default", "", "", 0)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestRemoveMemory(t *testing.T) {
 	s := testStore(t)
 
 	entry, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0) //nolint:errcheck
-	deleted, err := s.RemoveMemory(entry.ID)
+	deleted, err := s.RemoveMemory(entry.ID, "default")
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestRemoveMemory(t *testing.T) {
 func TestRemoveMemory_notFound(t *testing.T) {
 	s := testStore(t)
 
-	deleted, err := s.RemoveMemory("nonexistent")
+	deleted, err := s.RemoveMemory("nonexistent", "default")
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestListMemories_filterByTarget(t *testing.T) {
 	addMemory(s, "memory", "quirk", "a2", "quirk1", 3, testAgent, 0)      //nolint:errcheck
 	addMemory(s, "user", "user", "a3", "user1", 3, testAgent, 0)          //nolint:errcheck
 
-	entries, err := s.ListMemories("memory", "", 0)
+	entries, err := s.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestListMemories_filterByCategory(t *testing.T) {
 	addMemory(s, "memory", "quirk", "b2", "quirk", 3, testAgent, 0)        //nolint:errcheck
 	addMemory(s, "memory", "project", "b3", "proj", 3, testAgent, 0)      //nolint:errcheck
 
-	entries, err := s.ListMemories("", "quirk", 0)
+	entries, err := s.ListMemories("default", "", "quirk", 0)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestListMemories_filterByMinPriority(t *testing.T) {
 	addMemory(s, "memory", "environment", "c2", "mid", 3, testAgent, 0)  //nolint:errcheck
 	addMemory(s, "memory", "environment", "c3", "high", 5, testAgent, 0) //nolint:errcheck
 
-	entries, err := s.ListMemories("", "", 3)
+	entries, err := s.ListMemories("default", "", "", 3)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestListMemories_orderedByPriority(t *testing.T) {
 	addMemory(s, "memory", "environment", "high", "high", 5, testAgent, 0) //nolint:errcheck
 	addMemory(s, "memory", "environment", "mid", "mid", 3, testAgent, 0)  //nolint:errcheck
 
-	entries, _ := s.ListMemories("", "", 0)
+	entries, _ := s.ListMemories("default", "", "", 0)
 	if len(entries) < 3 {
 		t.Fatalf("need at least 3 entries, got %d", len(entries))
 	}

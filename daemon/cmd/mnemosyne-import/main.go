@@ -75,7 +75,7 @@ func main() {
 	}
 
 	// Run expiry sweep to clean up any expired memories from the import
-	removed, err := mnemoStore.ExpireStaleMemories()
+	removed, err := mnemoStore.ExpireStaleMemories("default")
 	if err != nil {
 		log.Printf("Warning: expiry sweep failed: %v", err)
 	} else if removed > 0 {
