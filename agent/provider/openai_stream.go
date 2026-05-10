@@ -84,25 +84,27 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 			return
 		}
 
-		var chunk struct {
-			Choices []struct {
-				Delta struct {
-					Content   string `json:"content"`
-					ToolCalls []struct {
-						ID       string `json:"id"`
-						Type     string `json:"type"`
-						Function struct {
-							Name      string `json:"name"`
-							Arguments string `json:"arguments"`
-						} `json:"function"`
-					} `json:"tool_calls"`
-				} `json:"delta"`
-				FinishReason *string `json:"finish_reason"`
-			} `json:"choices"`
-			Usage *struct {
-				TotalTokens int `json:"total_tokens"`
-			} `json:"usage"`
-		}
+	var chunk struct {
+		Choices []struct {
+			Delta struct {
+				Content        string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
+				Reasoning      string `json:"reasoning"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"delta"`
+			FinishReason *string `json:"finish_reason"`
+		} `json:"choices"`
+		Usage *struct {
+			TotalTokens int `json:"total_tokens"`
+		} `json:"usage"`
+	}
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue
 		}
@@ -116,6 +118,14 @@ func (p *OpenAIProvider) readSSEStream(ctx context.Context, resp *http.Response,
 		// Text delta
 		if choice.Delta.Content != "" {
 			ch <- agentctx.StreamEvent{Type: agentctx.StreamText, Text: choice.Delta.Content}
+		}
+
+		// Reasoning delta (DeepSeek-v4-pro uses reasoning_content, OpenAI o1 uses reasoning)
+		if choice.Delta.ReasoningContent != "" {
+			ch <- agentctx.StreamEvent{Type: agentctx.StreamReasoning, Reasoning: choice.Delta.ReasoningContent}
+		}
+		if choice.Delta.Reasoning != "" {
+			ch <- agentctx.StreamEvent{Type: agentctx.StreamReasoning, Reasoning: choice.Delta.Reasoning}
 		}
 
 		// Tool call deltas

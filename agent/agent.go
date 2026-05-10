@@ -380,6 +380,7 @@ type StreamEvent struct {
 	Done      bool
 	Error     error
 	Usage     *agentctx.UsageInfo
+	Reasoning string
 }
 
 // RunStreaming executes the agent loop with streaming text output.

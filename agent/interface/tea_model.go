@@ -89,8 +89,9 @@ type teaModel struct {
 	viewport viewport.Model
 
 	// Current streaming response
-	turnText strings.Builder
-	toolLogs []string
+	turnText      strings.Builder
+	reasoningText strings.Builder
+	toolLogs      []string
 
 	// Chat history (rendered into viewport)
 	chatHistory []string
@@ -569,6 +570,7 @@ func (m *teaModel) endTurn(fallbackText string) {
 	}
 
 	m.turnText.Reset()
+	m.reasoningText.Reset()
 	m.toolLogs = nil
 	m.phase = phaseReady
 }
@@ -577,6 +579,9 @@ func (m *teaModel) endTurn(fallbackText string) {
 func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 	switch ev.Type {
 	case agentctx.StreamText:
+		if m.reasoningText.Len() > 0 {
+			m.reasoningText.Reset()
+		}
 		if m.thinking {
 			m.thinking = false
 			m.phase = phaseStreaming
@@ -621,6 +626,18 @@ func (m *teaModel) handleStreamEvent(ev agent.StreamEvent) tea.Cmd {
 				return tea.Quit()
 			})
 		}
+
+	case agentctx.StreamReasoning:
+		m.thinking = false
+		m.phase = phaseStreaming
+		if m.reasoningText.Len() == 0 {
+			// First reasoning token — add dim header
+			m.chatHistory = append(m.chatHistory, "")
+		}
+		m.reasoningText.WriteString(ev.Reasoning)
+		// Update the reasoning line in chat history
+		m.chatHistory[len(m.chatHistory)-1] = styleDim.Render("  💭 " + m.reasoningText.String())
+		m.rebuildViewport()
 
 	case agentctx.StreamDone:
 		m.responding = false

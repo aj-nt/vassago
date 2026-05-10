@@ -126,6 +126,7 @@ func (c *streamingCaller) callNonStreaming(ctx context.Context, convCtx *agentct
 // processStreamingEvents handles streaming events and constructs the parsed response.
 func (c *streamingCaller) processStreamingEvents(streamCh <-chan agentctx.StreamEvent, p provider.Provider, modelName string) (agentctx.ParsedResponse, error) {
 	var fullText string
+	var fullReasoning strings.Builder
 	var toolCalls []agentctx.ToolCall
 	var currentToolID string
 	var currentToolName string
@@ -176,6 +177,10 @@ func (c *streamingCaller) processStreamingEvents(streamCh <-chan agentctx.Stream
 			}
 			return agentctx.ParsedResponse{}, fmt.Errorf("primary provider streaming failed: %w", event.Error)
 
+		case agentctx.StreamReasoning:
+			c.out <- StreamEvent{Type: agentctx.StreamReasoning, Reasoning: event.Reasoning}
+			fullReasoning.WriteString(event.Reasoning)
+
 		case agentctx.StreamDone:
 			lastUsage = event.Usage
 			if event.StopReason != "" {
@@ -188,6 +193,7 @@ func (c *streamingCaller) processStreamingEvents(streamCh <-chan agentctx.Stream
 	// Build parsed response
 	parsed := agentctx.ParsedResponse{
 		Text:      fullText,
+		Reasoning: fullReasoning.String(),
 		ToolCalls: toolCalls,
 	}
 	if stopReason != "" {

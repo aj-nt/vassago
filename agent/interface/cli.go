@@ -245,12 +245,17 @@ func streamAgentResponse(turnCtx context.Context, c *CLI, convCtx *agentctx.Conv
 
 	var responseText strings.Builder
 	thinkingShown := true
+	reasoningStarted := false
 	fmt.Print(formatThinkingIndicator())
 	toolCalls := 0
 
 	for event := range eventCh {
 		switch event.Type {
 		case agentctx.StreamText:
+			if reasoningStarted {
+				fmt.Print(colorize(reset, "\n"))
+				reasoningStarted = false
+			}
 			if thinkingShown {
 				fmt.Print(formatClearThinking())
 				thinkingShown = false
@@ -258,6 +263,10 @@ func streamAgentResponse(turnCtx context.Context, c *CLI, convCtx *agentctx.Conv
 			fmt.Print(event.Text)
 			responseText.WriteString(event.Text)
 		case agentctx.StreamToolStart:
+			if reasoningStarted {
+				fmt.Print(colorize(reset, "\n"))
+				reasoningStarted = false
+			}
 			if thinkingShown {
 				fmt.Print(formatClearThinking())
 				thinkingShown = false
@@ -268,6 +277,16 @@ func streamAgentResponse(turnCtx context.Context, c *CLI, convCtx *agentctx.Conv
 			// Tool_use block finished parsing
 		case agentctx.StreamToolExec:
 			fmt.Println(formatToolExec(event.ToolName))
+		case agentctx.StreamReasoning:
+			if thinkingShown {
+				fmt.Print(formatClearThinking())
+				thinkingShown = false
+			}
+			if !reasoningStarted {
+				fmt.Print(colorize(dim, "  💭 "))
+				reasoningStarted = true
+			}
+			fmt.Print(colorize(dim, event.Reasoning))
 		case agentctx.StreamDone:
 			if event.Usage != nil {
 				stats.TokensUsed += event.Usage.TotalTokens
@@ -427,11 +446,16 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 
 	var responseText strings.Builder
 	thinkingShown := true
+	reasoningStarted := false
 	fmt.Print(formatThinkingIndicator())
 
 	for event := range eventCh {
 		switch event.Type {
 		case agentctx.StreamText:
+			if reasoningStarted {
+				fmt.Print(colorize(reset, "\n"))
+				reasoningStarted = false
+			}
 			if thinkingShown {
 				fmt.Print(formatClearThinking())
 				thinkingShown = false
@@ -439,6 +463,10 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 			fmt.Print(event.Text)
 			responseText.WriteString(event.Text)
 		case agentctx.StreamToolStart:
+			if reasoningStarted {
+				fmt.Print(colorize(reset, "\n"))
+				reasoningStarted = false
+			}
 			if thinkingShown {
 				fmt.Print(formatClearThinking())
 				thinkingShown = false
@@ -448,6 +476,16 @@ func (c *CLI) RunOneShot(ctx context.Context, message string) error {
 			// Tool_use block finished parsing
 		case agentctx.StreamToolExec:
 			fmt.Println(formatToolExec(event.ToolName))
+		case agentctx.StreamReasoning:
+			if thinkingShown {
+				fmt.Print(formatClearThinking())
+				thinkingShown = false
+			}
+			if !reasoningStarted {
+				fmt.Print(colorize(dim, "  💭 "))
+				reasoningStarted = true
+			}
+			fmt.Print(colorize(dim, event.Reasoning))
 		case agentctx.StreamDone:
 			// done
 		case agentctx.StreamError:

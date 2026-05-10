@@ -32,6 +32,9 @@ type StreamEvent struct {
 
 	// StopReason contains the reason the stream stopped (e.g., "stop", "tool_use", "max_tokens")
 	StopReason string
+
+	// Reasoning is the thinking/reasoning content from reasoning models.
+	Reasoning string
 }
 
 // StreamEventType identifies the kind of streaming event.
@@ -60,4 +63,9 @@ const (
 
 	// StreamDone means the response is complete.
 	StreamDone
+
+	// StreamReasoning is a reasoning/thinking token from a reasoning model (DeepSeek, o1, etc).
+	// These tokens show the model's chain-of-thought and should be displayed differently
+	// from regular StreamText (e.g., dimmed, in a thinking section).
+	StreamReasoning
 )
