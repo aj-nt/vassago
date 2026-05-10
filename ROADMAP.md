@@ -179,7 +179,57 @@ Skills and Saved Tools complement each other: a Skill might say "use the `deploy
 
 ---
 
-### Phase 26: GitHub Integration (Monitoring)
+### Phase 26: Reasoning Model Support (DeepSeek-v4-pro, OpenAI o-series)
+
+**Problem:** Reasoning models (DeepSeek-v4-pro, OpenAI o1/o3/o4-mini) use a `reasoning` or `reasoning_content` field for chain-of-thought, leaving the `content` field empty during the thinking phase. Mnemosyne's OpenAI streaming provider only reads `choice.Delta.Content` for `StreamText` events. When a reasoning model produces an empty content delta, the agent sees zero text output, which either produces no visible response or triggers demotion to the fallback provider.
+
+**Root cause in detail:**
+
+In a standard chat completion SSE stream:
+- Standard models: `{"delta": {"content": "Hello"}, ...}` — content flows normally
+- Reasoning models: The stream has two phases:
+  1. **Thinking phase**: `{"delta": {"reasoning_content": "Let me think..."}, "content": ""}` — content is empty
+  2. **Response phase**: `{"delta": {"content": "The answer is..."}, ...}` — content appears after reasoning
+
+The current `readSSEStream` in `agent/provider/openai_stream.go`:
+- Line 118: `StreamText` events only carry `choice.Delta.Content`
+- No handling for `reasoning_content` or `reasoning` delta fields
+- When content is empty for multiple chunks, the provider may record a failure
+- The demotion system (1-failure threshold) immediately falls back to Anthropic
+
+**Fix:**
+
+In `agent/provider/openai_stream.go`, modify `readSSEStream` to:
+
+1. Detect `reasoning_content` field in SSE delta (DeepSeek) and `reasoning` field (OpenAI o-series)
+2. Emit `StreamText` events for reasoning tokens, prefixed with a thinking indicator or streamed into the existing thinking spinner
+3. Do NOT record empty content as a failure — the model is working, not broken
+4. Do NOT demote when reasoning tokens are flowing (even if content is empty)
+5. Add a `StreamReasoning` event type (optional — or just reuse `StreamText` with thinking indicator)
+
+**OpenAI o-series specifics:**
+- o1/o3 use `reasoning_content` in the delta
+- They also use `max_completion_tokens` instead of `max_tokens`
+- They don't support temperature (or only temperature=1)
+- Tool calling works but with higher latency (30-60s for complex prompts)
+
+**DeepSeek-v4-pro specifics:**
+- Uses `reasoning_content` in the delta
+- Compatible with `max_tokens` and temperature
+- Supports function calling
+- Available via Ollama with `:cloud` suffix (proxied through Ollama's cloud API)
+
+**Testing:**
+- Unit test: SSE stream parsing with reasoning_content field
+- Integration: DeepSeek-v4-pro via local Ollama, verify no demotion
+- Integration: Mock o1-style responses, verify reasoning tokens displayed
+- Verify glm-5.1:cloud, minimax-m2.7:cloud, and Anthropic still work (regression)
+
+**Estimated effort:** 1 session.
+
+---
+
+### Phase 27: GitHub Integration (Monitoring)
 
 **Problem:** When Mnemosyne goes public, we need to monitor the GitHub repo for issues, discussions, PRs, and community submissions. Currently there's no integration.
 
@@ -194,6 +244,6 @@ This is a separate phase from Saved Tools and can be developed independently.
 
 ---
 
-### Phase 27: Multi-User Auth (NOT STARTED)
+### Phase 28: Multi-User Auth (NOT STARTED)
 
 Deferred. Requires design for API keys, agent isolation, per-user memory namespaces.
