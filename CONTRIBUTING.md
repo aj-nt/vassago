@@ -13,30 +13,66 @@ make test-race            # run all tests with race detector
 
 See [README.md](README.md) for full setup instructions.
 
+### Local Development Setup
+
+```bash
+# Prerequisites
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Regenerate proto after changing mnemosyne.proto
+export PATH="$PATH:$(go env GOPATH)/bin"
+protoc --go_out=. --go_opt=paths=source_relative \
+       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+       -I proto proto/mnemosyne.proto
+```
+
+### Useful Commands
+
+```bash
+make test-race              # all tests with race detector
+go test -race ./agent/...   # single package
+go vet ./...                # static analysis
+./scripts/check-license-headers.sh  # verify license headers
+go build ./...              # verify compilation
+```
+
 ## Development Workflow
 
-1. **Branch from `main`**: `git checkout -b phase-N/your-feature-name`
-2. **Push often** — CI runs on every push as a safety net, not a gate
-3. **Code-complete** → run QA and Red Team passes locally
-4. **Create a PR** against `main` — CI must be green before review
-5. **Maintainer approves** → merge to main
-6. **Pull to other machines** — verify tests pass
+1. **Create a branch from `main`**: `git checkout -b feat/short-name` or `fix/short-name`
+   - NEVER work directly on `main` for any code change
+2. **TDD (Test-Driven Development) for all production code**:
+   - Write the test FIRST, verify it FAILS (red)
+   - Write the minimum implementation to pass (green)
+   - Refactor with tests as safety net (refactor)
+   - At the end of each phase, run all three QA passes below
+3. **Push often** — CI runs on every push as a safety net, not a gate
+4. **Code-complete** → run QA and Red Team passes locally
+5. **Create a PR** against `main` — CI must be green before review
+6. **Maintainer approves** → merge to main
+7. **Pull to other machines** — verify tests pass
 
-### QA Gates (Required Before Every Merge to `main`)
+### Check-In Procedure (Required Before Every Merge to `main`)
 
-**1. QA Pass** — does it do what it says?
-- All tests pass: `make test-race`
-- New code has test coverage
-- Edge cases tested (empty input, max limits, concurrent access)
-- gRPC returns proper status codes
+**1. White-Box QA Pass** — code review of every new and modified file
+- Trace all code paths, edge cases (nil, empty, max values)
+- Verify error handling, concurrency safety, resource cleanup
+- Check that all specification requirements are met
+- Run: `make test-race`, `go vet ./...`, `./scripts/check-license-headers.sh`
 
-**2. Red Team QA Pass** — what would break it?
-- Crash it: bad payloads, nil fields, oversized input
-- Corrupt it: concurrent writes to same key, mid-migration writes
-- Starve it: large data, many agents, full hot block budgets
-- Cheat it: boundary timestamps, priority overflow, category injection
+**2. Black-Box QA Pass** — trace every user flow end-to-end
+- Walk through each feature as a user would experience it
+- Verify error messages are clear and actionable
+- Check behavior with no config, empty state, missing dependencies
 
-**If it breaks, add a test, fix the code, re-run both gates.**
+**3. Red Team QA Pass** — attempt to break every new surface
+- Crash it: nil fields, bad payloads, oversized input, invalid types
+- Corrupt it: concurrent writes, mid-operation cancellation, partial updates
+- Starve it: large data sets, many concurrent agents, full budgets
+- Inject it: SQL injection, null bytes, special characters, path traversal
+- Spoof it: wrong agent IDs, boundary timestamps, priority overflow
+
+**If anything breaks: add a test, fix the code, re-run all three gates from the beginning.**
 
 ### Refactoring Pass (After QA + Red Team)
 
