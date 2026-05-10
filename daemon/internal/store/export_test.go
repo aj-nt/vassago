@@ -138,7 +138,7 @@ func TestImportJSON_freshStore(t *testing.T) {
 	}
 
 	// Verify imported memories are searchable
-	entries, err := dst.ListMemories("", "", 0)
+	entries, err := dst.ListMemories("default", "", "", 0)
 	if err != nil {
 		t.Fatalf("ListMemories: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestImportJSON_skipExisting(t *testing.T) {
 	}
 
 	// Verify original content preserved
-	entries, _ := dst.ListMemories("memory", "", 0)
+	entries, _ := dst.ListMemories("default", "memory", "", 0)
 	for _, e := range entries {
 		if e.Key == "conflict_key" && e.Content == "New content from import" {
 			t.Error("ImportJSON skipExisting=true: content was overwritten")
@@ -210,7 +210,7 @@ func TestImportJSON_overwriteExisting(t *testing.T) {
 	}
 
 	// Verify content was overwritten
-	entries, _ := dst.ListMemories("memory", "", 0)
+	entries, _ := dst.ListMemories("default", "memory", "", 0)
 	for _, e := range entries {
 		if e.Key == "conflict_key" {
 			if e.Content != "Updated content from import" {
@@ -266,7 +266,7 @@ func TestRoundTrip_preservesAllFields(t *testing.T) {
 	}
 
 	// Verify all fields preserved
-	imported, err := dst.Search("roundtrip_full", "memory", 1)
+	imported, err := dst.Search("default", "roundtrip_full", "memory", 1)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestSearchValidation_everyEntryFindable(t *testing.T) {
 	}
 
 	for _, st := range searchTests {
-		results, err := s.Search(st.query, "", 10)
+		results, err := s.Search("default", st.query, "", 10)
 		if err != nil {
 			t.Errorf("Search(%q): error: %v", st.query, err)
 			continue
@@ -354,7 +354,7 @@ func TestSearchValidation_keyOnlySearch(t *testing.T) {
 	})
 
 	// FTS5 indexes both content and key — searching by key should find it
-	results, err := s.Search("unique_keyphrase_xyz", "", 10)
+	results, err := s.Search("default", "unique_keyphrase_xyz", "", 10)
 	if err != nil {
 		t.Fatalf("Search by key: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestSearchValidation_categorySearch(t *testing.T) {
 	})
 
 	// Category is indexed in FTS5 too
-	results, err := s.Search("quirk", "", 10)
+	results, err := s.Search("default", "quirk", "", 10)
 	if err != nil {
 		t.Fatalf("Search by category: %v", err)
 	}

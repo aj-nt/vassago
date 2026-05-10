@@ -17,6 +17,7 @@ import (
 // MemoryEntry represents a single memory record.
 type MemoryEntry struct {
 	ID          string
+	Owner       string // namespace
 	Target      string // "memory" or "user"
 	Category    string
 	Key         string
@@ -181,10 +182,10 @@ func validateMemoryInput(target, category, key, content string, priority int32) 
 func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 	entry := &MemoryEntry{}
 	err := s.db.QueryRow(`
-		SELECT id, target, category, key, content, priority, source_agent,
+		SELECT id, owner, target, category, key, content, priority, source_agent,
 		       created_at, updated_at, accessed_at, expires_at
 		FROM memories WHERE id = ?`, id,
-	).Scan(&entry.ID, &entry.Target, &entry.Category, &entry.Key, &entry.Content,
+	).Scan(&entry.ID, &entry.Owner, &entry.Target, &entry.Category, &entry.Key, &entry.Content,
 		&entry.Priority, &entry.SourceAgent, &entry.CreatedAt, &entry.UpdatedAt,
 		&entry.AccessedAt, &entry.ExpiresAt,
 	)
@@ -200,12 +201,12 @@ func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 	return entry, nil
 }
 
-// RemoveMemory deletes a memory by ID.
-func (s *Store) RemoveMemory(id string) (bool, error) {
+// RemoveMemory deletes a memory by ID, scoped to owner (Phase 28).
+func (s *Store) RemoveMemory(id, owner string) (bool, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
-	result, err := s.db.Exec("DELETE FROM memories WHERE id = ?", id)
+	result, err := s.db.Exec("DELETE FROM memories WHERE id = ? AND owner = ?", id, owner)
 	if err != nil {
 		return false, fmt.Errorf("remove memory: %w", err)
 	}
@@ -216,28 +217,28 @@ func (s *Store) RemoveMemory(id string) (bool, error) {
 // ListMemories returns memories matching the given filters.
 // Results are ordered by priority DESC, updated_at DESC.
 // Uses a default limit of 1000.
-func (s *Store) ListMemories(target string, category string, minPriority int32) ([]*MemoryEntry, error) {
-	return s.listMemories(target, category, minPriority, 1000, 0, false)
+func (s *Store) ListMemories(owner, target string, category string, minPriority int32) ([]*MemoryEntry, error) {
+	return s.listMemories(owner, target, category, minPriority, 1000, 0, false)
 }
 
 // ListMemoriesPaginated returns memories with explicit pagination.
-func (s *Store) ListMemoriesPaginated(target string, category string, minPriority int32, limit int, offset int) ([]*MemoryEntry, error) {
+func (s *Store) ListMemoriesPaginated(owner, target string, category string, minPriority int32, limit int, offset int) ([]*MemoryEntry, error) {
 	if limit <= 0 || limit > maxResultLimit {
 		limit = defaultResultLimit
 	}
 	if offset < 0 {
 		offset = 0
 	}
-	return s.listMemories(target, category, minPriority, limit, offset, true)
+	return s.listMemories(owner, target, category, minPriority, limit, offset, true)
 }
 
 // listMemories is the shared implementation for ListMemories and ListMemoriesPaginated.
-func (s *Store) listMemories(target string, category string, minPriority int32, limit int, offset int, paginate bool) ([]*MemoryEntry, error) {
+func (s *Store) listMemories(owner, target string, category string, minPriority int32, limit int, offset int, paginate bool) ([]*MemoryEntry, error) {
 	query := `
-		SELECT id, target, category, key, content, priority, source_agent,
+		SELECT id, owner, target, category, key, content, priority, source_agent,
 		       created_at, updated_at, accessed_at, expires_at
-		FROM memories WHERE 1=1`
-	args := []any{}
+		FROM memories WHERE owner = ?`
+	args := []any{owner}
 
 	if target != "" {
 		query += " AND target = ?"
@@ -271,7 +272,7 @@ func scanMemories(rows *sql.Rows) ([]*MemoryEntry, error) {
 	var entries []*MemoryEntry
 	for rows.Next() {
 		e := &MemoryEntry{}
-		if err := rows.Scan(&e.ID, &e.Target, &e.Category, &e.Key, &e.Content,
+		if err := rows.Scan(&e.ID, &e.Owner, &e.Target, &e.Category, &e.Key, &e.Content,
 			&e.Priority, &e.SourceAgent, &e.CreatedAt, &e.UpdatedAt,
 			&e.AccessedAt, &e.ExpiresAt); err != nil {
 			return nil, fmt.Errorf("scan memory: %w", err)

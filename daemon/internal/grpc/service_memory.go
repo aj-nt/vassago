@@ -31,6 +31,7 @@ func (s *Service) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.
 	}
 
 	entry, err := s.store.AddMemory(store.AddMemoryParams{
+		Owner:       ownerFromCtx(ctx),
 		Target:      req.Target,
 		Category:    req.Category,
 		Key:         req.Key,
@@ -108,6 +109,7 @@ func (s *Service) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest)
 
 	// Upsert by target+key (overwrites existing)
 	entry, err := s.store.AddMemory(store.AddMemoryParams{
+		Owner:       ownerFromCtx(ctx),
 		Target:      target,
 		Category:    category,
 		Key:         existing.Key,
@@ -129,7 +131,7 @@ func (s *Service) RemoveMemory(ctx context.Context, req *pb.RemoveMemoryRequest)
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 
-	deleted, err := s.store.RemoveMemory(req.Id)
+	deleted, err := s.store.RemoveMemory(req.Id, ownerFromCtx(ctx))
 	if err != nil {
 		slog.Error("RemoveMemory failed", "error", err, "id", req.Id)
 		return nil, status.Errorf(codes.Internal, "remove memory: %v", err)
@@ -144,7 +146,7 @@ func (s *Service) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest)
 		minPriority = *req.MinPriority
 	}
 
-	entries, err := s.store.ListMemories(req.Target, "", minPriority)
+	entries, err := s.store.ListMemories(ownerFromCtx(ctx), req.Target, "", minPriority)
 	if err != nil {
 		slog.Error("ListMemories failed", "error", err)
 		return nil, status.Errorf(codes.Internal, "list memories: %v", err)

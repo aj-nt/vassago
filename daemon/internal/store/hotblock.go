@@ -28,9 +28,9 @@ type HotBlockResult struct {
 // ComputeHotBlock builds a formatted text block of the highest-priority memories
 // for prompt injection. It respects category boost/suppress, char limits,
 // and excludes expired observations.
-func (s *Store) ComputeHotBlock(target string, config HotBlockConfig) (*HotBlockResult, error) {
+func (s *Store) ComputeHotBlock(owner, target string, config HotBlockConfig) (*HotBlockResult, error) {
 	// Fetch all non-expired entries for this target
-	entries, err := s.ListMemories(target, "", config.BoostPriority)
+	entries, err := s.ListMemories(owner, target, "", config.BoostPriority)
 	if err != nil {
 		return nil, fmt.Errorf("list memories for hot block: %w", err)
 	}

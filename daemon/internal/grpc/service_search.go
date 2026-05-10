@@ -24,7 +24,7 @@ func (s *Service) Search(ctx context.Context, req *pb.SearchRequest) (*pb.Search
 		limit = int(*req.Limit)
 	}
 
-	entries, err := s.store.Search(req.Query, req.Target, limit)
+	entries, err := s.store.Search(ownerFromCtx(ctx), req.Query, req.Target, limit)
 	if err != nil {
 		slog.Error("Search failed", "error", err, "query", req.Query)
 		return nil, status.Errorf(codes.Internal, "search: %v", err)

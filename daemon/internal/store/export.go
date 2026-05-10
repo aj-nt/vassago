@@ -13,6 +13,7 @@ import (
 // Used for backup/export and import/restore operations.
 type MemoryExport struct {
 	ID          string `json:"id"`
+	Owner       string `json:"owner"`
 	Target      string `json:"target"`
 	Category    string `json:"category"`
 	Key         string `json:"key"`
@@ -35,7 +36,7 @@ type ImportResult struct {
 // ExportJSON writes all memories to a JSON file.
 // Returns the number of entries exported.
 func (s *Store) ExportJSON(path string) (int, error) {
-	entries, err := s.ListMemories("", "", 0)
+	entries, err := s.ListMemories("default", "", "", 0)
 	if err != nil {
 		return 0, fmt.Errorf("list memories for export: %w", err)
 	}
@@ -44,6 +45,7 @@ func (s *Store) ExportJSON(path string) (int, error) {
 	for i, e := range entries {
 		exports[i] = MemoryExport{
 			ID:          e.ID,
+			Owner:       e.Owner,
 			Target:      e.Target,
 			Category:    e.Category,
 			Key:          e.Key,
@@ -89,7 +91,7 @@ func (s *Store) ImportJSON(path string, skipExisting bool) (*ImportResult, error
 	var existingKeys map[string]bool
 	if skipExisting {
 		existingKeys = make(map[string]bool)
-		entries, err := s.ListMemories("", "", 0)
+		entries, err := s.ListMemories("default", "", "", 0)
 		if err != nil {
 			return nil, fmt.Errorf("list existing memories for skip check: %w", err)
 		}
@@ -114,6 +116,7 @@ func (s *Store) ImportJSON(path string, skipExisting bool) (*ImportResult, error
 
 		// Use AddMemory's upsert semantics
 		_, err := s.AddMemory(AddMemoryParams{
+			Owner:       e.Owner,
 			Target:      e.Target,
 			Category:    e.Category,
 			Key:          e.Key,
