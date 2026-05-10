@@ -31,10 +31,11 @@ func (s *RequestPrepStage) Process(ctx *agentctx.ConversationContext) agentctx.P
 	}
 
 	return agentctx.PreparedRequest{
-		SystemPrompt: systemPrompt,
-		Messages:     ctx.Messages,
-		Tools:        ctx.Tools,
-		APIKwargs:    apiKwargs,
+		SystemPrompt:    systemPrompt,
+		Messages:        ctx.Messages,
+		Tools:           ctx.Tools,
+		APIKwargs:       apiKwargs,
+		CacheBreakpoint: len(systemPrompt) / 4, // Phase 32: mark cacheable prefix
 	}
 }
 
