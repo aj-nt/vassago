@@ -645,6 +645,102 @@ func (c *Client) DeleteCronJob(ctx context.Context, id string) error {
 	return nil
 }
 
+// --- Saved Tool Client Methods ---
+
+func (c *Client) AddSavedTool(ctx context.Context, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int32) (*pb.SavedToolEntry, error) {
+	resp, err :=	c.api.AddSavedTool(ctx, &pb.AddSavedToolRequest{
+		Name:        name,
+		Description: description,
+		Type:        toolType,
+		Parameters:  parameters,
+		Script:      script,
+		Category:    category,
+		Triggers:    triggers,
+		Author:      author,
+		Priority:    &priority,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("AddSavedTool: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) GetSavedTool(ctx context.Context, id string) (*pb.SavedToolEntry, error) {
+	resp, err := c.api.GetSavedTool(ctx, &pb.GetSavedToolRequest{Id: id})
+	if err != nil {
+		return nil, fmt.Errorf("GetSavedTool: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) ListSavedTools(ctx context.Context, category, author string, limit int32) ([]*pb.SavedToolEntry, error) {
+	resp, err := c.api.ListSavedTools(ctx, &pb.ListSavedToolsRequest{
+		Category: category,
+		Author:   author,
+		Limit:    &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListSavedTools: %w", err)
+	}
+	return resp.Tools, nil
+}
+
+func (c *Client) SearchSavedTools(ctx context.Context, query, category string, limit int32) ([]*pb.SavedToolEntry, error) {
+	resp, err := c.api.SearchSavedTools(ctx, &pb.SearchSavedToolsRequest{
+		Query:    query,
+		Category: category,
+		Limit:    &limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("SearchSavedTools: %w", err)
+	}
+	return resp.Tools, nil
+}
+
+func (c *Client) UpdateSavedTool(ctx context.Context, id string, updates map[string]interface{}) (*pb.SavedToolEntry, error) {
+	req := &pb.UpdateSavedToolRequest{Id: id}
+
+	if v, ok := updates["name"].(string); ok {
+		req.Name = &v
+	}
+	if v, ok := updates["description"].(string); ok {
+		req.Description = &v
+	}
+	if v, ok := updates["parameters"].(string); ok {
+		req.Parameters = &v
+	}
+	if v, ok := updates["script"].(string); ok {
+		req.Script = &v
+	}
+	if v, ok := updates["category"].(string); ok {
+		req.Category = &v
+	}
+	if v, ok := updates["triggers"].([]string); ok {
+		req.Triggers = v
+	}
+	if v, ok := updates["priority"].(int); ok {
+		p := int32(v)
+		req.Priority = &p
+	}
+	if v, ok := updates["requires_approval_every_call"].(bool); ok {
+		req.RequiresApprovalEveryCall = &v
+	}
+
+	resp, err := c.api.UpdateSavedTool(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateSavedTool: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) RemoveSavedTool(ctx context.Context, id string) (bool, error) {
+	resp, err := c.api.RemoveSavedTool(ctx, &pb.RemoveSavedToolRequest{Id: id})
+	if err != nil {
+		return false, fmt.Errorf("RemoveSavedTool: %w", err)
+	}
+	return resp.Removed, nil
+}
+
 func protoCronJobToInfo(pb *pb.CronJob) *CronJobInfo {
 	return &CronJobInfo{
 		ID:         pb.Id,
