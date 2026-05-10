@@ -153,6 +153,9 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (*agentctx.Pipeline
 
 	skillBlock := a.GetSkillBlock(ctx)
 
+	// Register saved tools as dynamic handlers (trigger-ranked, loaded from daemon)
+	a.RegisterSavedToolHandlers(ctx)
+
 	// Create session with auto-generated title from first message
 	title := autoTitle(userMessage)
 	sessionID, _ := a.Mnemo.CreateSession(ctx, a.Config.AgentID, "cli", title)
