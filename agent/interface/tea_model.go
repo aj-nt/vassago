@@ -794,6 +794,34 @@ func (m *teaModel) handleCommand(input string) (bool, tea.Cmd) {
 		return true, nil
 	}
 
+	if strings.HasPrefix(trimmed, "/tools") {
+		if !m.agent.Mnemo.IsConnected() {
+			m.chatHistory = append(m.chatHistory, styleDim.Render("  [Not connected to daemon]"), "")
+		} else {
+			entries, err := m.agent.Mnemo.ListSavedTools(m.ctx, "", "", 50)
+			if err != nil {
+				m.chatHistory = append(m.chatHistory, styleError.Render(fmt.Sprintf("Error: %v", err)), "")
+			} else if len(entries) == 0 {
+				m.chatHistory = append(m.chatHistory, styleDim.Render("  [No saved tools found]"), "")
+			} else {
+				m.chatHistory = append(m.chatHistory, fmt.Sprintf("  %d saved tools:", len(entries)))
+				for _, e := range entries {
+					triggersStr := strings.Join(e.Triggers, ", ")
+					approvalTag := ""
+					if e.RequiresApprovalEveryCall {
+						approvalTag = " [approval required]"
+					}
+					m.chatHistory = append(m.chatHistory,
+						styleDim.Render(fmt.Sprintf("    [%s] %s (v%d, p%d)%s — %s  triggers: %s",
+							e.Category, e.Name, e.Version, e.Priority, approvalTag,
+							truncateForUI(e.Description, 60), triggersStr)))
+				}
+				m.chatHistory = append(m.chatHistory, "")
+			}
+		}
+		return true, nil
+	}
+
 	if strings.HasPrefix(trimmed, "/resume") {
 		id, ok := parseResumeCommand(trimmed)
 		if !ok {
@@ -873,6 +901,14 @@ func formatResponseBubble(text, agentName string, width int) string {
 	b.WriteString(strings.Join(lines, "\n"))
 
 	return panelStyle.Render(b.String())
+}
+
+// truncateForUI truncates a string to maxLen for display.
+func truncateForUI(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "…"
 }
 
 // formatContextUsageBubble shows context token usage with color coding.
