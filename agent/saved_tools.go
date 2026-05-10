@@ -15,11 +15,17 @@ import (
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
-// GetSavedToolDefinitions fetches saved tools from the daemon and converts
-// them to ToolDefinitions for the LLM. Uses trigger-ranked loading:
-// tools whose triggers match the user's first message get a ×3 priority boost.
-// Always loads up to maxTools (default 10), ranked by (trigger_match × priority).
-func (a *Agent) GetSavedToolDefinitions(ctx context.Context, userMessage string, maxTools int) []agentctx.ToolDefinition {
+// sortedTool is a saved tool entry with a computed trigger-match score.
+type sortedTool struct {
+	entry *pb.SavedToolEntry
+	score int
+}
+
+// rankedSavedTools fetches saved tools from the daemon, scores them by
+// trigger-match × priority, sorts descending, and returns up to maxTools.
+// Shared by GetSavedToolDefinitions and RegisterSavedToolHandlers so both
+// the LLM tool list and the runtime handlers stay in sync.
+func (a *Agent) rankedSavedTools(ctx context.Context, userMessage string, maxTools int) []sortedTool {
 	if a.Mnemo == nil {
 		return nil
 	}
@@ -39,13 +45,8 @@ func (a *Agent) GetSavedToolDefinitions(ctx context.Context, userMessage string,
 	}
 
 	// Score: priority × (3 if trigger matches, 1 otherwise)
-	type scored struct {
-		entry *pb.SavedToolEntry
-		score int
-	}
-	var scoredEntries []scored
-
 	lowerMsg := strings.ToLower(userMessage)
+	var ranked []sortedTool
 	for _, e := range entries {
 		score := int(e.Priority)
 		for _, trigger := range e.Triggers {
@@ -54,77 +55,84 @@ func (a *Agent) GetSavedToolDefinitions(ctx context.Context, userMessage string,
 				break
 			}
 		}
-		scoredEntries = append(scoredEntries, scored{entry: e, score: score})
+		ranked = append(ranked, sortedTool{entry: e, score: score})
 	}
 
-	// Sort by score descending (simple insertion)
-	for i := 0; i < len(scoredEntries); i++ {
-		for j := i + 1; j < len(scoredEntries); j++ {
-			if scoredEntries[j].score > scoredEntries[i].score {
-				scoredEntries[i], scoredEntries[j] = scoredEntries[j], scoredEntries[i]
+	// Sort by score descending
+	for i := 0; i < len(ranked); i++ {
+		for j := i + 1; j < len(ranked); j++ {
+			if ranked[j].score > ranked[i].score {
+				ranked[i], ranked[j] = ranked[j], ranked[i]
 			}
 		}
 	}
 
-	// Cap at maxTools
-	if len(scoredEntries) > maxTools {
-		scoredEntries = scoredEntries[:maxTools]
+	if len(ranked) > maxTools {
+		ranked = ranked[:maxTools]
+	}
+	return ranked
+}
+
+// GetSavedToolDefinitions fetches saved tools from the daemon and converts
+// them to ToolDefinitions for the LLM. Uses trigger-ranked loading:
+// tools whose triggers match the user's first message get a ×3 priority boost.
+// Always loads up to maxTools (default 10), ranked by (trigger_match × priority).
+func (a *Agent) GetSavedToolDefinitions(ctx context.Context, userMessage string, maxTools int) []agentctx.ToolDefinition {
+	ranked := a.rankedSavedTools(ctx, userMessage, maxTools)
+	if len(ranked) == 0 {
+		return nil
 	}
 
-	defs := make([]agentctx.ToolDefinition, 0, len(scoredEntries))
-	for _, se := range scoredEntries {
+	defs := make([]agentctx.ToolDefinition, 0, len(ranked))
+	for _, st := range ranked {
 		var params map[string]interface{}
-		if err := json.Unmarshal([]byte(se.entry.Parameters), &params); err != nil {
-			log.Printf("Warning: invalid parameters JSON for saved tool %q: %v", se.entry.Name, err)
+		if err := json.Unmarshal([]byte(st.entry.Parameters), &params); err != nil {
+			log.Printf("Warning: invalid parameters JSON for saved tool %q: %v", st.entry.Name, err)
 			continue
 		}
-
 		defs = append(defs, agentctx.ToolDefinition{
-			Name:        se.entry.Name,
-			Description: se.entry.Description,
+			Name:        st.entry.Name,
+			Description: st.entry.Description,
 			Parameters:  params,
 		})
 	}
-
 	return defs
 }
 
-// RegisterSavedToolHandlers creates dynamic ToolHandlers for saved tools
-// and registers them in the tool registry. Script-type tools run via
-// the existing Execute handler with all security checks + approval.
-func (a *Agent) RegisterSavedToolHandlers(ctx context.Context) {
+// RegisterSavedToolHandlers creates dynamic ToolHandlers for the top-ranked
+// saved tools (via trigger-ranked loading) and registers them in the tool
+// registry. Script-type tools run via the existing Execute handler with all
+// security checks + approval.
+func (a *Agent) RegisterSavedToolHandlers(ctx context.Context, userMessage string) {
 	if a.Mnemo == nil || a.ToolRegistry == nil {
 		return
 	}
 
-	entries, err := a.Mnemo.ListSavedTools(ctx, "", "", 100)
-	if err != nil {
-		log.Printf("Warning: failed to load saved tool handlers: %v", err)
+	ranked := a.rankedSavedTools(ctx, userMessage, 10)
+	if len(ranked) == 0 {
 		return
 	}
 
-	for _, e := range entries {
-		name := e.Name
-		script := e.Script
-		requiresApproval := e.RequiresApprovalEveryCall
+	for _, st := range ranked {
+		name := st.entry.Name
+		script := st.entry.Script
+		requiresApproval := st.entry.RequiresApprovalEveryCall
 
-		// Build handler
 		handler := makeSavedToolScriptHandler(a, name, script, requiresApproval)
 
-		// Build schema from stored parameters
 		var paramsSchema map[string]interface{}
-		json.Unmarshal([]byte(e.Parameters), &paramsSchema)
+		json.Unmarshal([]byte(st.entry.Parameters), &paramsSchema)
 
 		schema := map[string]interface{}{
 			"name":        name,
-			"description": e.Description,
+			"description": st.entry.Description,
 			"parameters":  paramsSchema,
 		}
 
 		a.ToolRegistry.Register(name, handler, schema)
 	}
 
-	log.Printf("Registered %d saved tools as dynamic handlers", len(entries))
+	log.Printf("Registered %d saved tools as dynamic handlers (trigger-ranked, max 10)", len(ranked))
 }
 
 // makeSavedToolScriptHandler creates a handler that substitutes parameters

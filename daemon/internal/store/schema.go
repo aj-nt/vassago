@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 5
+const SchemaVersion = 5 // 1:todos, 2:cron, 3:skills, 4:saved_tools
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -249,4 +249,34 @@ var Migrations = []string{
 	`CREATE TRIGGER IF NOT EXISTS skills_fts_update AFTER UPDATE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); INSERT INTO skills_fts(rowid, name, description, content, triggers, category) VALUES (new.rowid, new.name, new.description, new.content, new.triggers, new.category); END`,
 
 	`CREATE TRIGGER IF NOT EXISTS skills_fts_delete AFTER DELETE ON skills BEGIN INSERT INTO skills_fts(skills_fts, rowid, name, description, content, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.content, old.triggers, old.category); END`,
+
+	// Migration 4: Add saved_tools table (Phase 25)
+	`CREATE TABLE IF NOT EXISTS saved_tools (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('script')),
+    parameters TEXT NOT NULL,
+    script TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    triggers TEXT NOT NULL DEFAULT '[]',
+    author TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+    version INTEGER NOT NULL DEFAULT 1,
+    requires_approval_every_call INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_saved_tools_category ON saved_tools(category)`,
+	`CREATE INDEX IF NOT EXISTS idx_saved_tools_author ON saved_tools(author)`,
+	`CREATE INDEX IF NOT EXISTS idx_saved_tools_priority ON saved_tools(priority)`,
+
+	`CREATE VIRTUAL TABLE IF NOT EXISTS saved_tools_fts USING fts5(name, description, triggers, category, content=saved_tools, content_rowid=rowid, tokenize='unicode61')`,
+
+	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_insert AFTER INSERT ON saved_tools BEGIN INSERT INTO saved_tools_fts(rowid, name, description, triggers, category) VALUES (new.rowid, new.name, new.description, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_update AFTER UPDATE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); INSERT INTO saved_tools_fts(rowid, name, description, triggers, category) VALUES (new.rowid, new.name, new.description, new.triggers, new.category); END`,
+
+	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_delete AFTER DELETE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); END`,
 }

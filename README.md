@@ -307,8 +307,11 @@ make all             # build + test + lint
 | 19 | GoF Refactoring, Spiral Detection, Polish | ✅ Complete |
 | 20 | Memory Migration, Personality Simplification, Agent Loop Fixes | ✅ Complete |
 | 21 | Open Source Readiness | ✅ Complete |
-| 22 | Python SDK | 🔧 In Progress |
+| 22 | Python SDK | ✅ Complete |
 | 23 | Multi-User & Auth | 🔜 Planned |
+| 24 | Bubble Tea TUI | ✅ Complete |
+| 25 | Saved Tools — Runtime Tool Creation | ✅ Complete |
+| 26 | Reasoning Model Support | ✅ Complete |
 
 **Known limitations:**
 - ~~No Docker image yet (planned)~~ → Docker image available (see Docker section)
