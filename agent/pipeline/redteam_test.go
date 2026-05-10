@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
@@ -14,7 +15,7 @@ import (
 
 // --- RED TEAM QA: Tool Dispatch Pipeline ---
 
-func setupRedTeamDispatch(t *testing.T) (*ToolDispatchStage, *tools.ToolRegistry) {
+func setupRedTeamDispatch(t *testing.T) (*ParallelToolDispatchStage, *tools.ToolRegistry) {
 	t.Helper()
 	bus := eventbus.NewEventBus()
 	registry := tools.NewToolRegistry()
@@ -33,7 +34,7 @@ func setupRedTeamDispatch(t *testing.T) (*ToolDispatchStage, *tools.ToolRegistry
 		},
 	})
 
-	stage := NewToolDispatchStage(registry, bus)
+	stage := NewParallelToolDispatchStage(registry, bus)
 	return stage, registry
 }
 
@@ -161,17 +162,14 @@ func TestRedTeam_Dispatch_MultipleToolCalls(t *testing.T) {
 	t.Parallel()
 	stage, _ := setupRedTeamDispatch(t)
 
-	// The default MaxParallelTools cap is 2. Calls beyond the cap
-	// should return an error result instead of executing.
-	maxTools := 2
-	if stage.MaxParallelTools > 0 {
-		maxTools = stage.MaxParallelTools
-	}
+	// ParallelToolDispatchStage executes all calls concurrently (bounded by semaphore).
+	// Unlike the old sequential ToolDispatchStage, there is no hard call cap —
+	// all valid calls succeed regardless of count.
 
 	calls := make([]agentctx.ToolCall, 20)
 	for i := range calls {
 		calls[i] = agentctx.ToolCall{
-			ID:        string(rune('A' + i)),
+			ID:        fmt.Sprintf("call-%d", i),
 			Name:      "Echo",
 			Arguments: json.RawMessage(`{"message": "test"}`),
 		}
@@ -180,18 +178,11 @@ func TestRedTeam_Dispatch_MultipleToolCalls(t *testing.T) {
 	parsed := agentctx.ParsedResponse{ToolCalls: calls}
 	result := stage.Process(nil, parsed)
 	if len(result.ToolResults) != 20 {
-		t.Errorf("expected 20 tool results (including capped ones), got %d", len(result.ToolResults))
+		t.Fatalf("expected 20 tool results, got %d", len(result.ToolResults))
 	}
-	// First `maxTools` results should succeed
-	for i := 0; i < maxTools && i < len(result.ToolResults); i++ {
-		if result.ToolResults[i].IsError {
-			t.Errorf("tool result %d unexpected error: %s", i, result.ToolResults[i].Result)
-		}
-	}
-	// Results beyond the cap should be error results
-	for i := maxTools; i < len(result.ToolResults); i++ {
-		if !result.ToolResults[i].IsError {
-			t.Errorf("tool result %d should have been capped (expected error), got success", i)
+	for i, tr := range result.ToolResults {
+		if tr.IsError {
+			t.Errorf("tool result %d unexpected error: %s", i, tr.Result)
 		}
 	}
 }

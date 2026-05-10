@@ -303,3 +303,14 @@ func (s *ParallelToolDispatchStage) orderResults(results []agentctx.ToolResult, 
 
 	return ordered
 }
+
+// safeCallHandler calls a tool handler with panic recovery.
+func safeCallHandler(handler tools.ToolHandler, args map[string]interface{}) (result string, isErr bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = fmt.Sprintf("tool handler panicked: %v", r)
+			isErr = true
+		}
+	}()
+	return handler(args)
+}

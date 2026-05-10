@@ -157,7 +157,7 @@ func TestToolDispatchApproval(t *testing.T) {
 	}, map[string]interface{}{"name": "DangerTool"})
 
 	var approvalCalled bool
-	stage := NewToolDispatchStage(reg, nil)
+	stage := NewParallelToolDispatchStage(reg, nil)
 	stage.Approver = func(toolName string, args map[string]interface{}) bool {
 		approvalCalled = true
 		return false // Deny approval
