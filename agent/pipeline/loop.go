@@ -56,7 +56,7 @@ type Stages struct {
 	Stage1 *RequestPrepStage
 	Stage2 *ProviderCallStage
 	Stage3 *ResponseProcessingStage
-	Stage4 *ToolDispatchStage
+	Stage4 *ParallelToolDispatchStage
 	Stage5 *ContextManagementStage
 }
 

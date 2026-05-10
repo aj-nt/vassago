@@ -33,7 +33,7 @@ type AgentBuilder struct {
 	stage1Override *pipeline.RequestPrepStage
 	stage2Override *pipeline.ProviderCallStage
 	stage3Override *pipeline.ResponseProcessingStage
-	stage4Override *pipeline.ToolDispatchStage
+	stage4Override *pipeline.ParallelToolDispatchStage
 	stage5Override *pipeline.ContextManagementStage
 }
 
@@ -79,7 +79,7 @@ func (b *AgentBuilder) WithStage3(s *pipeline.ResponseProcessingStage) *AgentBui
 }
 
 // WithStage4 overrides Stage 4 (for testing).
-func (b *AgentBuilder) WithStage4(s *pipeline.ToolDispatchStage) *AgentBuilder {
+func (b *AgentBuilder) WithStage4(s *pipeline.ParallelToolDispatchStage) *AgentBuilder {
 	b.stage4Override = s
 	return b
 }
@@ -131,7 +131,7 @@ func (b *AgentBuilder) Build() *Agent {
 	if b.stage4Override != nil {
 		a.Stage4 = b.stage4Override
 	} else {
-		a.Stage4 = pipeline.NewToolDispatchStage(b.toolReg, bus)
+		a.Stage4 = pipeline.NewParallelToolDispatchStage(b.toolReg, bus)
 	}
 
 	if b.stage5Override != nil {
