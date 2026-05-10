@@ -129,9 +129,20 @@ func (p *AnthropicProvider) Prepare(_ context.Context, convCtx *agentctx.Convers
 
 	body["max_tokens"] = 16384
 
-	// System prompt goes in the top-level system field (not as a message)
+	// System prompt goes in the top-level system field (not as a message).
+	// Phase 32: wrap in content blocks with cache_control for prompt caching.
 	if prepared.SystemPrompt != "" {
-		body["system"] = prepared.SystemPrompt
+		if p.capabilities.SupportsPromptCaching && prepared.CacheBreakpoint > 0 {
+			body["system"] = []map[string]interface{}{
+				{
+					"type": "text",
+					"text": prepared.SystemPrompt,
+					"cache_control": map[string]string{"type": "ephemeral"},
+				},
+			}
+		} else {
+			body["system"] = prepared.SystemPrompt
+		}
 	}
 
 	// Add tools (Anthropic format)

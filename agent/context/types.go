@@ -34,11 +34,12 @@ func (a StageAction) String() string {
 
 // PreparedRequest is the output of Stage 1 (Request Prep).
 type PreparedRequest struct {
-	SystemPrompt string
-	Messages     []Message
-	Tools        []ToolDefinition
-	APIKwargs    map[string]interface{}
-	ImageContent *ImageContent
+	SystemPrompt    string
+	Messages        []Message
+	Tools           []ToolDefinition
+	APIKwargs       map[string]interface{}
+	ImageContent    *ImageContent
+	CacheBreakpoint int // token count of cacheable prefix (Phase 32)
 }
 
 // ImageContent represents image data for vision-capable providers
