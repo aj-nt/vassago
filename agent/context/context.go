@@ -47,7 +47,6 @@ type ConversationContext struct {
 	HotBlockContent       string
 	PreviousHotBlockContent string // Phase 32: track for cache invalidation
 	SkillContent          string
-	CacheBreakpoint      int    // Phase 32: cache breakpoint position
 	AgentID               string
 	Temperature           float64
 

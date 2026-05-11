@@ -39,13 +39,12 @@ func TestAnthropicParse(t *testing.T) {
 		ctx := &agentctx.ConversationContext{
 			SystemPrompt:    "Test system prompt",
 			Messages:        []agentctx.Message{{Role: "user", Content: "Hello"}},
-			CacheBreakpoint: 5, // > 0 should enable caching
 		}
 		
 		prepared := agentctx.PreparedRequest{
 			SystemPrompt:    "Test system prompt",
 			Messages:        ctx.Messages,
-			CacheBreakpoint: ctx.CacheBreakpoint,
+			CacheBreakpoint: 5, // > 0 should enable caching
 		}
 		
 		req, err := provider.Prepare(context.Background(), ctx, prepared)
@@ -82,13 +81,12 @@ func TestAnthropicParse(t *testing.T) {
 		ctx := &agentctx.ConversationContext{
 			SystemPrompt:    "Test system prompt",
 			Messages:        []agentctx.Message{{Role: "user", Content: "Hello"}},
-			CacheBreakpoint: 0, // Should disable caching
 		}
 		
 		prepared := agentctx.PreparedRequest{
 			SystemPrompt:    "Test system prompt",
 			Messages:        ctx.Messages,
-			CacheBreakpoint: ctx.CacheBreakpoint,
+			CacheBreakpoint: 0, // Should disable caching
 		}
 		
 		req, err := provider.Prepare(context.Background(), ctx, prepared)
@@ -181,4 +179,70 @@ func TestAnthropicParse(t *testing.T) {
 	if parsed.ToolCalls[0].Name != "FileRead" {
 		t.Errorf("Expected tool name 'FileRead', got '%s'", parsed.ToolCalls[0].Name)
 	}
+}
+
+func TestAnthropicParse_CacheUsage(t *testing.T) {
+	provider := NewAnthropicProvider("test-key", "claude-sonnet-4-6")
+
+	t.Run("CacheHit", func(t *testing.T) {
+		resp := map[string]interface{}{
+			"content":     []map[string]interface{}{{"type": "text", "text": "Cached!"}},
+			"stop_reason": "end_turn",
+			"usage": map[string]interface{}{
+				"input_tokens":  10,
+				"output_tokens": 5,
+				"cache_read_input_tokens": 10,
+			},
+		}
+		respJSON, _ := json.Marshal(resp)
+		result := agentctx.ProviderResult{RawResponse: respJSON}
+		parsed, err := provider.Parse(context.Background(), result)
+		if err != nil {
+			t.Fatalf("parse failed: %v", err)
+		}
+		if parsed.Usage == nil {
+			t.Fatal("expected usage info")
+		}
+		if parsed.Usage.TotalTokens != 15 {
+			t.Errorf("total = %d, want 15", parsed.Usage.TotalTokens)
+		}
+	})
+
+	t.Run("CacheMiss", func(t *testing.T) {
+		resp := map[string]interface{}{
+			"content":     []map[string]interface{}{{"type": "text", "text": "Fresh!"}},
+			"stop_reason": "end_turn",
+			"usage": map[string]interface{}{
+				"input_tokens":               10,
+				"output_tokens":              5,
+				"cache_creation_input_tokens": 10,
+			},
+		}
+		respJSON, _ := json.Marshal(resp)
+		result := agentctx.ProviderResult{RawResponse: respJSON}
+		parsed, err := provider.Parse(context.Background(), result)
+		if err != nil {
+			t.Fatalf("parse failed: %v", err)
+		}
+		if parsed.Usage == nil {
+			t.Fatal("expected usage info")
+		}
+	})
+
+	t.Run("NoCache", func(t *testing.T) {
+		resp := map[string]interface{}{
+			"content":     []map[string]interface{}{{"type": "text", "text": "Plain!"}},
+			"stop_reason": "end_turn",
+			"usage": map[string]interface{}{
+				"input_tokens":  10,
+				"output_tokens": 5,
+			},
+		}
+		respJSON, _ := json.Marshal(resp)
+		result := agentctx.ProviderResult{RawResponse: respJSON}
+		_, err := provider.Parse(context.Background(), result)
+		if err != nil {
+			t.Fatalf("parse failed: %v", err)
+		}
+	})
 }
