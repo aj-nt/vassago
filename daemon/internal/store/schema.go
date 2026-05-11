@@ -285,4 +285,14 @@ var Migrations = []string{
 	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_update AFTER UPDATE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); INSERT INTO saved_tools_fts(rowid, name, description, triggers, category) VALUES (new.rowid, new.name, new.description, new.triggers, new.category); END`,
 
 	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_delete AFTER DELETE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); END`,
+	// Migration 5: Add owner to memories (Phase 28)
+	`ALTER TABLE memories ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+
+	// Migration 6: Add owner to remaining tables (Phase 28)
+	`ALTER TABLE sessions ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE todos ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE cron_jobs ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE skills ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE saved_tools ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+
 }

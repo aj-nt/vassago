@@ -12,6 +12,7 @@ import (
 	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // AnthropicProvider implements Provider for Anthropic Messages API.
@@ -267,14 +268,27 @@ type anthropicContent struct {
 }
 
 type anthropicUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 }
 
 func convertAnthropicUsage(u anthropicUsage) *agentctx.UsageInfo {
 	if u.InputTokens == 0 && u.OutputTokens == 0 {
 		return nil
 	}
+
+	// Phase 32: track cache hits/misses from Anthropic's usage response.
+	// cache_read_input_tokens: tokens served from the prompt cache (HIT).
+	// cache_creation_input_tokens: tokens newly written to cache (MISS + write).
+	if u.CacheReadInputTokens > 0 {
+		agentlog.MetricsIncCacheHits()
+	}
+	if u.CacheCreationInputTokens > 0 {
+		agentlog.MetricsIncCacheMisses()
+	}
+
 	return &agentctx.UsageInfo{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
