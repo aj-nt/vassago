@@ -13,6 +13,8 @@ type Metrics struct {
 	LoopDetections    int64   // atomic counter for YIELD/TERMINATE from loop detection
 	RoutingFallbacks  int64   // atomic counter for provider fallback events
 	AccumulatedCostUSD int64  // atomic: cost in micro-dollars (µ$); divide by 1e6 for USD
+	CacheHits         int64   // atomic counter for prompt cache hits
+	CacheMisses       int64   // atomic counter for prompt cache misses
 }
 
 // NewMetrics creates a new zero-initialized Metrics.
@@ -27,6 +29,8 @@ type MetricsSnapshot struct {
 	LoopDetections     int
 	RoutingFallbacks   int
 	AccumulatedCostUSD float64
+	CacheHits         int
+	CacheMisses       int
 }
 
 // Snapshot returns an independent copy of current metric values.
@@ -37,6 +41,8 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		LoopDetections:     int(atomic.LoadInt64(&m.LoopDetections)),
 		RoutingFallbacks:   int(atomic.LoadInt64(&m.RoutingFallbacks)),
 		AccumulatedCostUSD: float64(atomic.LoadInt64(&m.AccumulatedCostUSD)) / 1_000_000.0,
+		CacheHits:         int(atomic.LoadInt64(&m.CacheHits)),
+		CacheMisses:       int(atomic.LoadInt64(&m.CacheMisses)),
 	}
 }
 
@@ -60,6 +66,16 @@ func (m *Metrics) IncRoutingFallbacks() {
 	atomic.AddInt64(&m.RoutingFallbacks, 1)
 }
 
+// IncCacheHits increments the cache hit counter.
+func (m *Metrics) IncCacheHits() {
+	atomic.AddInt64(&m.CacheHits, 1)
+}
+
+// IncCacheMisses increments the cache miss counter.
+func (m *Metrics) IncCacheMisses() {
+	atomic.AddInt64(&m.CacheMisses, 1)
+}
+
 // AddCost adds cost in USD to the accumulated cost tracker.
 func (m *Metrics) AddCost(usd float64) {
 	// Convert to micro-dollars for atomic int64 storage
@@ -76,6 +92,8 @@ func (m *Metrics) LogDump() {
 		"loop_detections", snap.LoopDetections,
 		"routing_fallbacks", snap.RoutingFallbacks,
 		"accumulated_cost_usd", snap.AccumulatedCostUSD,
+		"cache_hits", snap.CacheHits,
+		"cache_misses", snap.CacheMisses,
 	)
 }
 
@@ -94,6 +112,12 @@ func MetricsIncLoopDetections() { globalMetrics.IncLoopDetections() }
 
 // MetricsIncRoutingFallbacks is the global convenience for IncRoutingFallbacks.
 func MetricsIncRoutingFallbacks() { globalMetrics.IncRoutingFallbacks() }
+
+// MetricsIncCacheHits is the global convenience for IncCacheHits.
+func MetricsIncCacheHits() { globalMetrics.IncCacheHits() }
+
+// MetricsIncCacheMisses is the global convenience for IncCacheMisses.
+func MetricsIncCacheMisses() { globalMetrics.IncCacheMisses() }
 
 // MetricsAddCost is the global convenience for AddCost.
 func MetricsAddCost(usd float64) { globalMetrics.AddCost(usd) }

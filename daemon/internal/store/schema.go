@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 6 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces
+const SchemaVersion = 7 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces, 6:owner_columns
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -48,6 +48,7 @@ var SchemaStmts = []string{
 
 	`CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     agent_id TEXT NOT NULL,
     source TEXT NOT NULL DEFAULT 'cli',
     title TEXT NOT NULL DEFAULT '',
@@ -98,6 +99,7 @@ var SchemaStmts = []string{
 	// --- Todos ---
 	`CREATE TABLE IF NOT EXISTS todos (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     content TEXT NOT NULL,
     completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)),
     priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
@@ -114,6 +116,7 @@ var SchemaStmts = []string{
 	// --- Cron Jobs ---
 	`CREATE TABLE IF NOT EXISTS cron_jobs (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     name TEXT NOT NULL,
     schedule TEXT NOT NULL,
     agent_id TEXT NOT NULL,
@@ -133,6 +136,7 @@ var SchemaStmts = []string{
 	// --- Skills ---
 	`CREATE TABLE IF NOT EXISTS skills (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     triggers TEXT NOT NULL DEFAULT '[]',
@@ -161,6 +165,7 @@ var SchemaStmts = []string{
 	// Migration 4: Add saved_tools table (Phase 25A)
 	`CREATE TABLE IF NOT EXISTS saved_tools (
     id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL DEFAULT 'default',
     name TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
     type TEXT NOT NULL CHECK(type IN ('script')),

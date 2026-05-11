@@ -30,12 +30,27 @@ func (s *RequestPrepStage) Process(ctx *agentctx.ConversationContext) agentctx.P
 		"temperature": ctx.Temperature,
 	}
 
+	// Phase 32: Cache breakpoint logic
+	cacheBreakpoint := len(systemPrompt) / 4
+	
+	// Hot block invalidation: disable caching if hot block changes mid-session
+	// Track previous hot block content to detect changes
+	if ctx.HotBlockContent != "" && ctx.PreviousHotBlockContent != "" && ctx.HotBlockContent != ctx.PreviousHotBlockContent {
+		// Hot block changed, disable caching for this request
+		cacheBreakpoint = 0
+		// Update previous hot block for next comparison
+		ctx.PreviousHotBlockContent = ctx.HotBlockContent
+	} else if ctx.HotBlockContent != "" {
+		// Store current hot block for next comparison
+		ctx.PreviousHotBlockContent = ctx.HotBlockContent
+	}
+
 	return agentctx.PreparedRequest{
 		SystemPrompt:    systemPrompt,
 		Messages:        ctx.Messages,
 		Tools:           ctx.Tools,
 		APIKwargs:       apiKwargs,
-		CacheBreakpoint: len(systemPrompt) / 4, // Phase 32: mark cacheable prefix
+		CacheBreakpoint: cacheBreakpoint,
 	}
 }
 
