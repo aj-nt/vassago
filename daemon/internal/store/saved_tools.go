@@ -13,26 +13,30 @@ import (
 
 // SavedToolRow is the database representation of a saved tool.
 type SavedToolRow struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Description              string `json:"description"`
-	Type                     string `json:"type"`
-	Parameters               string `json:"parameters"`
-	Script                   string `json:"script"`
-	Category                 string `json:"category"`
-	Triggers                 string `json:"triggers"` // JSON array
-	Author                   string `json:"author"`
-	Priority                 int    `json:"priority"`
-	Version                  int    `json:"version"`
+	ID                        string `json:"id"`
+	Owner                     string `json:"owner"`
+	Name                      string `json:"name"`
+	Description               string `json:"description"`
+	Type                      string `json:"type"`
+	Parameters                string `json:"parameters"`
+	Script                    string `json:"script"`
+	Category                  string `json:"category"`
+	Triggers                  string `json:"triggers"` // JSON array
+	Author                    string `json:"author"`
+	Priority                  int    `json:"priority"`
+	Version                   int    `json:"version"`
 	RequiresApprovalEveryCall bool   `json:"requires_approval_every_call"`
-	CreatedAt                int64  `json:"created_at"`
-	UpdatedAt                int64  `json:"updated_at"`
+	CreatedAt                 int64  `json:"created_at"`
+	UpdatedAt                 int64  `json:"updated_at"`
 }
 
-// AddSavedTool inserts a new saved tool. Returns the created row.
-func (s *Store) AddSavedTool(name, description, toolType, parameters, script, category string, triggers []string, author string, priority int) (*SavedToolRow, error) {
+// AddSavedTool inserts a new saved tool, scoped to owner (Phase 28).
+func (s *Store) AddSavedTool(owner, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int) (*SavedToolRow, error) {
 	id := uuid.New().String()
 	now := time.Now().Unix()
+	if owner == "" {
+		owner = "default"
+	}
 
 	triggersJSON, err := json.Marshal(triggers)
 	if err != nil {
@@ -40,26 +44,27 @@ func (s *Store) AddSavedTool(name, description, toolType, parameters, script, ca
 	}
 
 	row := &SavedToolRow{
-		ID:                       id,
-		Name:                     name,
-		Description:              description,
-		Type:                     toolType,
-		Parameters:               parameters,
-		Script:                   script,
-		Category:                 category,
-		Triggers:                 string(triggersJSON),
-		Author:                   author,
-		Priority:                 priority,
-		Version:                  1,
+		ID:                        id,
+		Owner:                     owner,
+		Name:                      name,
+		Description:               description,
+		Type:                      toolType,
+		Parameters:                parameters,
+		Script:                    script,
+		Category:                  category,
+		Triggers:                  string(triggersJSON),
+		Author:                    author,
+		Priority:                  priority,
+		Version:                   1,
 		RequiresApprovalEveryCall: true, // safe default
-		CreatedAt:                now,
-		UpdatedAt:                now,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
 	}
 
 	_, err = s.db.Exec(
-		`INSERT INTO saved_tools (id, name, description, type, parameters, script, category, triggers, author, priority, version, requires_approval_every_call, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		row.ID, row.Name, row.Description, row.Type, row.Parameters, row.Script,
+		`INSERT INTO saved_tools (id, owner, name, description, type, parameters, script, category, triggers, author, priority, version, requires_approval_every_call, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		row.ID, row.Owner, row.Name, row.Description, row.Type, row.Parameters, row.Script,
 		row.Category, row.Triggers, row.Author, row.Priority, row.Version,
 		boolToInt(row.RequiresApprovalEveryCall), row.CreatedAt, row.UpdatedAt,
 	)
@@ -70,7 +75,7 @@ func (s *Store) AddSavedTool(name, description, toolType, parameters, script, ca
 	return row, nil
 }
 
-// GetSavedTool retrieves a saved tool by ID.
+// GetSavedTool retrieves a saved tool by ID (no owner scoping — internal use).
 func (s *Store) GetSavedTool(id string) (*SavedToolRow, error) {
 	row := &SavedToolRow{}
 	var requiresInt int
@@ -87,11 +92,15 @@ func (s *Store) GetSavedTool(id string) (*SavedToolRow, error) {
 	return row, nil
 }
 
-// ListSavedTools returns saved tools, optionally filtered by category or author.
-func (s *Store) ListSavedTools(category, author string, limit int) ([]SavedToolRow, error) {
+// ListSavedTools returns saved tools, optionally filtered by category or author, scoped to owner (Phase 28).
+func (s *Store) ListSavedTools(owner, category, author string, limit int) ([]SavedToolRow, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	query := `SELECT id, name, description, type, parameters, script, category, triggers, author, priority, version, requires_approval_every_call, created_at, updated_at
-		FROM saved_tools WHERE 1=1`
-	args := []interface{}{}
+		FROM saved_tools WHERE owner = ?`
+	args := []interface{}{owner}
 
 	if category != "" {
 		query += " AND category = ?"
@@ -128,14 +137,17 @@ func (s *Store) ListSavedTools(category, author string, limit int) ([]SavedToolR
 	return result, rows.Err()
 }
 
-// SearchSavedTools performs FTS5 search on saved tools.
-func (s *Store) SearchSavedTools(query, category string, limit int) ([]SavedToolRow, error) {
-	// Use FTS5 to find matching rowids, then join with the content table.
+// SearchSavedTools performs FTS5 search on saved tools, scoped to owner (Phase 28).
+func (s *Store) SearchSavedTools(owner, query, category string, limit int) ([]SavedToolRow, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	sql := `SELECT st.id, st.name, st.description, st.type, st.parameters, st.script, st.category, st.triggers, st.author, st.priority, st.version, st.requires_approval_every_call, st.created_at, st.updated_at
 		FROM saved_tools st
 		JOIN saved_tools_fts fts ON st.rowid = fts.rowid
-		WHERE saved_tools_fts MATCH ?`
-	args := []interface{}{query}
+		WHERE saved_tools_fts MATCH ? AND st.owner = ?`
+	args := []interface{}{query, owner}
 
 	if category != "" {
 		sql += " AND st.category = ?"
@@ -168,10 +180,12 @@ func (s *Store) SearchSavedTools(query, category string, limit int) ([]SavedTool
 	return result, rows.Err()
 }
 
-// UpdateSavedTool updates fields on a saved tool. Increments version.
-// Only non-nil/non-zero fields are updated.
-func (s *Store) UpdateSavedTool(id string, updates map[string]interface{}) (*SavedToolRow, error) {
-	// Get current row first
+// UpdateSavedTool updates fields on a saved tool, scoped to owner (Phase 28). Increments version.
+func (s *Store) UpdateSavedTool(owner, id string, updates map[string]interface{}) (*SavedToolRow, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	current, err := s.GetSavedTool(id)
 	if err != nil {
 		return nil, err
@@ -180,7 +194,6 @@ func (s *Store) UpdateSavedTool(id string, updates map[string]interface{}) (*Sav
 	now := time.Now().Unix()
 	newVersion := current.Version + 1
 
-	// Build update query dynamically
 	setClauses := []string{"version = ?", "updated_at = ?"}
 	args := []interface{}{newVersion, now}
 
@@ -227,12 +240,11 @@ func (s *Store) UpdateSavedTool(id string, updates map[string]interface{}) (*Sav
 	}
 
 	if len(setClauses) == 2 {
-		// Only version and updated_at changed — nothing to update
 		return current, nil
 	}
 
-	sql := "UPDATE saved_tools SET " + joinClauses(setClauses) + " WHERE id = ?"
-	args = append(args, id)
+	sql := "UPDATE saved_tools SET " + joinClauses(setClauses) + " WHERE id = ? AND owner = ?"
+	args = append(args, id, owner)
 
 	if _, err := s.db.Exec(sql, args...); err != nil {
 		return nil, fmt.Errorf("update saved_tool %s: %w", id, err)
@@ -243,9 +255,13 @@ func (s *Store) UpdateSavedTool(id string, updates map[string]interface{}) (*Sav
 	return current, nil
 }
 
-// RemoveSavedTool deletes a saved tool by ID.
-func (s *Store) RemoveSavedTool(id string) (bool, error) {
-	result, err := s.db.Exec("DELETE FROM saved_tools WHERE id = ?", id)
+// RemoveSavedTool deletes a saved tool by ID, scoped to owner (Phase 28).
+func (s *Store) RemoveSavedTool(owner, id string) (bool, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
+	result, err := s.db.Exec("DELETE FROM saved_tools WHERE id = ? AND owner = ?", id, owner)
 	if err != nil {
 		return false, fmt.Errorf("remove saved_tool %s: %w", id, err)
 	}

@@ -29,6 +29,7 @@ type SkillEntry struct {
 
 // AddSkillParams holds the parameters for AddSkill.
 type AddSkillParams struct {
+	Owner       string
 	Name        string
 	Description string
 	Triggers    []string
@@ -38,15 +39,17 @@ type AddSkillParams struct {
 	Priority    int32
 }
 
-// AddSkill creates a new skill entry.
+// AddSkill creates a new skill entry, scoped to owner (Phase 28).
 func (s *Store) AddSkill(params AddSkillParams) (*SkillEntry, error) {
-	if params.Name == "" || params.Description == "" || len(params.Triggers) == 0 || 
-	   params.Category == "" || params.Content == "" || params.SourceAgent == "" {
+	if params.Name == "" || params.Description == "" || len(params.Triggers) == 0 ||
+		params.Category == "" || params.Content == "" || params.SourceAgent == "" {
 		return nil, fmt.Errorf("name, description, triggers, category, content, and source_agent are required")
 	}
-
 	if params.Priority < 1 || params.Priority > 5 {
-		params.Priority = 3 // Default priority
+		params.Priority = 3
+	}
+	if params.Owner == "" {
+		params.Owner = "default"
 	}
 
 	s.writeMu.Lock()
@@ -54,7 +57,6 @@ func (s *Store) AddSkill(params AddSkillParams) (*SkillEntry, error) {
 
 	now := time.Now().Unix()
 
-	// Convert triggers to JSON
 	triggersJSON, err := json.Marshal(params.Triggers)
 	if err != nil {
 		return nil, fmt.Errorf("marshal triggers: %w", err)
@@ -71,9 +73,9 @@ func (s *Store) AddSkill(params AddSkillParams) (*SkillEntry, error) {
 	sanitizedDescription := sanitizeUTF8(params.Description)
 
 	_, err = tx.Exec(`
-		INSERT INTO skills (id, name, description, triggers, category, content, source_agent, priority, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, params.Name, sanitizedDescription, string(triggersJSON), params.Category, sanitizedContent, 
+		INSERT INTO skills (id, owner, name, description, triggers, category, content, source_agent, priority, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, params.Owner, params.Name, sanitizedDescription, string(triggersJSON), params.Category, sanitizedContent,
 		params.SourceAgent, params.Priority, now, now,
 	)
 	if err != nil {
@@ -87,7 +89,7 @@ func (s *Store) AddSkill(params AddSkillParams) (*SkillEntry, error) {
 	return s.GetSkillByID(id)
 }
 
-// GetSkillByID retrieves a skill by its ID.
+// GetSkillByID retrieves a skill by its ID (no owner scoping — internal use).
 func (s *Store) GetSkillByID(id string) (*SkillEntry, error) {
 	var entry SkillEntry
 	var triggersJSON string
@@ -105,7 +107,6 @@ func (s *Store) GetSkillByID(id string) (*SkillEntry, error) {
 		return nil, fmt.Errorf("get skill: %w", err)
 	}
 
-	// Parse triggers JSON
 	if err := json.Unmarshal([]byte(triggersJSON), &entry.Triggers); err != nil {
 		return nil, fmt.Errorf("unmarshal triggers: %w", err)
 	}
@@ -113,25 +114,25 @@ func (s *Store) GetSkillByID(id string) (*SkillEntry, error) {
 	return &entry, nil
 }
 
-// ListSkills retrieves skills with optional filtering.
-func (s *Store) ListSkills(category, sourceAgent string, limit int) ([]*SkillEntry, error) {
-	query := "SELECT id, name, description, triggers, category, content, source_agent, priority, created_at, updated_at FROM skills"
-	var args []interface{}
+// ListSkills retrieves skills with optional filtering, scoped to owner (Phase 28).
+func (s *Store) ListSkills(owner, category, sourceAgent string, limit int) ([]*SkillEntry, error) {
+	if owner == "" {
+		owner = "default"
+	}
 
-	whereClauses := []string{}
+	query := "SELECT id, name, description, triggers, category, content, source_agent, priority, created_at, updated_at FROM skills WHERE owner = ?"
+	args := []interface{}{owner}
+
 	if category != "" {
-		whereClauses = append(whereClauses, "category = ?")
+		query += " AND category = ?"
 		args = append(args, category)
 	}
 	if sourceAgent != "" {
-		whereClauses = append(whereClauses, "source_agent = ?")
+		query += " AND source_agent = ?"
 		args = append(args, sourceAgent)
 	}
 
-	if len(whereClauses) > 0 {
-		query += " WHERE " + strings.Join(whereClauses, " AND ")
-	}
-
+	query += " ORDER BY priority DESC"
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", limit)
 	}
@@ -142,35 +143,19 @@ func (s *Store) ListSkills(category, sourceAgent string, limit int) ([]*SkillEnt
 	}
 	defer rows.Close()
 
-	var entries []*SkillEntry
-	for rows.Next() {
-		var entry SkillEntry
-		var triggersJSON string
-
-		if err := rows.Scan(
-			&entry.ID, &entry.Name, &entry.Description, &triggersJSON, &entry.Category,
-			&entry.Content, &entry.SourceAgent, &entry.Priority, &entry.CreatedAt, &entry.UpdatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan skill: %w", err)
-		}
-
-		// Parse triggers JSON
-		if err := json.Unmarshal([]byte(triggersJSON), &entry.Triggers); err != nil {
-			return nil, fmt.Errorf("unmarshal triggers: %w", err)
-		}
-
-		entries = append(entries, &entry)
-	}
-
-	return entries, nil
+	return scanSkills(rows)
 }
 
-// RemoveSkill deletes a skill by its ID.
-func (s *Store) RemoveSkill(id string) (bool, error) {
+// RemoveSkill deletes a skill by its ID, scoped to owner (Phase 28).
+func (s *Store) RemoveSkill(owner, id string) (bool, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
-	result, err := s.db.Exec("DELETE FROM skills WHERE id = ?", id)
+	result, err := s.db.Exec("DELETE FROM skills WHERE id = ? AND owner = ?", id, owner)
 	if err != nil {
 		return false, fmt.Errorf("remove skill: %w", err)
 	}
@@ -183,24 +168,27 @@ func (s *Store) RemoveSkill(id string) (bool, error) {
 	return rowsAffected > 0, nil
 }
 
-// SearchSkills searches skills using FTS5.
-func (s *Store) SearchSkills(query, category string, limit int) ([]*SkillEntry, error) {
+// SearchSkills searches skills using FTS5, scoped to owner (Phase 28).
+func (s *Store) SearchSkills(owner, query, category string, limit int) ([]*SkillEntry, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query cannot be empty")
 	}
+	if owner == "" {
+		owner = "default"
+	}
 
-	ftsQuery := query + "*" // Add wildcard for prefix matching
-	args := []interface{}{ftsQuery}
+	ftsQuery := query + "*"
+	args := []interface{}{ftsQuery, owner}
 
-	whereClauses := []string{"skills_fts MATCH ?"}
+	whereClauses := []string{"skills_fts MATCH ?", "s.owner = ?"}
 	if category != "" {
 		whereClauses = append(whereClauses, "s.category = ?")
 		args = append(args, category)
 	}
 
 	q := fmt.Sprintf(
-		"SELECT s.id, s.name, s.description, s.triggers, s.category, s.content, s.source_agent, s.priority, s.created_at, s.updated_at " +
-		"FROM skills s JOIN skills_fts ON s.rowid = skills_fts.rowid WHERE %s ORDER BY skills_fts.rank",
+		"SELECT s.id, s.name, s.description, s.triggers, s.category, s.content, s.source_agent, s.priority, s.created_at, s.updated_at "+
+			"FROM skills s JOIN skills_fts ON s.rowid = skills_fts.rowid WHERE %s ORDER BY skills_fts.rank",
 		strings.Join(whereClauses, " AND "),
 	)
 
@@ -214,6 +202,10 @@ func (s *Store) SearchSkills(query, category string, limit int) ([]*SkillEntry, 
 	}
 	defer rows.Close()
 
+	return scanSkills(rows)
+}
+
+func scanSkills(rows *sql.Rows) ([]*SkillEntry, error) {
 	var entries []*SkillEntry
 	for rows.Next() {
 		var entry SkillEntry
@@ -226,13 +218,11 @@ func (s *Store) SearchSkills(query, category string, limit int) ([]*SkillEntry, 
 			return nil, fmt.Errorf("scan skill: %w", err)
 		}
 
-		// Parse triggers JSON
 		if err := json.Unmarshal([]byte(triggersJSON), &entry.Triggers); err != nil {
 			return nil, fmt.Errorf("unmarshal triggers: %w", err)
 		}
 
 		entries = append(entries, &entry)
 	}
-
 	return entries, nil
 }

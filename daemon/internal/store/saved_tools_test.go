@@ -14,7 +14,7 @@ func TestAddSavedTool(t *testing.T) {
 	s := testStore(t)
 
 	// Test: add a saved tool
-	row, err := s.AddSavedTool(
+	row, err := s.AddSavedTool("default", 
 		"calculate_natal_chart",
 		"Calculate a natal chart from birth data",
 		"script",
@@ -38,7 +38,7 @@ func TestAddSavedTool(t *testing.T) {
 	assert.Equal(t, row.CreatedAt, row.UpdatedAt)
 
 	// Test: duplicate name should fail
-	_, err = s.AddSavedTool(
+	_, err = s.AddSavedTool("default", 
 		"calculate_natal_chart", "desc", "script", "{}", "echo hi", "test", nil, "agent-2", 3,
 	)
 	assert.Error(t, err, "duplicate name should fail due to UNIQUE constraint")
@@ -47,7 +47,7 @@ func TestAddSavedTool(t *testing.T) {
 func TestGetSavedTool(t *testing.T) {
 	s := testStore(t)
 
-	row, err := s.AddSavedTool("deploy", "Deploy a service", "script",
+	row, err := s.AddSavedTool("default", "deploy", "Deploy a service", "script",
 		`{"type":"object","properties":{"env":{"type":"string"}},"required":["env"]}`,
 		"deploy.sh --env {{env}}", "devops", []string{"deploy", "staging"}, "agent-1", 5,
 	)
@@ -69,28 +69,28 @@ func TestListSavedTools(t *testing.T) {
 	s := testStore(t)
 
 	// Add tools in different categories
-	s.AddSavedTool("tool-a", "desc a", "script", "{}", "echo a", "devops", nil, "agent-1", 3)
-	s.AddSavedTool("tool-b", "desc b", "script", "{}", "echo b", "astrology", nil, "agent-1", 5)
-	s.AddSavedTool("tool-c", "desc c", "script", "{}", "echo c", "devops", nil, "agent-2", 4)
+	s.AddSavedTool("default", "tool-a", "desc a", "script", "{}", "echo a", "devops", nil, "agent-1", 3)
+	s.AddSavedTool("default", "tool-b", "desc b", "script", "{}", "echo b", "astrology", nil, "agent-1", 5)
+	s.AddSavedTool("default", "tool-c", "desc c", "script", "{}", "echo c", "devops", nil, "agent-2", 4)
 
 	// Test: list all
-	all, err := s.ListSavedTools("", "", 100)
+	all, err := s.ListSavedTools("default", "", "", 100)
 	require.NoError(t, err)
 	assert.Len(t, all, 3)
 
 	// Test: filter by category
-	devops, err := s.ListSavedTools("devops", "", 100)
+	devops, err := s.ListSavedTools("default", "devops", "", 100)
 	require.NoError(t, err)
 	assert.Len(t, devops, 2)
 
 	// Test: filter by author
-	agent2, err := s.ListSavedTools("", "agent-2", 100)
+	agent2, err := s.ListSavedTools("default", "", "agent-2", 100)
 	require.NoError(t, err)
 	assert.Len(t, agent2, 1)
 	assert.Equal(t, "tool-c", agent2[0].Name)
 
 	// Test: limit
-	limited, err := s.ListSavedTools("", "", 1)
+	limited, err := s.ListSavedTools("default", "", "", 1)
 	require.NoError(t, err)
 	assert.Len(t, limited, 1)
 }
@@ -98,29 +98,29 @@ func TestListSavedTools(t *testing.T) {
 func TestSearchSavedTools(t *testing.T) {
 	s := testStore(t)
 
-	s.AddSavedTool("deploy_service", "Deploy to staging or production", "script",
+	s.AddSavedTool("default", "deploy_service", "Deploy to staging or production", "script",
 		`{"type":"object","properties":{"env":{"type":"string"}},"required":["env"]}`,
 		"deploy.sh --env {{env}}", "devops", []string{"deploy", "staging", "production"}, "agent-1", 4,
 	)
-	s.AddSavedTool("calculate_chart", "Calculate natal chart", "script",
+	s.AddSavedTool("default", "calculate_chart", "Calculate natal chart", "script",
 		`{"type":"object","properties":{"birth_date":{"type":"string"}},"required":["birth_date"]}`,
 		"python chart.py", "astrology", []string{"natal", "chart"}, "agent-1", 3,
 	)
 
 	// Test: search by name
-	results, err := s.SearchSavedTools("deploy", "", 10)
+	results, err := s.SearchSavedTools("default", "deploy", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "deploy_service", results[0].Name)
 
 	// Test: search by trigger keyword
-	results, err = s.SearchSavedTools("natal", "", 10)
+	results, err = s.SearchSavedTools("default", "natal", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "calculate_chart", results[0].Name)
 
 	// Test: search with no matches
-	results, err = s.SearchSavedTools("nonexistent", "", 10)
+	results, err = s.SearchSavedTools("default", "nonexistent", "", 10)
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -128,7 +128,7 @@ func TestSearchSavedTools(t *testing.T) {
 func TestUpdateSavedTool(t *testing.T) {
 	s := testStore(t)
 
-	row, err := s.AddSavedTool("update-test", "original", "script",
+	row, err := s.AddSavedTool("default", "update-test", "original", "script",
 		`{"type":"object","properties":{"x":{"type":"number"}}}`,
 		"echo {{x}}", "test", nil, "agent-1", 3,
 	)
@@ -136,7 +136,7 @@ func TestUpdateSavedTool(t *testing.T) {
 	assert.Equal(t, 1, row.Version)
 
 	// Test: update description and priority
-	updated, err := s.UpdateSavedTool(row.ID, map[string]interface{}{
+	updated, err := s.UpdateSavedTool("default", row.ID, map[string]interface{}{
 		"description": "updated description",
 		"priority":    5,
 	})
@@ -152,7 +152,7 @@ func TestUpdateSavedTool(t *testing.T) {
 	assert.Equal(t, "updated description", fetched.Description)
 
 	// Test: update with empty changes should still return current state
-	updated2, err := s.UpdateSavedTool(row.ID, map[string]interface{}{})
+	updated2, err := s.UpdateSavedTool("default", row.ID, map[string]interface{}{})
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated2.Version, "no-op update should not increment version")
 }
@@ -160,11 +160,11 @@ func TestUpdateSavedTool(t *testing.T) {
 func TestRemoveSavedTool(t *testing.T) {
 	s := testStore(t)
 
-	row, err := s.AddSavedTool("remove-me", "desc", "script", "{}", "echo hi", "test", nil, "agent-1", 3)
+	row, err := s.AddSavedTool("default", "remove-me", "desc", "script", "{}", "echo hi", "test", nil, "agent-1", 3)
 	require.NoError(t, err)
 
 	// Test: remove existing
-	removed, err := s.RemoveSavedTool(row.ID)
+	removed, err := s.RemoveSavedTool("default", row.ID)
 	require.NoError(t, err)
 	assert.True(t, removed)
 
@@ -173,7 +173,7 @@ func TestRemoveSavedTool(t *testing.T) {
 	assert.Error(t, err)
 
 	// Test: remove non-existent
-	removed, err = s.RemoveSavedTool("non-existent")
+	removed, err = s.RemoveSavedTool("default", "non-existent")
 	require.NoError(t, err)
 	assert.False(t, removed)
 }

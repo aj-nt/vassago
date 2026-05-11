@@ -12,15 +12,18 @@ import (
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
-// AddTodo creates a new todo item.
-func (s *Store) AddTodo(content string, priority int32, sourceAgent string) (*pb.TodoItem, error) {
+// AddTodo creates a new todo item, scoped to owner (Phase 28).
+func (s *Store) AddTodo(owner, content string, priority int32, sourceAgent string) (*pb.TodoItem, error) {
 	id := generateID()
 	now := time.Now().Unix()
+	if owner == "" {
+		owner = "default"
+	}
 
 	_, err := s.db.Exec(
-		`INSERT INTO todos (id, content, completed, priority, source_agent, created_at, updated_at, completed_at)
-		 VALUES (?, ?, 0, ?, ?, ?, ?, 0)`,
-		id, content, priority, sourceAgent, now, now,
+		`INSERT INTO todos (id, owner, content, completed, priority, source_agent, created_at, updated_at, completed_at)
+		 VALUES (?, ?, ?, 0, ?, ?, ?, ?, 0)`,
+		id, owner, content, priority, sourceAgent, now, now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("AddTodo: %w", err)
@@ -38,21 +41,21 @@ func (s *Store) AddTodo(content string, priority int32, sourceAgent string) (*pb
 	}, nil
 }
 
-// ListTodos returns todos, optionally filtering by completion status and agent.
-func (s *Store) ListTodos(includeCompleted bool, sourceAgent string) ([]*pb.TodoItem, error) {
-	query := `SELECT id, content, completed, priority, source_agent, created_at, updated_at, completed_at FROM todos`
-	args := []interface{}{}
+// ListTodos returns todos, optionally filtered by completion status, agent, and owner (Phase 28).
+func (s *Store) ListTodos(owner string, includeCompleted bool, sourceAgent string) ([]*pb.TodoItem, error) {
+	if owner == "" {
+		owner = "default"
+	}
 
-	where := []string{}
+	query := `SELECT id, content, completed, priority, source_agent, created_at, updated_at, completed_at FROM todos WHERE owner = ?`
+	args := []interface{}{owner}
+
 	if !includeCompleted {
-		where = append(where, "completed = 0")
+		query += " AND completed = 0"
 	}
 	if sourceAgent != "" {
-		where = append(where, "source_agent = ?")
+		query += " AND source_agent = ?"
 		args = append(args, sourceAgent)
-	}
-	if len(where) > 0 {
-		query += " WHERE " + joinWhere(where)
 	}
 	query += " ORDER BY priority DESC, created_at ASC"
 
@@ -79,13 +82,16 @@ func (s *Store) ListTodos(includeCompleted bool, sourceAgent string) ([]*pb.Todo
 	return todos, rows.Err()
 }
 
-// CompleteTodo marks a todo as completed.
-func (s *Store) CompleteTodo(id string) (*pb.TodoItem, error) {
+// CompleteTodo marks a todo as completed, scoped to owner (Phase 28).
+func (s *Store) CompleteTodo(owner, id string) (*pb.TodoItem, error) {
 	now := time.Now().Unix()
+	if owner == "" {
+		owner = "default"
+	}
 
 	result, err := s.db.Exec(
-		`UPDATE todos SET completed = 1, updated_at = ?, completed_at = ? WHERE id = ?`,
-		now, now, id,
+		`UPDATE todos SET completed = 1, updated_at = ?, completed_at = ? WHERE id = ? AND owner = ?`,
+		now, now, id, owner,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("CompleteTodo: %w", err)
@@ -94,12 +100,16 @@ func (s *Store) CompleteTodo(id string) (*pb.TodoItem, error) {
 		return nil, fmt.Errorf("CompleteTodo: todo %s not found", id)
 	}
 
-	return s.GetTodo(id)
+	return s.GetTodo(owner, id)
 }
 
-// RemoveTodo removes a todo item.
-func (s *Store) RemoveTodo(id string) error {
-	result, err := s.db.Exec(`DELETE FROM todos WHERE id = ?`, id)
+// RemoveTodo removes a todo item, scoped to owner (Phase 28).
+func (s *Store) RemoveTodo(owner, id string) error {
+	if owner == "" {
+		owner = "default"
+	}
+
+	result, err := s.db.Exec(`DELETE FROM todos WHERE id = ? AND owner = ?`, id, owner)
 	if err != nil {
 		return fmt.Errorf("RemoveTodo: %w", err)
 	}
@@ -109,15 +119,20 @@ func (s *Store) RemoveTodo(id string) error {
 	return nil
 }
 
-// GetTodo returns a single todo by ID.
-func (s *Store) GetTodo(id string) (*pb.TodoItem, error) {
+// GetTodo returns a single todo by ID, scoped to owner (Phase 28).
+func (s *Store) GetTodo(owner, id string) (*pb.TodoItem, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	var item pb.TodoItem
 	var completed bool
 	var completedAt sql.NullInt64
 
 	err := s.db.QueryRow(
-		`SELECT id, content, completed, priority, source_agent, created_at, updated_at, completed_at FROM todos WHERE id = ?`,
-		id,
+		`SELECT id, content, completed, priority, source_agent, created_at, updated_at, completed_at
+		 FROM todos WHERE id = ? AND owner = ?`,
+		id, owner,
 	).Scan(&item.Id, &item.Content, &completed, &item.Priority, &item.SourceAgent, &item.CreatedAt, &item.UpdatedAt, &completedAt)
 
 	if err == sql.ErrNoRows {

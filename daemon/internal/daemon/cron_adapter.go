@@ -35,7 +35,7 @@ func (a *cronStoreAdapter) UpdateCronJobFireTimestamps(id string, lastFireAt, ne
 }
 
 func (a *cronStoreAdapter) ListCronJobs(agentID string, includeDisabled bool) ([]*cron.CronJob, error) {
-	pbJobs, err := a.store.ListCronJobs(agentID, includeDisabled)
+	pbJobs, err := a.store.ListCronJobs("", agentID, includeDisabled)
 	if err != nil {
 		return nil, err
 	}

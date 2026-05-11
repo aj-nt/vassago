@@ -101,24 +101,24 @@ func TestListSkills(t *testing.T) {
 	require.NoError(t, err)
 
 	// List all skills
-	allSkills, err := store.ListSkills("", "", 0)
+	allSkills, err := store.ListSkills("default", "", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, allSkills, 2)
 
 	// Filter by category
-	category1Skills, err := store.ListSkills("category1", "", 0)
+	category1Skills, err := store.ListSkills("default", "category1", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, category1Skills, 1)
 	assert.Equal(t, "category1", category1Skills[0].Category)
 
 	// Filter by source agent
-	agent1Skills, err := store.ListSkills("", "agent1", 0)
+	agent1Skills, err := store.ListSkills("default", "", "agent1", 0)
 	require.NoError(t, err)
 	assert.Len(t, agent1Skills, 1)
 	assert.Equal(t, "agent1", agent1Skills[0].SourceAgent)
 
 	// Test limit
-	limitedSkills, err := store.ListSkills("", "", 1)
+	limitedSkills, err := store.ListSkills("default", "", "", 1)
 	require.NoError(t, err)
 	assert.Len(t, limitedSkills, 1)
 }
@@ -141,7 +141,7 @@ func TestRemoveSkill(t *testing.T) {
 	require.NoError(t, err)
 
 	// Remove it
-	success, err := store.RemoveSkill(skill.ID)
+	success, err := store.RemoveSkill("default", skill.ID)
 	require.NoError(t, err)
 	assert.True(t, success)
 
@@ -150,7 +150,7 @@ func TestRemoveSkill(t *testing.T) {
 	assert.Error(t, err)
 
 	// Try to remove non-existent skill
-	success, err = store.RemoveSkill("non-existent-id")
+	success, err = store.RemoveSkill("default", "non-existent-id")
 	require.NoError(t, err)
 	assert.False(t, success)
 }
@@ -185,22 +185,22 @@ func TestSearchSkills(t *testing.T) {
 	require.NoError(t, err)
 
 	// Search for skills
-	results, err := store.SearchSkills("database", "", 10)
+	results, err := store.SearchSkills("default", "database", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Contains(t, results[0].Content, "databases")
 
-	results, err = store.SearchSkills("algorithm", "", 10)
+	results, err = store.SearchSkills("default", "algorithm", "", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Contains(t, results[0].Content, "algorithms")
 
 	// Search with category filter
-	results, err = store.SearchSkills("searchable", "search", 10)
+	results, err = store.SearchSkills("default", "searchable", "search", 10)
 	require.NoError(t, err)
 	assert.Len(t, results, 2)
 
 	// Test empty query
-	_, err = store.SearchSkills("", "", 10)
+	_, err = store.SearchSkills("default", "", "", 10)
 	assert.Error(t, err)
 }

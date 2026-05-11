@@ -10,7 +10,6 @@ import (
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 )
 
-// skillEntryToProto converts a store.SkillEntry to a pb.SkillEntry.
 func skillEntryToProto(e *store.SkillEntry) *pb.SkillEntry {
 	if e == nil {
 		return nil
@@ -29,14 +28,14 @@ func skillEntryToProto(e *store.SkillEntry) *pb.SkillEntry {
 	}
 }
 
-// AddSkill creates a new skill entry.
 func (s *Service) AddSkill(ctx context.Context, req *pb.AddSkillRequest) (*pb.SkillEntry, error) {
-	priority := int32(3) // default
+	priority := int32(3)
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
 
 	params := store.AddSkillParams{
+		Owner:       ownerFromCtx(ctx),
 		Name:        req.Name,
 		Description: req.Description,
 		Triggers:    req.Triggers,
@@ -54,7 +53,6 @@ func (s *Service) AddSkill(ctx context.Context, req *pb.AddSkillRequest) (*pb.Sk
 	return skillEntryToProto(entry), nil
 }
 
-// GetSkill retrieves a skill by ID.
 func (s *Service) GetSkill(ctx context.Context, req *pb.GetSkillRequest) (*pb.SkillEntry, error) {
 	entry, err := s.store.GetSkillByID(req.Id)
 	if err != nil {
@@ -63,14 +61,13 @@ func (s *Service) GetSkill(ctx context.Context, req *pb.GetSkillRequest) (*pb.Sk
 	return skillEntryToProto(entry), nil
 }
 
-// ListSkills retrieves skills with optional filtering.
 func (s *Service) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.SkillList, error) {
 	limit := 0
 	if req.Limit != nil {
 		limit = int(*req.Limit)
 	}
 
-	entries, err := s.store.ListSkills(req.Category, req.SourceAgent, limit)
+	entries, err := s.store.ListSkills(ownerFromCtx(ctx), req.Category, req.SourceAgent, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -82,23 +79,21 @@ func (s *Service) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*p
 	return &pb.SkillList{Skills: skills}, nil
 }
 
-// RemoveSkill deletes a skill by ID.
 func (s *Service) RemoveSkill(ctx context.Context, req *pb.RemoveSkillRequest) (*pb.RemoveSkillResponse, error) {
-	success, err := s.store.RemoveSkill(req.Id)
+	success, err := s.store.RemoveSkill(ownerFromCtx(ctx), req.Id)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.RemoveSkillResponse{Success: success}, nil
 }
 
-// SearchSkills searches skills using FTS5.
 func (s *Service) SearchSkills(ctx context.Context, req *pb.SearchSkillsRequest) (*pb.SkillList, error) {
 	limit := 0
 	if req.Limit != nil {
 		limit = int(*req.Limit)
 	}
 
-	entries, err := s.store.SearchSkills(req.Query, req.Category, limit)
+	entries, err := s.store.SearchSkills(ownerFromCtx(ctx), req.Query, req.Category, limit)
 	if err != nil {
 		return nil, err
 	}
