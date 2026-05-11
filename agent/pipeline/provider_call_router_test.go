@@ -94,46 +94,58 @@ func TestProviderCallStageWithRouterFallback(t *testing.T) {
 }
 
 func TestFirstUserMessage(t *testing.T) {
-	msgs := []agentctx.Message{
-		{Role: "system", Content: "sys"},
-		{Role: "user", Content: "hello"},
-		{Role: "assistant", Content: "hi"},
+	ctx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "system", Content: "sys"},
+			{Role: "user", Content: "hello"},
+			{Role: "assistant", Content: "hi"},
+		},
 	}
-	if got := firstUserMessage(msgs); got != "hello" {
+	if got := ctx.FirstUserMessage(); got != "hello" {
 		t.Errorf("expected 'hello', got %q", got)
 	}
-	if got := firstUserMessage(nil); got != "" {
+	emptyCtx := &agentctx.ConversationContext{}
+	if got := emptyCtx.FirstUserMessage(); got != "" {
 		t.Errorf("expected empty, got %q", got)
 	}
 }
 
 func TestLastMessageIsToolResult(t *testing.T) {
-	msgs := []agentctx.Message{
-		{Role: "user", Content: "hello"},
-		{Role: "tool", Content: "result"},
+	ctx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "hello"},
+			{Role: "tool", Content: "result"},
+		},
 	}
-	if !lastMessageIsToolResult(msgs) {
+	if !ctx.LastMessageIsToolResult() {
 		t.Error("expected true for tool result as last message")
 	}
-	if lastMessageIsToolResult(msgs[:1]) {
+	ctxShort := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{{Role: "user", Content: "hello"}},
+	}
+	if ctxShort.LastMessageIsToolResult() {
 		t.Error("expected false for user message as last message")
 	}
-	if lastMessageIsToolResult(nil) {
-		t.Error("expected false for nil messages")
+	emptyCtx := &agentctx.ConversationContext{}
+	if emptyCtx.LastMessageIsToolResult() {
+		t.Error("expected false for empty context")
 	}
 }
 
 func TestCountToolResults(t *testing.T) {
-	msgs := []agentctx.Message{
-		{Role: "user", Content: "hello"},
-		{Role: "tool", Content: "result1"},
-		{Role: "tool", Content: "result2"},
+	ctx := &agentctx.ConversationContext{
+		Messages: []agentctx.Message{
+			{Role: "user", Content: "hello"},
+			{Role: "tool", Content: "result1"},
+			{Role: "tool", Content: "result2"},
+		},
 	}
-	if got := countToolResults(msgs); got != 2 {
+	if got := ctx.ToolResultCount(); got != 2 {
 		t.Errorf("expected 2 tool results, got %d", got)
 	}
-	if got := countToolResults(nil); got != 0 {
-		t.Errorf("expected 0 for nil, got %d", got)
+	emptyCtx := &agentctx.ConversationContext{}
+	if got := emptyCtx.ToolResultCount(); got != 0 {
+		t.Errorf("expected 0 for empty, got %d", got)
 	}
 }
 
@@ -145,7 +157,7 @@ func TestToolDispatchApproval(t *testing.T) {
 	}, map[string]interface{}{"name": "DangerTool"})
 
 	var approvalCalled bool
-	stage := NewToolDispatchStage(reg, nil)
+	stage := NewParallelToolDispatchStage(reg, nil)
 	stage.Approver = func(toolName string, args map[string]interface{}) bool {
 		approvalCalled = true
 		return false // Deny approval

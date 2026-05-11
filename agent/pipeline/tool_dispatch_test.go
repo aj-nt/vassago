@@ -29,7 +29,7 @@ func TestToolBudget(t *testing.T) {
 	}, nil)
 
 	// Create tool dispatch stage
-	stage := NewToolDispatchStage(registry, &eventbus.EventBus{})
+	stage := NewParallelToolDispatchStage(registry, &eventbus.EventBus{})
 
 	// Test FileRead budget (max 5)
 	t.Run("FileRead_budget", func(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/client"
 	"github.com/aj-nt/mnemosyne/agent/provider"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // ExtractMemories calls an LLM to extract key information from a conversation
@@ -100,7 +101,7 @@ JSON output:`
 		_, err := mnemo.AddMemory(ctx, "memory", e.Category, e.Key, e.Content, e.Priority, agentName)
 		if err != nil {
 			// Log but don't fail — one bad memory shouldn't block the rest
-			fmt.Printf("memory extraction: failed to save key %q: %v\n", e.Key, err)
+			agentlog.Printf("memory extraction: failed to save key %q: %v\n", e.Key, err)
 		}
 	}
 

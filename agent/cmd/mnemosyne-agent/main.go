@@ -7,15 +7,21 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	"github.com/aj-nt/mnemosyne/agent/setup"
 	iface "github.com/aj-nt/mnemosyne/agent/interface"
 )
 
 func main() {
+	// Phase 33: JSON structured logging to stderr
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+
 	configPath := flag.String("config", "configs/agent-dev.yaml", "Path to agent config file")
 	oneShot := flag.String("message", "", "Single message (non-interactive)")
 	serve := flag.Bool("serve", false, "Server mode: start gRPC chat server and wait (no interactive CLI)")
@@ -25,7 +31,7 @@ func main() {
 
 	result, err := setup.InitAgent(ctx, *configPath)
 	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+		agentlog.Fatalf("Failed to initialize agent: %v", err)
 	}
 	defer result.Close()
 
@@ -33,17 +39,16 @@ func main() {
 	if *serve {
 		// Server mode: just wait for gRPC connections, no interactive CLI
 		if result.Config.Mnemosyne.ChatListen == "" {
-			log.Fatal("--serve requires chat_listen to be configured")
+			agentlog.Fatalf("--serve requires chat_listen to be configured")
 		}
-		log.Printf("Agent running in server mode (gRPC chat on %s)", result.Config.Mnemosyne.ChatListen)
+		agentlog.Printf("Agent running in server mode (gRPC chat on %s)", result.Config.Mnemosyne.ChatListen)
 		setup.WaitForSignal()
 		return
 	}
 
-	cli := iface.NewCLI(result.Agent)
 	if *oneShot != "" {
-		if err := cli.RunOneShot(ctx, *oneShot); err != nil {
-			log.Fatalf("Error: %v", err)
+		if err := iface.RunOneShotBubble(ctx, result.Agent, *oneShot); err != nil {
+			agentlog.Fatalf("Error: %v", err)
 		}
 	} else {
 		// Check if stdin has data (piped input)
@@ -58,13 +63,13 @@ func main() {
 			}
 			msg := strings.TrimSpace(input.String())
 			if msg != "" {
-				if err := cli.RunOneShot(ctx, msg); err != nil {
-					log.Fatalf("Error: %v", err)
+				if err := iface.RunOneShotBubble(ctx, result.Agent, msg); err != nil {
+					agentlog.Fatalf("Error: %v", err)
 				}
 			}
 		} else {
-			if err := cli.RunInteractive(ctx); err != nil {
-				log.Fatalf("Error: %v", err)
+			if err := iface.RunInteractiveBubble(ctx, result.Agent); err != nil {
+				agentlog.Fatalf("Error: %v", err)
 			}
 		}
 	}

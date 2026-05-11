@@ -8,8 +8,8 @@ package setup
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,6 +25,7 @@ import (
 	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // AgentResult holds the initialized agent and its resources.
@@ -32,9 +33,11 @@ import (
 type AgentResult struct {
 	Agent         *agent.Agent
 	Config        *agent.AgentConfig
-	Mnemo memoclient.MnemoClient
+	Mnemo         memoclient.MnemoClient
 	AgentSession  *memoclient.AgentSession
 	GRPCServer    *grpc.Server
+	HealthHandler *agentlog.HealthHandler
+	HealthServer  *http.Server
 	Bridge        *iface.MessageBridge
 	Scheduler     *scheduler.Scheduler
 }
@@ -52,17 +55,17 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 	// Connect to Mnemosyne daemon (fall back to NullMnemo if unavailable)
 	mnemo, err := connectToDaemon(ctx, cfg)
 	if err != nil {
-		log.Printf("Warning: could not connect to Mnemosyne daemon (%v); running without persistence", err)
+		agentlog.Printf("Warning: could not connect to Mnemosyne daemon (%v); running without persistence", err)
 		mnemo = &memoclient.NullMnemo{}
 	}
 
 	// Register agent with daemon
 	agentSession, err := registerAgentWithDaemon(ctx, mnemo, cfg)
 	if err != nil {
-		log.Printf("Warning: agent registration failed (daemon may not support it): %v", err)
+		agentlog.Printf("Warning: agent registration failed (daemon may not support it): %v", err)
 	} else {
 		cfg.Agent.ID = agentSession.AgentID()
-		log.Printf("Agent registered with daemon: id=%s", cfg.Agent.ID)
+		agentlog.Printf("Agent registered with daemon: id=%s", cfg.Agent.ID)
 	}
 
 	// Wire providers and tools
@@ -87,20 +90,25 @@ func InitAgent(ctx context.Context, configPath string) (*AgentResult, error) {
 		return nil, fmt.Errorf("failed to start gRPC chat server: %w", err)
 	}
 
+	// Start health HTTP server if configured
+	healthHandler, healthServer := startHealthServer(cfg)
+
 	// Start MessageBridge
 	bridge := startMessageBridge(ctx, cfg, a, mnemo)
 
-	log.Printf("Starting agent %q with primary provider %q (model: %s)",
+	agentlog.Printf("Starting agent %q with primary provider %q (model: %s)",
 		cfg.Agent.ID, cfg.Provider.Name, cfg.Provider.Model)
 
 	return &AgentResult{
-		Agent:        a,
-		Config:       cfg,
-		Mnemo:        mnemo,
-		AgentSession: agentSession,
-		GRPCServer:   grpcServer,
-		Bridge:       bridge,
-		Scheduler:    sched,
+		Agent:         a,
+		Config:        cfg,
+		Mnemo:         mnemo,
+		AgentSession:  agentSession,
+		GRPCServer:    grpcServer,
+		HealthHandler: healthHandler,
+		HealthServer:  healthServer,
+		Bridge:        bridge,
+		Scheduler:     sched,
 	}, nil
 }
 
@@ -163,7 +171,7 @@ func createAgentWithRouter(agentCfg *agent.Config, cfg *agent.AgentConfig, regis
 	if len(cfg.Routing.Models) > 0 {
 		router = Router(&cfg.Routing, &cfg.Provider, registry)
 		a = agent.NewAgentWithRouter(*agentCfg, registry, router, toolReg, mnemo)
-		log.Printf("Model routing enabled: strategy=%s, primary=%s, models=%v",
+		agentlog.Printf("Model routing enabled: strategy=%s, primary=%s, models=%v",
 			cfg.Routing.Strategy, router.Primary(), router.List())
 	} else {
 		a = agent.NewAgent(*agentCfg, registry, toolReg, mnemo)
@@ -182,19 +190,19 @@ func setupTelepathySubscription(ctx context.Context, a *agent.Agent, agentSessio
 			switch event.EventType {
 			case pb.UpdateEvent_CRON_FIRE:
 				if event.CronFire != nil && event.CronFire.AgentId == cfg.Agent.ID {
-					log.Printf("Telepathy: CRON_FIRE event from %s (job=%s, name=%s)",
+					agentlog.Printf("Telepathy: CRON_FIRE event from %s (job=%s, name=%s)",
 						event.CronFire.AgentId, event.CronFire.JobId, event.CronFire.JobName)
 					go HandleCronFire(a, cfg.Agent.ID, cfg.Agent.MaxTurns, cfg.Provider.Temperature, event.CronFire)
 				}
 			default:
 				a.InvalidateHotBlock()
-				log.Printf("Telepathy: %s event from %s (key=%s)",
+				agentlog.Printf("Telepathy: %s event from %s (key=%s)",
 					event.EventType.String(), event.AgentId, event.Key)
 			}
 		}
 		subCtx := context.Background()
 		if eventCh, err := agentSession.Subscribe(subCtx, []string{"memory"}, nil); err != nil {
-			log.Printf("Warning: Telepathy subscription failed: %v", err)
+			agentlog.Printf("Warning: Telepathy subscription failed: %v", err)
 		} else {
 			go func() {
 				for range eventCh {
@@ -215,8 +223,38 @@ func startScheduler(ctx context.Context, cfg *agent.AgentConfig, mnemo memoclien
 		sched.AddTask(task)
 	}
 	sched.Start(ctx)
-	log.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
+	agentlog.Printf("Scheduler started: %d tasks (interval: %ds)", len(sched.MnemoTasks()), cfg.Scheduler.Interval)
 	return sched
+}
+
+// startHealthServer starts the HTTP health endpoint if configured.
+func startHealthServer(cfg *agent.AgentConfig) (*agentlog.HealthHandler, *http.Server) {
+	if cfg.Mnemosyne.HealthListen == "" {
+		return nil, nil
+	}
+
+	handler := agentlog.NewHealthHandler(agentlog.HealthConfig{
+		Version:   "1.0.0",
+		StartTime: time.Now(),
+	})
+	agentlog.SetGlobalHealthHandler(handler)
+
+	mux := http.NewServeMux()
+	mux.Handle("/health", handler)
+
+	srv := &http.Server{
+		Addr:    cfg.Mnemosyne.HealthListen,
+		Handler: mux,
+	}
+
+	go func() {
+		agentlog.Printf("Health server listening on %s", cfg.Mnemosyne.HealthListen)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			agentlog.Printf("Health server error: %v", err)
+		}
+	}()
+
+	return handler, srv
 }
 
 // startGRPCChatServer starts the gRPC chat server
@@ -236,9 +274,9 @@ func startGRPCChatServer(cfg *agent.AgentConfig, a *agent.Agent, mnemo memoclien
 	reflection.Register(grpcServer)
 	
 	go func() {
-		log.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
+		agentlog.Printf("gRPC ChatStream server listening on %s", cfg.Mnemosyne.ChatListen)
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("gRPC chat server failed: %v", err)
+			agentlog.Fatalf("gRPC chat server failed: %v", err)
 		}
 	}()
 	
@@ -256,9 +294,9 @@ func startMessageBridge(ctx context.Context, cfg *agent.AgentConfig, a *agent.Ag
 	bridge := iface.NewMessageBridge(a, mnemo, bridgeConfig)
 	
 	go func() {
-		log.Printf("MessageBridge: starting incoming message handler...")
+		agentlog.Printf("MessageBridge: starting incoming message handler...")
 		if err := bridge.Start(ctx); err != nil {
-			log.Printf("MessageBridge: stopped with error: %v", err)
+			agentlog.Printf("MessageBridge: stopped with error: %v", err)
 		}
 	}()
 	
@@ -272,6 +310,11 @@ func (r *AgentResult) Close() {
 	}
 	if r.GRPCServer != nil {
 		r.GRPCServer.GracefulStop()
+	}
+	if r.HealthServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		r.HealthServer.Shutdown(ctx)
 	}
 	if r.Scheduler != nil {
 		r.Scheduler.Stop()
@@ -290,7 +333,7 @@ func WaitForSignal() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-	log.Printf("Agent shutting down")
+	agentlog.Printf("Agent shutting down")
 }
 
 // Providers creates and configures the provider registry from config.
@@ -308,9 +351,9 @@ func Providers(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 	if apiKey := os.Getenv(anthropicKeyEnv); apiKey != "" {
 		anthropicModel := FirstNonEmpty(cfg.AnthropicModel, "claude-sonnet-4-6")
 		registry.Register("anthropic", provider.NewAnthropicProvider(apiKey, anthropicModel))
-		log.Printf("Anthropic provider registered (model: %s)", anthropicModel)
+		agentlog.Printf("Anthropic provider registered (model: %s)", anthropicModel)
 	} else {
-		log.Printf("No Anthropic API key found (checked %s), Anthropic provider not available", anthropicKeyEnv)
+		agentlog.Printf("No Anthropic API key found (checked %s), Anthropic provider not available", anthropicKeyEnv)
 	}
 
 	fallbackChain := []string{}
@@ -324,7 +367,7 @@ func Providers(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 	registry.SetPrimary(cfg.Name)
 
 	if _, err := registry.Get(cfg.Name); err != nil {
-		log.Fatalf("Primary provider %q not registered: %v", cfg.Name, err)
+		agentlog.Fatalf("Primary provider %q not registered: %v", cfg.Name, err)
 	}
 
 	return registry
@@ -527,7 +570,7 @@ func Router(cfg *agent.RoutingSection, providerCfg *agent.ProviderSection, regis
 
 	if len(cfg.Models) > 0 {
 		if err := router.SetPrimary(cfg.Models[0].Name); err != nil {
-			log.Printf("Warning: failed to set primary model to %q: %v", cfg.Models[0].Name, err)
+			agentlog.Printf("Warning: failed to set primary model to %q: %v", cfg.Models[0].Name, err)
 		}
 	}
 
@@ -542,7 +585,7 @@ func HandleCronFire(a *agent.Agent, agentID string, maxTurns int, temperature fl
 	prompt := fmt.Sprintf("[Scheduled Task: %s (ID: %s, Schedule: %s)]\n\n%s",
 		event.JobName, event.JobId, event.Schedule, event.Message)
 
-	log.Printf("CronFire: invoking agent for job %q (%s)", event.JobName, event.JobId)
+	agentlog.Printf("CronFire: invoking agent for job %q (%s)", event.JobName, event.JobId)
 
 	hotBlock, _ := a.GetHotBlock(ctx)
 	toolDefs := a.BuildToolDefinitions()
@@ -569,14 +612,14 @@ func HandleCronFire(a *agent.Agent, agentID string, maxTurns int, temperature fl
 		if evt.Type == agentctx.StreamText {
 			responseText += evt.Text
 		} else if evt.Type == agentctx.StreamError {
-			log.Printf("CronFire: stream error for job %q: %v", event.JobName, evt.Error)
+			agentlog.Printf("CronFire: stream error for job %q: %v", event.JobName, evt.Error)
 			return
 		} else if evt.Type == agentctx.StreamDone {
 			break
 		}
 	}
 
-	log.Printf("CronFire: agent completed job %q (response: %d chars)", event.JobName, len(responseText))
+	agentlog.Printf("CronFire: agent completed job %q (response: %d chars)", event.JobName, len(responseText))
 }
 
 // AnyEnabled returns true if any of the given tool names appear in the enabled list.

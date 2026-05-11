@@ -7,11 +7,11 @@ package iface
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/aj-nt/mnemosyne/agent"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	"github.com/aj-nt/mnemosyne/messaging/format"
@@ -107,11 +107,11 @@ func (mb *MessageBridge) Start(ctx context.Context) error {
 			return ctx.Err()
 		}
 		if err != nil {
-			log.Printf("MessageBridge: subscription error: %v", err)
+			agentlog.Printf("MessageBridge: subscription error: %v", err)
 		}
 
 		// Exponential backoff on reconnect (1s, 2s, 4s, 8s, 16s, 30s, 30s, ...)
-		log.Printf("MessageBridge: reconnecting in %v...", backoff)
+		agentlog.Printf("MessageBridge: reconnecting in %v...", backoff)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -149,7 +149,7 @@ func (mb *MessageBridge) subscribe(ctx context.Context) error {
 	}
 	defer stream.CloseSend()
 
-	log.Printf("MessageBridge: subscribed to incoming messages (agent=%s)", mb.config.AgentID)
+	agentlog.Printf("MessageBridge: subscribed to incoming messages (agent=%s)", mb.config.AgentID)
 
 	for {
 		event, err := stream.Recv()
@@ -190,7 +190,7 @@ func (mb *MessageBridge) handleMessage(event *pb.MessageEvent) {
 	// Run the agent and collect the response
 	responseText, err := mb.runAgent(ctx, sess, userMsg)
 	if err != nil {
-		log.Printf("MessageBridge: agent error for %s: %v", convKey, err)
+		agentlog.Printf("MessageBridge: agent error for %s: %v", convKey, err)
 		// Still try to send a brief error message
 		responseText = fmt.Sprintf("Sorry, I encountered an error processing your message. (%v)", err)
 	}
@@ -205,9 +205,9 @@ func (mb *MessageBridge) handleMessage(event *pb.MessageEvent) {
 
 		msgID, err := mb.mnemo.SendMessage(sendCtx, event.Platform, event.ChannelId, responseText)
 		if err != nil {
-			log.Printf("MessageBridge: failed to send response to %s/%s: %v", event.Platform, event.ChannelId, err)
+			agentlog.Printf("MessageBridge: failed to send response to %s/%s: %v", event.Platform, event.ChannelId, err)
 		} else {
-			log.Printf("MessageBridge: sent response to %s/%s (msgID=%s, %d chars)", event.Platform, event.ChannelId, msgID, len(responseText))
+			agentlog.Printf("MessageBridge: sent response to %s/%s (msgID=%s, %d chars)", event.Platform, event.ChannelId, msgID, len(responseText))
 		}
 	}
 }
@@ -228,7 +228,7 @@ func (mb *MessageBridge) runAgent(ctx context.Context, sess *bridgeSession, user
 	// Refresh hot block
 	hotBlock, err := mb.agent.GetHotBlock(ctx)
 	if err != nil {
-		log.Printf("MessageBridge: hot block error: %v", err)
+		agentlog.Printf("MessageBridge: hot block error: %v", err)
 		hotBlock = ""
 	}
 
@@ -268,7 +268,7 @@ func (mb *MessageBridge) runAgent(ctx context.Context, sess *bridgeSession, user
 				return "", event.Error
 			}
 			// If we already have text, log but don't discard it
-			log.Printf("MessageBridge: stream error after partial response: %v", event.Error)
+			agentlog.Printf("MessageBridge: stream error after partial response: %v", event.Error)
 		case agentctx.StreamDone:
 			// Turn complete
 		}
@@ -306,7 +306,7 @@ func (mb *MessageBridge) getOrCreateSession(ctx context.Context, convKey string,
 
 		id, err := mb.mnemo.CreateSession(createCtx, mb.config.AgentID, "messaging", title)
 		if err != nil {
-			log.Printf("MessageBridge: failed to create session for %s: %v, using local ID", convKey, err)
+			agentlog.Printf("MessageBridge: failed to create session for %s: %v, using local ID", convKey, err)
 			sessionID = fmt.Sprintf("local-%s", convKey)
 		} else {
 			sessionID = id

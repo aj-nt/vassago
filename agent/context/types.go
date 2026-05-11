@@ -63,6 +63,8 @@ type ProviderResult struct {
 	ShouldFallback bool
 	Error          error
 	StreamState    *StreamState
+	Model          string // model name used (for observability spans)
+	Provider       string // provider name used (for observability spans)
 }
 
 // ParsedResponse is the output of Stage 3 (Response Processing).
@@ -72,6 +74,8 @@ type ParsedResponse struct {
 	FinishReason string
 	Reasoning    string
 	Usage        *UsageInfo
+	Model        string // model name used for this turn (for observability)
+	Provider     string // provider name used for this turn (for observability)
 }
 
 // UsageInfo tracks token consumption.

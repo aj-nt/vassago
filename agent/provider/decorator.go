@@ -6,10 +6,10 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // --- FallbackExecutor ---
@@ -44,7 +44,7 @@ func (f *FallbackExecutor) Execute(
 		return result, nil
 	}
 
-	log.Printf("[fallback] %s failed, trying fallback chain", primary.Name())
+	agentlog.Printf("[fallback] %s failed, trying fallback chain", primary.Name())
 	f.recordFailure(primary.Name())
 
 	for _, fbName := range f.registry.fallbackChain {
@@ -55,7 +55,7 @@ func (f *FallbackExecutor) Execute(
 		if getErr != nil {
 			continue
 		}
-		log.Printf("[fallback] trying %s...", fbName)
+		agentlog.Printf("[fallback] trying %s...", fbName)
 		result, err = fb.Execute(ctx, req)
 		if err == nil && result.Error == nil {
 			return result, nil
@@ -110,9 +110,9 @@ func (m *MetricsProvider) Execute(ctx context.Context, req interface{}) (agentct
 	result, err := m.Inner.Execute(ctx, req)
 	elapsed := time.Since(start)
 	if err != nil {
-		log.Printf("[metrics] %s.Execute failed after %v: %v", m.Inner.Name(), elapsed, err)
+		agentlog.Printf("[metrics] %s.Execute failed after %v: %v", m.Inner.Name(), elapsed, err)
 	} else if result.Error != nil {
-		log.Printf("[metrics] %s.Execute returned error after %v: %v", m.Inner.Name(), elapsed, result.Error)
+		agentlog.Printf("[metrics] %s.Execute returned error after %v: %v", m.Inner.Name(), elapsed, result.Error)
 	}
 	return result, err
 }
@@ -122,7 +122,7 @@ func (m *MetricsProvider) Stream(ctx context.Context, req interface{}) (<-chan a
 	ch, err := m.Inner.Stream(ctx, req)
 	elapsed := time.Since(start)
 	if err != nil {
-		log.Printf("[metrics] %s.Stream failed after %v: %v", m.Inner.Name(), elapsed, err)
+		agentlog.Printf("[metrics] %s.Stream failed after %v: %v", m.Inner.Name(), elapsed, err)
 	}
 	return ch, err
 }

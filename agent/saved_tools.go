@@ -7,12 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/tools"
 	pb "github.com/aj-nt/mnemosyne/proto"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // sortedTool is a saved tool entry with a computed trigger-match score.
@@ -32,7 +32,7 @@ func (a *Agent) rankedSavedTools(ctx context.Context, userMessage string, maxToo
 
 	entries, err := a.Mnemo.ListSavedTools(ctx, "", "", 100)
 	if err != nil {
-		log.Printf("Warning: failed to load saved tools: %v", err)
+		agentlog.Printf("Warning: failed to load saved tools: %v", err)
 		return nil
 	}
 
@@ -87,7 +87,7 @@ func (a *Agent) GetSavedToolDefinitions(ctx context.Context, userMessage string,
 	for _, st := range ranked {
 		var params map[string]interface{}
 		if err := json.Unmarshal([]byte(st.entry.Parameters), &params); err != nil {
-			log.Printf("Warning: invalid parameters JSON for saved tool %q: %v", st.entry.Name, err)
+			agentlog.Printf("Warning: invalid parameters JSON for saved tool %q: %v", st.entry.Name, err)
 			continue
 		}
 		defs = append(defs, agentctx.ToolDefinition{
@@ -132,7 +132,7 @@ func (a *Agent) RegisterSavedToolHandlers(ctx context.Context, userMessage strin
 		a.ToolRegistry.Register(name, handler, schema)
 	}
 
-	log.Printf("Registered %d saved tools as dynamic handlers (trigger-ranked, max 10)", len(ranked))
+	agentlog.Printf("Registered %d saved tools as dynamic handlers (trigger-ranked, max 10)", len(ranked))
 }
 
 // makeSavedToolScriptHandler creates a handler that substitutes parameters

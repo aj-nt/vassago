@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/aj-nt/mnemosyne/agent/provider"
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
+	"github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // --- Image Analyzer Interface ---
@@ -422,7 +422,7 @@ func RegisterImageGenTools(registry *ToolRegistry, config ImageGenConfig) {
 	if config.Enabled {
 		apiKey := os.Getenv(config.APIKeyEnv)
 		if apiKey == "" {
-			log.Printf("Warning: Image generation enabled but no API key found in %s", config.APIKeyEnv)
+			agentlog.Printf("Warning: Image generation enabled but no API key found in %s", config.APIKeyEnv)
 			return
 		}
 
@@ -434,7 +434,7 @@ func RegisterImageGenTools(registry *ToolRegistry, config ImageGenConfig) {
 
 		// Create cache directory
 		if err := os.MkdirAll(config.CacheDir, 0755); err != nil {
-			log.Printf("Warning: Failed to create image cache directory: %v", err)
+			agentlog.Printf("Warning: Failed to create image cache directory: %v", err)
 			return
 		}
 

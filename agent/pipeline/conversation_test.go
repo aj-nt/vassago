@@ -113,9 +113,10 @@ func TestConversation_FileSearchNotFound(t *testing.T) {
 
 // TestConversation_ToolListingRepetition simulates the pattern where the
 // model keeps calling the same tool (GetHotBlock) on every iteration.
+// Now tested via ProgressDetectionHandler with pre-populated progress history.
 func TestConversation_ToolListingRepetition(t *testing.T) {
 	thresholds := DefaultThresholds()
-	thresholds.RepetitiveLoopThreshold = 3 // re-enable deprecated handler for this test
+	thresholds.ProgressYieldThreshold = 3
 	stage := NewContextManagementStageWithThresholds(0, thresholds)
 
 	args, _ := json.Marshal(map[string]interface{}{})
@@ -133,6 +134,12 @@ func TestConversation_ToolListingRepetition(t *testing.T) {
 		},
 		MaxIterations: 10,
 		Iteration:     3,
+		// Pre-populate two prior identical signatures to simulate earlier iterations
+		ProgressHistory: []agentctx.ProgressSignature{
+			{ToolNames: "GetHotBlock", ResultTag: "success", IntentTag: "read"},
+			{ToolNames: "GetHotBlock", ResultTag: "success", IntentTag: "read"},
+		},
+		DuplicateProgressCount: 2,
 	}
 
 	parsed := agentctx.ParsedResponse{
@@ -143,9 +150,13 @@ func TestConversation_ToolListingRepetition(t *testing.T) {
 		FinishReason: "tool_use",
 	}
 
-	action := stage.Process(convCtx, nil, parsed)
+	toolResults := []agentctx.ToolResult{
+		{CallID: "3", Name: "GetHotBlock", Result: "hot block: AJ, likes Go", IsError: false},
+	}
+
+	action := stage.Process(convCtx, toolResults, parsed)
 	if action != agentctx.StageActionYIELD {
-		t.Errorf("Expected YIELD (break repetitive loop), got %v", action)
+		t.Errorf("Expected YIELD (progress stall detected), got %v", action)
 	}
 }
 

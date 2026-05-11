@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
 	"github.com/aj-nt/mnemosyne/agent/eventbus"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	"github.com/aj-nt/mnemosyne/agent/tools"
 )
 
@@ -260,7 +262,13 @@ func (s *ParallelToolDispatchStage) executeSingle(tc agentctx.ToolCall) agentctx
 	}
 
 	// Execute
+	start := time.Now()
 	result, isErr := safeCallHandler(handler, args)
+	agentlog.ToolDispatch(agentlog.ToolDispatchArgs{
+		ToolName: tc.Name,
+		Duration: time.Since(start),
+		IsError:  isErr,
+	})
 	if s.EventBus != nil {
 		s.EventBus.Emit(eventbus.Event{Kind: "tool_result", Data: result})
 	}
@@ -294,4 +302,15 @@ func (s *ParallelToolDispatchStage) orderResults(results []agentctx.ToolResult, 
 	}
 
 	return ordered
+}
+
+// safeCallHandler calls a tool handler with panic recovery.
+func safeCallHandler(handler tools.ToolHandler, args map[string]interface{}) (result string, isErr bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = fmt.Sprintf("tool handler panicked: %v", r)
+			isErr = true
+		}
+	}()
+	return handler(args)
 }

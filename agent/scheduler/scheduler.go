@@ -6,12 +6,12 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	memoclient "github.com/aj-nt/mnemosyne/client"
 	pb "github.com/aj-nt/mnemosyne/proto"
+	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 )
 
 // Task is a scheduled periodic task.
@@ -64,7 +64,7 @@ func (s *Scheduler) MnemoTasks() []Task {
 					return fmt.Errorf("consolidate observations: %w", err)
 				}
 				if resp.Removed > 0 || resp.Merged > 0 {
-					log.Printf("Scheduler: consolidated observations: removed=%d merged=%d %s",
+					agentlog.Printf("Scheduler: consolidated observations: removed=%d merged=%d %s",
 						resp.Removed, resp.Merged, resp.Summary)
 				}
 				return nil
@@ -79,7 +79,7 @@ func (s *Scheduler) MnemoTasks() []Task {
 					return fmt.Errorf("consolidate expired: %w", err)
 				}
 				if resp.Removed > 0 || resp.Merged > 0 {
-					log.Printf("Scheduler: consolidated expired: removed=%d merged=%d %s",
+					agentlog.Printf("Scheduler: consolidated expired: removed=%d merged=%d %s",
 						resp.Removed, resp.Merged, resp.Summary)
 				}
 				return nil
@@ -106,7 +106,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 		s.mu.Unlock()
 
 		go s.runTask(taskCtx, task)
-		log.Printf("Scheduler: started task %q (interval: %s)", task.Name, task.Interval)
+		agentlog.Printf("Scheduler: started task %q (interval: %s)", task.Name, task.Interval)
 	}
 }
 
@@ -120,7 +120,7 @@ func (s *Scheduler) Stop() {
 	}
 	s.cancellers = nil
 	s.running = false
-	log.Printf("Scheduler: stopped all tasks")
+	agentlog.Printf("Scheduler: stopped all tasks")
 }
 
 // TaskCount returns the number of registered tasks.
@@ -141,9 +141,9 @@ func (s *Scheduler) runTask(ctx context.Context, task Task) {
 			return
 		case <-ticker.C:
 			if err := task.Fn(ctx); err != nil {
-				log.Printf("Scheduler: task %q failed: %v", task.Name, err)
+				agentlog.Printf("Scheduler: task %q failed: %v", task.Name, err)
 			} else {
-				log.Printf("Scheduler: task %q completed", task.Name)
+				agentlog.Printf("Scheduler: task %q completed", task.Name)
 			}
 		}
 	}
