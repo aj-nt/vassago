@@ -22,7 +22,7 @@ func TestAgentSession_RegisterViaGRPC(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
 	pb.RegisterMnemosyneServer(s, memoSrv)
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
 	conn, err := grpc.Dial("bufnet",
@@ -63,7 +63,7 @@ func TestAgentSession_RegisterTwiceViaGRPC(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
 	pb.RegisterMnemosyneServer(s, memoSrv)
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
 	conn, err := grpc.Dial("bufnet",
@@ -104,7 +104,7 @@ func TestAgentSession_SubscribeViaGRPC(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
 	pb.RegisterMnemosyneServer(s, memoSrv)
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
 	conn, err := grpc.Dial("bufnet",
@@ -150,7 +150,7 @@ func TestAgentSession_HeartbeatViaGRPC(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
 	pb.RegisterMnemosyneServer(s, memoSrv)
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
 	conn, err := grpc.Dial("bufnet",
