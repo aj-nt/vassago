@@ -34,6 +34,84 @@ func TestAnthropicParse(t *testing.T) {
 		}
 	})
 
+	t.Run("CacheControlHeaders", func(t *testing.T) {
+		// Test that cache_control headers are set correctly when CacheBreakpoint > 0
+		ctx := &agentctx.ConversationContext{
+			SystemPrompt:    "Test system prompt",
+			Messages:        []agentctx.Message{{Role: "user", Content: "Hello"}},
+			CacheBreakpoint: 5, // > 0 should enable caching
+		}
+		
+		prepared := agentctx.PreparedRequest{
+			SystemPrompt:    "Test system prompt",
+			Messages:        ctx.Messages,
+			CacheBreakpoint: ctx.CacheBreakpoint,
+		}
+		
+		req, err := provider.Prepare(context.Background(), ctx, prepared)
+		if err != nil {
+			t.Fatalf("Failed to prepare request: %v", err)
+		}
+		
+		body, ok := req.(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected request body to be map[string]interface{}")
+		}
+		
+		system, ok := body["system"].([]map[string]interface{})
+		if !ok {
+			t.Fatal("Expected system to be []map[string]interface{}")
+		}
+		
+		if len(system) == 0 {
+			t.Fatal("Expected system to have at least one content block")
+		}
+		
+		cacheControl, ok := system[0]["cache_control"].(map[string]string)
+		if !ok {
+			t.Fatal("Expected cache_control to be present")
+		}
+		
+		if cacheControl["type"] != "ephemeral" {
+			t.Errorf("Expected cache_control type 'ephemeral', got '%s'", cacheControl["type"])
+		}
+	})
+
+	t.Run("CacheDisabledWhenBreakpointZero", func(t *testing.T) {
+		// Test that caching is disabled when CacheBreakpoint = 0
+		ctx := &agentctx.ConversationContext{
+			SystemPrompt:    "Test system prompt",
+			Messages:        []agentctx.Message{{Role: "user", Content: "Hello"}},
+			CacheBreakpoint: 0, // Should disable caching
+		}
+		
+		prepared := agentctx.PreparedRequest{
+			SystemPrompt:    "Test system prompt",
+			Messages:        ctx.Messages,
+			CacheBreakpoint: ctx.CacheBreakpoint,
+		}
+		
+		req, err := provider.Prepare(context.Background(), ctx, prepared)
+		if err != nil {
+			t.Fatalf("Failed to prepare request: %v", err)
+		}
+		
+		body, ok := req.(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected request body to be map[string]interface{}")
+		}
+		
+		// When caching is disabled, system should be a plain string, not content blocks
+		system, ok := body["system"].(string)
+		if !ok {
+			t.Fatal("Expected system to be a plain string when caching is disabled")
+		}
+		
+		if system != "Test system prompt" {
+			t.Errorf("Expected system prompt 'Test system prompt', got '%s'", system)
+		}
+	})
+
 	// Test response with text content
 	textResponse := map[string]interface{}{
 		"content": []map[string]interface{}{

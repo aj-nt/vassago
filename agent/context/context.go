@@ -37,17 +37,19 @@ type ProgressSignature struct {
 
 // ConversationContext holds the full state for a conversation loop.
 type ConversationContext struct {
-	SessionID       string
-	Messages        []Message
-	SystemPrompt    string
-	Tools           []ToolDefinition
-	MaxIterations   int
-	Iteration       int
-	Interrupt       *InterruptSignal
-	HotBlockContent string
-	SkillContent    string
-	AgentID         string
-	Temperature     float64
+	SessionID             string
+	Messages              []Message
+	SystemPrompt          string
+	Tools                 []ToolDefinition
+	MaxIterations         int
+	Iteration             int
+	Interrupt             *InterruptSignal
+	HotBlockContent       string
+	PreviousHotBlockContent string // Phase 32: track for cache invalidation
+	SkillContent          string
+	CacheBreakpoint      int    // Phase 32: cache breakpoint position
+	AgentID               string
+	Temperature           float64
 
 	// CompactedThisTurn is set by the OverflowHandler to signal that
 	// compaction was performed this turn. Loop detection handlers skip
