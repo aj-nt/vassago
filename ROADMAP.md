@@ -110,11 +110,17 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 **Remaining:** Store method scoping (every query needs `WHERE owner = ?`). API key → owner mapping table. Wire interceptor into all gRPC handlers.
 
-### Phase 32: Prompt Caching for System Context (PARTIAL)
+### Phase 32: Prompt Caching for System Context (COMPLETE)
 
-**Done:** Anthropic provider has `SupportsPromptCaching: true`. `cache_control` ephemeral markers set on system prompt content blocks when `CacheBreakpoint > 0`. OpenAI provider detects `openai` base URL.
+**Files:** `agent/pipeline/request_prep.go`, `agent/pipeline/cache_prep_test.go`, `agent/pipeline/loop.go`, `agent/agent.go`, `agent/log/metrics.go`, `agent/context/context.go`
 
-**Remaining:** Cache hit rate tracking. Disable caching on Telepathy hot block invalidation. Full end-to-end verification.
+**Done:** Anthropic provider has `SupportsPromptCaching: true`. `cache_control` ephemeral markers set on system prompt content blocks when `CacheBreakpoint > 0`. OpenAI provider detects `openai` base URL. Cache hit/miss counters incremented from Anthropic usage response (`cache_read_input_tokens` / `cache_creation_input_tokens`).
+
+**Phase 32 completion (this PR):**
+- **Cache hit rate tracking:** `Metrics.CacheHitRate()` computes hits/(hits+misses) from atomic counters
+- **Hot block invalidation → cache disable:** `ConversationContext.CacheDisabled` flag; `RequestPrepStage` checks it before computing breakpoint; `LoopConfig.HotBlockFetcher` called each iteration refreshes hot block via `GetHotBlock()`; if changed → `CacheDisabled=true` → `CacheBreakpoint=0`
+- Wired into both `RunWithContext` and `RunStreaming` loops; integrates with existing `InvalidateHotBlock`/Telepathy subscription
+- 8 total cache TDD tests (4 new): hot block change disables caching, stable hot block keeps it, first turn works, explicit disable
 
 ---
 
