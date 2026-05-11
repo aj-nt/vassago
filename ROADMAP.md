@@ -163,7 +163,7 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ---
 
-### Phase 34: Tool Execution Interruptibility
+### Phase 34: Tool Execution Interruptibility ✅
 
 **Problem:** `InterruptSignal` is checked between iterations in the pipeline loop, but not during tool execution. If a user presses Ctrl+C while the agent is running a 30-second `Execute` command or a slow web fetch, they have to wait for the tool to finish before the interrupt takes effect.
 
@@ -213,7 +213,7 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 | Priority | Phase | Rationale |
 |----------|-------|-----------|
-| 1 | **Phase 34** (Tool Interruptibility) | UX — Ctrl+C during long tool runs is a real pain point |
+| 1 | **Phase 34** (Tool Interruptibility) ✅ | UX — Ctrl+C during long tool runs is a real pain point |
 | 2 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers |
 | 3 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
 | 4 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
