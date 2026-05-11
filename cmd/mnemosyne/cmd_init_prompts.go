@@ -69,26 +69,28 @@ func handleProviderDetection(nonInteractive bool, reader *bufio.Reader) (string,
 }
 
 // promptForPrimaryProvider prompts user to select primary provider
-func promptForPrimaryProvider(defaultProvider, defaultModel string, ollamaRunning bool, reader *bufio.Reader) (string, string) {
+func promptForPrimaryProvider(_, defaultModel string, ollamaRunning bool, reader *bufio.Reader) (string, string) {
 	fmt.Println("Select primary provider:")
 	fmt.Println("  1. anthropic  (Claude — recommended)")
 	fmt.Println("  2. openai     (GPT-4o, Ollama)")
 	fmt.Printf("  Choice [1]: ")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
+
+	var provider string
 	switch input {
 	case "2", "openai":
-		defaultProvider = "openai"
+		provider = "openai"
 		defaultModel = "gpt-4o-mini"
 		if ollamaRunning {
 			defaultModel = "glm-5.1:cloud"
 		}
 	default:
-		defaultProvider = "anthropic"
+		provider = "anthropic"
 		defaultModel = "claude-sonnet-4-6"
 	}
 	fmt.Println()
-	return defaultProvider, defaultModel
+	return provider, defaultModel
 }
 
 // handleAPIKeyEntry handles API key entry for missing keys

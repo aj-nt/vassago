@@ -74,7 +74,7 @@ func TestRedTeam_MessagingService_MultipleAdaptersSendMessage(t *testing.T) {
 	}
 
 	// Send to Telegram
-	resp, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
+	_, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
 		Platform: "telegram",
 		Target:   "-100123456",
 		Message:  "Hello Telegram!",
@@ -87,7 +87,7 @@ func TestRedTeam_MessagingService_MultipleAdaptersSendMessage(t *testing.T) {
 	}
 
 	// Send to Email
-	resp, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
+	_, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
 		Platform: "email",
 		Target:   "user@example.com",
 		Message:  "Hello Email!",
@@ -100,7 +100,7 @@ func TestRedTeam_MessagingService_MultipleAdaptersSendMessage(t *testing.T) {
 	}
 
 	// Send to iMessage
-	resp, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
+	_, err = svc.SendMessage(context.Background(), &pb.SendMessageRequest{
 		Platform: "imessage",
 		Target:   "+15551234567",
 		Message:  "Hello iMessage!",
