@@ -13,22 +13,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// AddSavedTool creates a new saved tool.
 func (s *Service) AddSavedTool(ctx context.Context, req *pb.AddSavedToolRequest) (*pb.SavedToolEntry, error) {
 	if req.Name == "" || req.Description == "" || req.Type == "" || req.Parameters == "" || req.Script == "" || req.Author == "" {
 		return nil, status.Error(codes.InvalidArgument, "name, description, type, parameters, script, and author are required")
 	}
-
 	if req.Type != "script" {
 		return nil, status.Error(codes.InvalidArgument, "type must be 'script'")
 	}
-
-	// Validate parameters is valid JSON Schema
 	if !json.Valid([]byte(req.Parameters)) {
 		return nil, status.Error(codes.InvalidArgument, "parameters must be valid JSON")
 	}
 
-	// Validate priority
 	priority := int(req.GetPriority())
 	if priority == 0 {
 		priority = 3
@@ -38,6 +33,7 @@ func (s *Service) AddSavedTool(ctx context.Context, req *pb.AddSavedToolRequest)
 	}
 
 	row, err := s.store.AddSavedTool(
+		ownerFromCtx(ctx),
 		req.Name,
 		req.Description,
 		req.Type,
@@ -55,7 +51,6 @@ func (s *Service) AddSavedTool(ctx context.Context, req *pb.AddSavedToolRequest)
 	return toProtoSavedTool(row), nil
 }
 
-// GetSavedTool retrieves a saved tool by ID.
 func (s *Service) GetSavedTool(ctx context.Context, req *pb.GetSavedToolRequest) (*pb.SavedToolEntry, error) {
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
@@ -69,14 +64,13 @@ func (s *Service) GetSavedTool(ctx context.Context, req *pb.GetSavedToolRequest)
 	return toProtoSavedTool(row), nil
 }
 
-// ListSavedTools returns saved tools, optionally filtered.
 func (s *Service) ListSavedTools(ctx context.Context, req *pb.ListSavedToolsRequest) (*pb.SavedToolList, error) {
 	limit := int(req.GetLimit())
 	if limit <= 0 {
 		limit = 50
 	}
 
-	rows, err := s.store.ListSavedTools(req.Category, req.Author, limit)
+	rows, err := s.store.ListSavedTools(ownerFromCtx(ctx), req.Category, req.Author, limit)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list saved tools: %v", err)
 	}
@@ -89,7 +83,6 @@ func (s *Service) ListSavedTools(ctx context.Context, req *pb.ListSavedToolsRequ
 	return &pb.SavedToolList{Tools: tools}, nil
 }
 
-// SearchSavedTools searches saved tools via FTS5.
 func (s *Service) SearchSavedTools(ctx context.Context, req *pb.SearchSavedToolsRequest) (*pb.SavedToolList, error) {
 	if req.Query == "" {
 		return nil, status.Error(codes.InvalidArgument, "query is required")
@@ -100,7 +93,7 @@ func (s *Service) SearchSavedTools(ctx context.Context, req *pb.SearchSavedTools
 		limit = 20
 	}
 
-	rows, err := s.store.SearchSavedTools(req.Query, req.Category, limit)
+	rows, err := s.store.SearchSavedTools(ownerFromCtx(ctx), req.Query, req.Category, limit)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "search saved tools: %v", err)
 	}
@@ -113,7 +106,6 @@ func (s *Service) SearchSavedTools(ctx context.Context, req *pb.SearchSavedTools
 	return &pb.SavedToolList{Tools: tools}, nil
 }
 
-// UpdateSavedTool updates fields on a saved tool.
 func (s *Service) UpdateSavedTool(ctx context.Context, req *pb.UpdateSavedToolRequest) (*pb.SavedToolEntry, error) {
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
@@ -154,7 +146,7 @@ func (s *Service) UpdateSavedTool(ctx context.Context, req *pb.UpdateSavedToolRe
 		updates["requires_approval_every_call"] = req.GetRequiresApprovalEveryCall()
 	}
 
-	row, err := s.store.UpdateSavedTool(req.Id, updates)
+	row, err := s.store.UpdateSavedTool(ownerFromCtx(ctx), req.Id, updates)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "update saved tool: %v", err)
 	}
@@ -162,13 +154,12 @@ func (s *Service) UpdateSavedTool(ctx context.Context, req *pb.UpdateSavedToolRe
 	return toProtoSavedTool(row), nil
 }
 
-// RemoveSavedTool deletes a saved tool.
 func (s *Service) RemoveSavedTool(ctx context.Context, req *pb.RemoveSavedToolRequest) (*pb.RemoveSavedToolResponse, error) {
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 
-	removed, err := s.store.RemoveSavedTool(req.Id)
+	removed, err := s.store.RemoveSavedTool(ownerFromCtx(ctx), req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "remove saved tool: %v", err)
 	}
@@ -176,25 +167,24 @@ func (s *Service) RemoveSavedTool(ctx context.Context, req *pb.RemoveSavedToolRe
 	return &pb.RemoveSavedToolResponse{Removed: removed}, nil
 }
 
-// toProtoSavedTool converts a store row to a proto message.
 func toProtoSavedTool(row *store.SavedToolRow) *pb.SavedToolEntry {
 	var triggers []string
 	json.Unmarshal([]byte(row.Triggers), &triggers)
 
 	return &pb.SavedToolEntry{
-		Id:                       row.ID,
-		Name:                     row.Name,
-		Description:              row.Description,
-		Type:                     row.Type,
-		Parameters:               row.Parameters,
-		Script:                   row.Script,
-		Category:                 row.Category,
-		Triggers:                 triggers,
-		Author:                   row.Author,
-		Priority:                 int32(row.Priority),
-		Version:                  int32(row.Version),
+		Id:                        row.ID,
+		Name:                      row.Name,
+		Description:               row.Description,
+		Type:                      row.Type,
+		Parameters:                row.Parameters,
+		Script:                    row.Script,
+		Category:                  row.Category,
+		Triggers:                  triggers,
+		Author:                    row.Author,
+		Priority:                  int32(row.Priority),
+		Version:                   int32(row.Version),
 		RequiresApprovalEveryCall: row.RequiresApprovalEveryCall,
-		CreatedAt:                row.CreatedAt,
-		UpdatedAt:                row.UpdatedAt,
+		CreatedAt:                 row.CreatedAt,
+		UpdatedAt:                 row.UpdatedAt,
 	}
 }

@@ -11,19 +11,22 @@ import (
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
-// AddCronJob creates a new cron job.
-func (s *Store) AddCronJob(name, schedule, agentID, message string, enabled bool) (*pb.CronJob, error) {
+// AddCronJob creates a new cron job, scoped to owner (Phase 28).
+func (s *Store) AddCronJob(owner, name, schedule, agentID, message string, enabled bool) (*pb.CronJob, error) {
 	id := generateID()
 	now := time.Now().Unix()
 	enabledInt := 0
 	if enabled {
 		enabledInt = 1
 	}
+	if owner == "" {
+		owner = "default"
+	}
 
 	_, err := s.db.Exec(
-		`INSERT INTO cron_jobs (id, name, schedule, agent_id, message, enabled, created_at, updated_at, last_fire_at, next_fire_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
-		id, name, schedule, agentID, message, enabledInt, now, now,
+		`INSERT INTO cron_jobs (id, owner, name, schedule, agent_id, message, enabled, created_at, updated_at, last_fire_at, next_fire_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+		id, owner, name, schedule, agentID, message, enabledInt, now, now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("AddCronJob: %w", err)
@@ -43,7 +46,7 @@ func (s *Store) AddCronJob(name, schedule, agentID, message string, enabled bool
 	}, nil
 }
 
-// GetCronJob retrieves a single cron job by ID.
+// GetCronJob retrieves a single cron job by ID (no owner scoping — used by cron engine).
 func (s *Store) GetCronJob(id string) (*pb.CronJob, error) {
 	var job pb.CronJob
 	var enabled bool
@@ -73,22 +76,22 @@ func (s *Store) GetCronJob(id string) (*pb.CronJob, error) {
 	return &job, nil
 }
 
-// ListCronJobs returns cron jobs, optionally filtered by agent and enabled status.
-func (s *Store) ListCronJobs(agentID string, includeDisabled bool) ([]*pb.CronJob, error) {
+// ListCronJobs returns cron jobs, optionally filtered by agent and owner (Phase 28).
+func (s *Store) ListCronJobs(owner, agentID string, includeDisabled bool) ([]*pb.CronJob, error) {
+	if owner == "" {
+		owner = "default"
+	}
+
 	query := `SELECT id, name, schedule, agent_id, message, enabled, created_at, updated_at, last_fire_at, next_fire_at
-			  FROM cron_jobs`
-	args := []interface{}{}
-	where := []string{}
+			FROM cron_jobs WHERE owner = ?`
+	args := []interface{}{owner}
 
 	if agentID != "" {
-		where = append(where, "agent_id = ?")
+		query += " AND agent_id = ?"
 		args = append(args, agentID)
 	}
 	if !includeDisabled {
-		where = append(where, "enabled = 1")
-	}
-	if len(where) > 0 {
-		query += " WHERE " + joinWhere(where)
+		query += " AND enabled = 1"
 	}
 	query += " ORDER BY created_at ASC"
 
@@ -120,11 +123,13 @@ func (s *Store) ListCronJobs(agentID string, includeDisabled bool) ([]*pb.CronJo
 	return jobs, rows.Err()
 }
 
-// UpdateCronJob updates specific fields of a cron job. Only non-nil fields are changed.
-func (s *Store) UpdateCronJob(id string, name, schedule, message *string, enabled *bool) (*pb.CronJob, error) {
+// UpdateCronJob updates specific fields of a cron job, scoped to owner (Phase 28).
+func (s *Store) UpdateCronJob(owner, id string, name, schedule, message *string, enabled *bool) (*pb.CronJob, error) {
 	now := time.Now().Unix()
+	if owner == "" {
+		owner = "default"
+	}
 
-	// Build dynamic UPDATE — only set provided fields
 	setClauses := []string{"updated_at = ?"}
 	args := []interface{}{now}
 
@@ -149,8 +154,8 @@ func (s *Store) UpdateCronJob(id string, name, schedule, message *string, enable
 		args = append(args, enabledInt)
 	}
 
-	args = append(args, id)
-	query := fmt.Sprintf("UPDATE cron_jobs SET %s WHERE id = ?", joinSetClauses(setClauses))
+	args = append(args, id, owner)
+	query := fmt.Sprintf("UPDATE cron_jobs SET %s WHERE id = ? AND owner = ?", joinSetClauses(setClauses))
 
 	result, err := s.db.Exec(query, args...)
 	if err != nil {
@@ -163,9 +168,13 @@ func (s *Store) UpdateCronJob(id string, name, schedule, message *string, enable
 	return s.GetCronJob(id)
 }
 
-// DeleteCronJob removes a cron job.
-func (s *Store) DeleteCronJob(id string) error {
-	result, err := s.db.Exec(`DELETE FROM cron_jobs WHERE id = ?`, id)
+// DeleteCronJob removes a cron job, scoped to owner (Phase 28).
+func (s *Store) DeleteCronJob(owner, id string) error {
+	if owner == "" {
+		owner = "default"
+	}
+
+	result, err := s.db.Exec(`DELETE FROM cron_jobs WHERE id = ? AND owner = ?`, id, owner)
 	if err != nil {
 		return fmt.Errorf("DeleteCronJob: %w", err)
 	}
@@ -175,7 +184,7 @@ func (s *Store) DeleteCronJob(id string) error {
 	return nil
 }
 
-// UpdateCronJobFireTimestamps updates last_fire_at and next_fire_at for a job.
+// UpdateCronJobFireTimestamps updates last_fire_at and next_fire_at for a job (no owner scoping — cron engine).
 func (s *Store) UpdateCronJobFireTimestamps(id string, lastFireAt, nextFireAt int64) error {
 	now := time.Now().Unix()
 	_, err := s.db.Exec(
@@ -185,7 +194,7 @@ func (s *Store) UpdateCronJobFireTimestamps(id string, lastFireAt, nextFireAt in
 	return err
 }
 
-// GetDueCronJobs returns all enabled cron jobs whose next_fire_at is <= now.
+// GetDueCronJobs returns all enabled cron jobs whose next_fire_at is <= now (no owner scoping — cron engine).
 func (s *Store) GetDueCronJobs(now int64) ([]*pb.CronJob, error) {
 	rows, err := s.db.Query(
 		`SELECT id, name, schedule, agent_id, message, enabled, created_at, updated_at, last_fire_at, next_fire_at

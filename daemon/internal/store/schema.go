@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 7 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces, 6:owner_columns
+const SchemaVersion = 8 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces, 6:owner_columns, 7:fix_v6, 8:api_keys
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -192,6 +192,15 @@ var SchemaStmts = []string{
 	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_update AFTER UPDATE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); INSERT INTO saved_tools_fts(rowid, name, description, triggers, category) VALUES (new.rowid, new.name, new.description, new.triggers, new.category); END`,
 
 	`CREATE TRIGGER IF NOT EXISTS saved_tools_fts_delete AFTER DELETE ON saved_tools BEGIN INSERT INTO saved_tools_fts(saved_tools_fts, rowid, name, description, triggers, category) VALUES ('delete', old.rowid, old.name, old.description, old.triggers, old.category); END`,
+
+	// --- API key to owner mapping (Phase 28) ---
+	`CREATE TABLE IF NOT EXISTS api_keys (
+		api_key TEXT PRIMARY KEY,
+		owner TEXT NOT NULL DEFAULT 'default',
+		created_at INTEGER NOT NULL
+	)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_api_keys_owner ON api_keys(owner)`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -295,4 +304,20 @@ var Migrations = []string{
 	`ALTER TABLE skills ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
 	`ALTER TABLE saved_tools ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
 
+	// Migration 7: Fix migration 6 — re-add columns that may have failed on some DBs
+	// (Some SQLite versions don't support multiple ALTER TABLE in sequence)
+	`ALTER TABLE sessions ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE todos ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE cron_jobs ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE skills ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	`ALTER TABLE saved_tools ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+
+	// Migration 8: Add api_keys table for API key → owner mapping (Phase 28)
+	`CREATE TABLE IF NOT EXISTS api_keys (
+		api_key TEXT PRIMARY KEY,
+		owner TEXT NOT NULL DEFAULT 'default',
+		created_at INTEGER NOT NULL
+	)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_api_keys_owner ON api_keys(owner)`,
 }

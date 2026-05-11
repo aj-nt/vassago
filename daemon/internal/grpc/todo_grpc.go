@@ -9,16 +9,16 @@ import (
 	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
-// AddTodo creates a new todo item.
+// AddTodo creates a new todo item, scoped to owner (Phase 28).
 func (s *Service) AddTodo(ctx context.Context, req *pb.AddTodoRequest) (*pb.TodoItem, error) {
 	priority := req.Priority
 	if priority == 0 {
 		priority = 3
 	}
-	return s.store.AddTodo(req.Content, priority, req.SourceAgent)
+	return s.store.AddTodo(ownerFromCtx(ctx), req.Content, priority, req.SourceAgent)
 }
 
-// ListTodos returns a stream of todos.
+// ListTodos returns a stream of todos, scoped to owner (Phase 28).
 func (s *Service) ListTodos(req *pb.ListTodosRequest, stream pb.Mnemosyne_ListTodosServer) error {
 	includeCompleted := req.IncludeCompleted
 	sourceAgent := ""
@@ -26,7 +26,8 @@ func (s *Service) ListTodos(req *pb.ListTodosRequest, stream pb.Mnemosyne_ListTo
 		sourceAgent = *req.SourceAgent
 	}
 
-	todos, err := s.store.ListTodos(includeCompleted, sourceAgent)
+	// Extract owner from gRPC metadata context
+	todos, err := s.store.ListTodos(ownerFromCtx(stream.Context()), includeCompleted, sourceAgent)
 	if err != nil {
 		return err
 	}
@@ -39,14 +40,14 @@ func (s *Service) ListTodos(req *pb.ListTodosRequest, stream pb.Mnemosyne_ListTo
 	return nil
 }
 
-// CompleteTodo marks a todo as completed.
+// CompleteTodo marks a todo as completed, scoped to owner (Phase 28).
 func (s *Service) CompleteTodo(ctx context.Context, req *pb.CompleteTodoRequest) (*pb.TodoItem, error) {
-	return s.store.CompleteTodo(req.Id)
+	return s.store.CompleteTodo(ownerFromCtx(ctx), req.Id)
 }
 
-// RemoveTodo removes a todo item.
+// RemoveTodo removes a todo item, scoped to owner (Phase 28).
 func (s *Service) RemoveTodo(ctx context.Context, req *pb.RemoveTodoRequest) (*pb.Empty, error) {
-	if err := s.store.RemoveTodo(req.Id); err != nil {
+	if err := s.store.RemoveTodo(ownerFromCtx(ctx), req.Id); err != nil {
 		return nil, err
 	}
 	return &pb.Empty{}, nil

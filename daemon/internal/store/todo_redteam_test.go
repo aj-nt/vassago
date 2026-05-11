@@ -16,7 +16,7 @@ func TestRedTeamTodoEmptyContent(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	todo, err := db.AddTodo("", 3, "test-agent")
+	todo, err := db.AddTodo("default", "", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("DB layer should accept empty content (NOT NULL != non-empty), got error: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestRedTeamTodoEmptySourceAgent(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	todo, err := db.AddTodo("Valid content", 3, "")
+	todo, err := db.AddTodo("default", "Valid content", 3, "")
 	if err != nil {
 		t.Fatalf("DB layer should accept empty source_agent, got error: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestRedTeamTodoPriorityBounds(t *testing.T) {
 
 	// Valid priorities should work fine
 	for _, p := range []int32{1, 3, 5} {
-		_, err := db.AddTodo("test", p, "agent")
+		_, err := db.AddTodo("default", "test", p, "agent")
 		if err != nil {
 			t.Errorf("Priority %d should be valid, got error: %v", p, err)
 		}
@@ -57,7 +57,7 @@ func TestRedTeamTodoPriorityBounds(t *testing.T) {
 	// Out-of-range priorities: SQLite CHECK constraints may not be enforced
 	// depending on journal mode. The service layer should validate instead.
 	t.Run("ZeroPriority", func(t *testing.T) {
-		_, err := db.AddTodo("zero pri", 0, "agent")
+		_, err := db.AddTodo("default", "zero pri", 0, "agent")
 		// Whether this fails depends on SQLite STRICT mode; either way is acceptable
 		if err != nil {
 			t.Logf("Zero priority rejected (CHECK enforced): %v", err)
@@ -67,7 +67,7 @@ func TestRedTeamTodoPriorityBounds(t *testing.T) {
 	})
 
 	t.Run("NegativePriority", func(t *testing.T) {
-		_, err := db.AddTodo("neg pri", -1, "agent")
+		_, err := db.AddTodo("default", "neg pri", -1, "agent")
 		if err != nil {
 			t.Logf("Negative priority rejected (CHECK enforced): %v", err)
 		} else {
@@ -76,7 +76,7 @@ func TestRedTeamTodoPriorityBounds(t *testing.T) {
 	})
 
 	t.Run("PriorityAbove5", func(t *testing.T) {
-		_, err := db.AddTodo("high pri", 10, "agent")
+		_, err := db.AddTodo("default", "high pri", 10, "agent")
 		if err != nil {
 			t.Logf("Priority 10 rejected (CHECK enforced): %v", err)
 		} else {
@@ -91,7 +91,7 @@ func TestRedTeamTodoConcurrentComplete(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	todo, err := db.AddTodo("concurrent complete", 3, "test-agent")
+	todo, err := db.AddTodo("default", "concurrent complete", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestRedTeamTodoConcurrentComplete(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := db.CompleteTodo(todo.Id); err != nil {
+			if _, err := db.CompleteTodo("default", todo.Id); err != nil {
 				errCh <- err
 			}
 		}()
@@ -113,7 +113,7 @@ func TestRedTeamTodoConcurrentComplete(t *testing.T) {
 
 	// At most one should succeed; the rest may get "not found" if the first completes
 	// but since we're completing an already-completed todo, it just re-sets completed=1
-	completed, err := db.GetTodo(todo.Id)
+	completed, err := db.GetTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("GetTodo failed: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestRedTeamTodoDeleteNonexistent(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	err := db.RemoveTodo("does-not-exist")
+	err := db.RemoveTodo("default", "does-not-exist")
 	if err == nil {
 		t.Error("Expected error when deleting nonexistent todo, got nil")
 	}
@@ -140,7 +140,7 @@ func TestRedTeamTodoCompleteNonexistent(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	_, err := db.CompleteTodo("does-not-exist")
+	_, err := db.CompleteTodo("default", "does-not-exist")
 	if err == nil {
 		t.Error("Expected error when completing nonexistent todo, got nil")
 	}
@@ -152,7 +152,7 @@ func TestRedTeamTodoGetNonexistent(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	_, err := db.GetTodo("does-not-exist")
+	_, err := db.GetTodo("default", "does-not-exist")
 	if err == nil {
 		t.Error("Expected error when getting nonexistent todo, got nil")
 	}
@@ -175,7 +175,7 @@ func TestRedTeamTodoSQLInjection(t *testing.T) {
 
 	for _, content := range injections {
 		t.Run(content, func(t *testing.T) {
-			todo, err := db.AddTodo(content, 3, "test-agent")
+			todo, err := db.AddTodo("default", content, 3, "test-agent")
 			if err != nil {
 				t.Fatalf("Parameterized query should handle injection safely, got: %v", err)
 			}
@@ -184,7 +184,7 @@ func TestRedTeamTodoSQLInjection(t *testing.T) {
 			}
 
 			// Verify the todos table still exists and is functional
-			todos, err := db.ListTodos(true, "")
+			todos, err := db.ListTodos("default", true, "")
 			if err != nil {
 				t.Fatalf("ListTodos failed after injection attempt: %v", err)
 			}
@@ -201,13 +201,13 @@ func TestRedTeamTodoDoubleComplete(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	todo, err := db.AddTodo("double complete", 3, "test-agent")
+	todo, err := db.AddTodo("default", "double complete", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
 
 	// First complete
-	completed1, err := db.CompleteTodo(todo.Id)
+	completed1, err := db.CompleteTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("First CompleteTodo failed: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestRedTeamTodoDoubleComplete(t *testing.T) {
 	}
 
 	// Second complete — should succeed (idempotent)
-	completed2, err := db.CompleteTodo(todo.Id)
+	completed2, err := db.CompleteTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("Second CompleteTodo should be idempotent, got: %v", err)
 	}
@@ -231,24 +231,24 @@ func TestRedTeamTodoUpdateAfterDelete(t *testing.T) {
 	t.Parallel()
 	db := setupTodoTestDB(t)
 
-	todo, err := db.AddTodo("to be deleted", 3, "test-agent")
+	todo, err := db.AddTodo("default", "to be deleted", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
 
-	err = db.RemoveTodo(todo.Id)
+	err = db.RemoveTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("RemoveTodo failed: %v", err)
 	}
 
 	// CompleteTodo on deleted todo should fail
-	_, err = db.CompleteTodo(todo.Id)
+	_, err = db.CompleteTodo("default", todo.Id)
 	if err == nil {
 		t.Error("Expected error when completing deleted todo")
 	}
 
 	// GetTodo on deleted todo should fail
-	_, err = db.GetTodo(todo.Id)
+	_, err = db.GetTodo("default", todo.Id)
 	if err == nil {
 		t.Error("Expected error when getting deleted todo")
 	}
@@ -261,12 +261,12 @@ func TestRedTeamTodoListFiltering(t *testing.T) {
 	db := setupTodoTestDB(t)
 
 	// Create 3 todos from different agents
-	db.AddTodo("task-a1", 3, "agent-a")
-	db.AddTodo("task-b1", 3, "agent-b")
-	db.AddTodo("task-a2", 1, "agent-a")
+	db.AddTodo("default", "task-a1", 3, "agent-a")
+	db.AddTodo("default", "task-b1", 3, "agent-b")
+	db.AddTodo("default", "task-a2", 1, "agent-a")
 
 	// Complete one from agent-a
-	todos, _ := db.ListTodos(true, "agent-a")
+	todos, _ := db.ListTodos("default", true, "agent-a")
 	var agentATodoId string
 	for _, todo := range todos {
 		if todo.Content == "task-a1" {
@@ -274,10 +274,10 @@ func TestRedTeamTodoListFiltering(t *testing.T) {
 			break
 		}
 	}
-	db.CompleteTodo(agentATodoId)
+	db.CompleteTodo("default", agentATodoId)
 
 	// List incomplete only
-	incomplete, err := db.ListTodos(false, "")
+	incomplete, err := db.ListTodos("default", false, "")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestRedTeamTodoListFiltering(t *testing.T) {
 	}
 
 	// List all for agent-a
-	agentA, err := db.ListTodos(true, "agent-a")
+	agentA, err := db.ListTodos("default", true, "agent-a")
 	if err != nil {
 		t.Fatalf("ListTodos for agent-a failed: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestRedTeamTodoListFiltering(t *testing.T) {
 	}
 
 	// List incomplete for agent-a
-	agentAIncomplete, err := db.ListTodos(false, "agent-a")
+	agentAIncomplete, err := db.ListTodos("default", false, "agent-a")
 	if err != nil {
 		t.Fatalf("ListTodos incomplete for agent-a failed: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestRedTeamTodoConcurrentCreateDelete(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			_, err := db.AddTodo("concurrent-todo", 3, "test-agent")
+			_, err := db.AddTodo("default", "concurrent-todo", 3, "test-agent")
 			if err != nil {
 				// SQLITE_BUSY is expected under concurrent write load
 				t.Logf("Concurrent create %d: %v (expected for SQLite)", n, err)
@@ -333,7 +333,7 @@ func TestRedTeamTodoConcurrentCreateDelete(t *testing.T) {
 	wg.Wait()
 
 	// Verify at least some were created and no panics occurred
-	todos, err := db.ListTodos(true, "test-agent")
+	todos, err := db.ListTodos("default", true, "test-agent")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}

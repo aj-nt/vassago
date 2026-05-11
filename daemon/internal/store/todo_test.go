@@ -25,7 +25,7 @@ func TestAddTodo(t *testing.T) {
 	db := setupTodoTestDB(t)
 	defer db.Close()
 
-	todo, err := db.AddTodo("Test todo item", 3, "test-agent")
+	todo, err := db.AddTodo("default", "Test todo item", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
@@ -57,17 +57,17 @@ func TestListTodos(t *testing.T) {
 	defer db.Close()
 
 	// Add some todos
-	_, err := db.AddTodo("First todo", 5, "agent-1")
+	_, err := db.AddTodo("default", "First todo", 5, "agent-1")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
-	_, err = db.AddTodo("Second todo", 3, "agent-1")
+	_, err = db.AddTodo("default", "Second todo", 3, "agent-1")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
 
 	// New todos should show as incomplete by default
-	todos, err := db.ListTodos(true, "")
+	todos, err := db.ListTodos("default", true, "")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestListTodos(t *testing.T) {
 	}
 
 	// Filter by agent
-	todos, err = db.ListTodos(true, "agent-1")
+	todos, err = db.ListTodos("default", true, "agent-1")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestListTodos(t *testing.T) {
 	}
 
 	// Filter by wrong agent
-	todos, err = db.ListTodos(true, "wrong-agent")
+	todos, err = db.ListTodos("default", true, "wrong-agent")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}
@@ -98,13 +98,13 @@ func TestCompleteTodo(t *testing.T) {
 	db := setupTodoTestDB(t)
 	defer db.Close()
 
-	todo, err := db.AddTodo("Complete me", 3, "test-agent")
+	todo, err := db.AddTodo("default", "Complete me", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
 
 	// Complete it
-	completed, err := db.CompleteTodo(todo.Id)
+	completed, err := db.CompleteTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("CompleteTodo failed: %v", err)
 	}
@@ -116,12 +116,12 @@ func TestCompleteTodo(t *testing.T) {
 	}
 
 	// Verify it shows as completed
-	incomplete, _ := db.ListTodos(false, "")
+	incomplete, _ := db.ListTodos("default", false, "")
 	if len(incomplete) != 0 {
 		t.Errorf("Expected 0 incomplete todos, got %d", len(incomplete))
 	}
 
-	complete, _ := db.ListTodos(true, "")
+	complete, _ := db.ListTodos("default", true, "")
 	if len(complete) != 1 {
 		t.Errorf("Expected 1 total todo, got %d", len(complete))
 	}
@@ -131,7 +131,7 @@ func TestCompleteTodoNotFound(t *testing.T) {
 	db := setupTodoTestDB(t)
 	defer db.Close()
 
-	_, err := db.CompleteTodo("nonexistent")
+	_, err := db.CompleteTodo("default", "nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent todo ID")
 	}
@@ -141,18 +141,18 @@ func TestRemoveTodo(t *testing.T) {
 	db := setupTodoTestDB(t)
 	defer db.Close()
 
-	todo, err := db.AddTodo("Remove me", 3, "test-agent")
+	todo, err := db.AddTodo("default", "Remove me", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
 
-	err = db.RemoveTodo(todo.Id)
+	err = db.RemoveTodo("default", todo.Id)
 	if err != nil {
 		t.Fatalf("RemoveTodo failed: %v", err)
 	}
 
 	// Verify it's gone
-	todos, _ := db.ListTodos(true, "")
+	todos, _ := db.ListTodos("default", true, "")
 	if len(todos) != 0 {
 		t.Errorf("Expected 0 todos after removal, got %d", len(todos))
 	}
@@ -162,7 +162,7 @@ func TestRemoveTodoNotFound(t *testing.T) {
 	db := setupTodoTestDB(t)
 	defer db.Close()
 
-	err := db.RemoveTodo("nonexistent")
+	err := db.RemoveTodo("default", "nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent todo ID")
 	}
@@ -173,12 +173,12 @@ func TestTodoPriorityOrdering(t *testing.T) {
 	defer db.Close()
 
 	// Add todos with different priorities
-	db.AddTodo("Low priority", 1, "agent-1")
-	db.AddTodo("High priority", 5, "agent-1")
-	db.AddTodo("Medium priority", 3, "agent-1")
+	db.AddTodo("default", "Low priority", 1, "agent-1")
+	db.AddTodo("default", "High priority", 5, "agent-1")
+	db.AddTodo("default", "Medium priority", 3, "agent-1")
 
 	// List should be ordered by priority DESC
-	todos, err := db.ListTodos(true, "")
+	todos, err := db.ListTodos("default", true, "")
 	if err != nil {
 		t.Fatalf("ListTodos failed: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestTodoDefaultPriority(t *testing.T) {
 	defer db.Close()
 
 	// Add a todo with priority 3 (minimum valid priority)
-	todo, err := db.AddTodo("Default priority todo", 3, "test-agent")
+	todo, err := db.AddTodo("default", "Default priority todo", 3, "test-agent")
 	if err != nil {
 		t.Fatalf("AddTodo failed: %v", err)
 	}
