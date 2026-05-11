@@ -88,6 +88,18 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 - Config validation: busy_timeout range check (1000–30000 ms)
 - Store interface abstraction verified clean for Postgres swap
 
+### Phase 37: Decorator — Composable Provider Wrappers (COMPLETE)
+
+**Files:** `agent/provider/decorator.go`, `agent/provider/decorator_test.go`, `agent/setup/setup.go`, `agent/streaming_caller.go`
+
+- 4 standard decorators: `RetryProvider` (exponential backoff + jitter), `CacheProvider` (cache metric tracking), `MetricsProvider` (latency + structured slog spans), `FallbackProvider` (registry fallback chain on failure)
+- `DecoratedProvider` base struct: all Provider methods pass through to `Inner` by default; decorators embed and override only what they need
+- `ComposeDecorators()`: applies Metrics → Cache → Retry → Fallback (outermost to innermost) based on `DecoratorConfig`
+- Wired in `setup.go`: primary provider wrapped with full decorator chain on startup
+- Removed ~40 lines of ad-hoc fallback logic from `streamingCaller.callNonStreaming` and `processStreamingEvents` — the decorator chain handles it now
+- 15 new tests: RetryProvider (4), FallbackProvider (6), CacheProvider (2) + existing 7 (MetricsProvider 4, FallbackExecutor 4 — 1 fixed)
+- `FallbackExecutor` kept as compatibility wrapper over `FallbackProvider`
+
 ---
 
 ## In Progress / Partial
@@ -134,21 +146,6 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ---
 
-### Phase 37: Decorator — Composable Provider Wrappers
-
-**Pattern:** **Decorator (GoF)** — Wraps the Provider interface with cross-cutting behaviors (retry, caching, metrics) without modifying existing providers.
-
-**Problem:** Cross-cutting concerns are handled ad-hoc. The streaming caller has manual fallback logic. The router has manual retry/demotion. Each of these is a Decorator waiting to be composed.
-
-**Proposal:**
-1. Define standard Decorators: `RetryProvider`, `CacheProvider`, `MetricsProvider`, `FallbackProvider`.
-2. Wire in `setup.go` — compose decorators based on config.
-3. Remove ad-hoc fallback logic from `streamingCaller` — the Decorator chain handles it.
-
-**Estimated effort:** 2–3 sessions.
-
----
-
 ### Phase 38: State — TUI Phase State Machine
 
 **Pattern:** **State (GoF)** — Replaces the current `phase` enum + switch-based dispatch with polymorphic state objects.
@@ -187,8 +184,7 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 |----------|-------|-----------|
 | 1 | **Phase 28** (Namespace — finish) | Multi-tenancy foundation; schema + interceptor already exist, needs store scoping |
 | 2 | **Phase 32** (Prompt Caching — finish) | Cost — Anthropic already supports it; needs cache-hit tracking and invalidation |
-| 3 | **Phase 37** (Decorator — Provider Wrappers) | Simplifies future work; removes ad-hoc fallback logic |
-| 4 | **Phase 38** (State — TUI State Machine) | Maintainability — phase checks still scattered across 3 files post-split |
-| 5 | **Phase 34** (Tool Interruptibility) | UX polish — responsiveness under Ctrl+C |
-| 6 | **Phase 39** (Mediator — Pipeline Data Bus) | Clarity — makes inter-stage data flow explicit; enables cleaner tests |
-| 7 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
+| 3 | **Phase 38** (State — TUI State Machine) | Maintainability — phase checks still scattered across 3 files post-split |
+| 4 | **Phase 34** (Tool Interruptibility) | UX polish — responsiveness under Ctrl+C |
+| 5 | **Phase 39** (Mediator — Pipeline Data Bus) | Clarity — makes inter-stage data flow explicit; enables cleaner tests |
+| 6 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
