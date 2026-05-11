@@ -46,8 +46,25 @@ const (
 	boxV  = "│"
 )
 
-// isTerminal checks if stdout is a TTY. If not, we skip colors.
-// (We import mattn/go-isatty but for simplicity just use env heuristics.)
+// sanitizeUTF8 replaces invalid UTF-8 bytes with the Unicode replacement character.
+// This prevents gRPC protobuf marshaling errors and Anthropic API rejections.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size == 1 {
+			b.WriteString("\ufffd")
+		} else {
+			b.WriteRune(r)
+		}
+		i += size
+	}
+	return b.String()
+}
 
 // colorize wraps text in an ANSI color code.
 func colorize(color, text string) string {
@@ -181,8 +198,8 @@ func formatClearThinking() string {
 	return "\r\033[2K"
 }
 
-// formatResponse wraps the agent's text response in a bordered panel.
-// If the response is empty or very short, skip the panel.
+// formatResponse wraps the agent's text response in a bordered panel using ANSI codes.
+// Used only by cli.go (plain-text terminal).
 func formatResponse(text string, agentName string) string {
 	text = strings.TrimRight(text, " \t\n")
 	if text == "" {
@@ -210,15 +227,11 @@ func formatResponse(text string, agentName string) string {
 	}
 
 	// Total visual width of each line (borders included)
-	// Content: │ text... │  = 2 + contentWidth + 2 = contentWidth + 4
 	totalWidth := contentWidth + 4
 
 	var b strings.Builder
 
 	// Top border: ╭─ ⚕ name ─╮
-	// Visual width must equal totalWidth (contentWidth + 4)
-	// Layout: ╭(1) + ─(1) + header + fill(─) + ─(1) + ╮(1) = totalWidth
-	// So header + fill + 4 = totalWidth → fill = contentWidth - headerLen
 	b.WriteString(colorize(dim, boxTL))
 	b.WriteString(colorize(dim, boxH))
 	b.WriteString(colorize(brightCyan+bold, header))
@@ -245,7 +258,7 @@ func formatResponse(text string, agentName string) string {
 
 	// Bottom border: ╰──────────────╯
 	b.WriteString(colorize(dim, boxBL))
-	b.WriteString(colorize(dim, strings.Repeat(boxH, totalWidth-2))) // -2 for ╰ and ╯
+	b.WriteString(colorize(dim, strings.Repeat(boxH, totalWidth-2)))
 	b.WriteString(colorize(dim, boxBR))
 
 	return b.String()

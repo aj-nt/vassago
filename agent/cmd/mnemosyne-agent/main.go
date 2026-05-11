@@ -46,9 +46,8 @@ func main() {
 		return
 	}
 
-	cli := iface.NewCLI(result.Agent)
 	if *oneShot != "" {
-		if err := cli.RunOneShot(ctx, *oneShot); err != nil {
+		if err := iface.RunOneShotBubble(ctx, result.Agent, *oneShot); err != nil {
 			agentlog.Fatalf("Error: %v", err)
 		}
 	} else {
@@ -64,12 +63,12 @@ func main() {
 			}
 			msg := strings.TrimSpace(input.String())
 			if msg != "" {
-				if err := cli.RunOneShot(ctx, msg); err != nil {
+				if err := iface.RunOneShotBubble(ctx, result.Agent, msg); err != nil {
 					agentlog.Fatalf("Error: %v", err)
 				}
 			}
 		} else {
-			if err := cli.RunInteractive(ctx); err != nil {
+			if err := iface.RunInteractiveBubble(ctx, result.Agent); err != nil {
 				agentlog.Fatalf("Error: %v", err)
 			}
 		}

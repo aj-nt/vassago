@@ -81,8 +81,7 @@ func cmdAgent(args []string) {
 	}
 
 	// Interactive mode via mnemosyne agent (without --serve)
-	cli := iface.NewCLI(result.Agent)
-	if err := cli.RunInteractive(ctx); err != nil {
+	if err := iface.RunInteractiveBubble(ctx, result.Agent); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 }
@@ -91,13 +90,11 @@ func cmdAgent(args []string) {
 func cmdChat(args []string) {
 	configPath := ""
 	message := ""
-	useTUI := false
 
 	fs := flag.NewFlagSet("chat", flag.ExitOnError)
 	fs.StringVar(&configPath, "config", "", "Path to agent config (default: ~/.mnemosyne/agent.yaml)")
 	fs.StringVar(&message, "message", "", "Send a single message and exit (non-interactive)")
 	fs.StringVar(&message, "m", "", "Shorthand for --message")
-	fs.BoolVar(&useTUI, "tui", false, "Use Bubble Tea TUI (experimental)")
 	fs.Parse(args)
 
 	// Re-parse remaining args for any positional message
@@ -169,19 +166,10 @@ Examples:
 	}
 	defer result.Close()
 
-	cli := iface.NewCLI(result.Agent)
-
 	if message != "" {
-		if useTUI {
-			if err := iface.RunOneShotBubble(agentCtx, result.Agent, message); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-		} else {
-			if err := cli.RunOneShot(agentCtx, message); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
+		if err := iface.RunOneShotBubble(agentCtx, result.Agent, message); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	} else {
 		// Check if stdin has data (piped input)
@@ -195,29 +183,15 @@ Examples:
 			}
 			msg := strings.TrimSpace(input.String())
 			if msg != "" {
-				if useTUI {
-					if err := iface.RunOneShotBubble(agentCtx, result.Agent, msg); err != nil {
-						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-						os.Exit(1)
-					}
-				} else {
-					if err := cli.RunOneShot(agentCtx, msg); err != nil {
-						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-						os.Exit(1)
-					}
+				if err := iface.RunOneShotBubble(agentCtx, result.Agent, msg); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
 				}
 			}
 		} else {
-			if useTUI {
-				if err := iface.RunInteractiveBubble(agentCtx, result.Agent); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-					os.Exit(1)
-				}
-			} else {
-				if err := cli.RunInteractive(agentCtx); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-					os.Exit(1)
-				}
+			if err := iface.RunInteractiveBubble(agentCtx, result.Agent); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
 			}
 		}
 	}
