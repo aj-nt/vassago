@@ -42,6 +42,15 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 - Character-based fallback with model-specific ratios for Anthropic/Ollama
 - Integrated into `ConversationContext.TokenCount()` and context overflow detection
 
+### Phase 28: Namespace / Multi-Tenancy (COMPLETE)
+
+**Files:** `daemon/internal/store/namespace.go`, `daemon/internal/store/schema.go`
+
+- `owner` column on all store tables (memories, sessions, tools, skills)
+- API key → owner mapping with gRPC context extraction
+- Store-layer query scoping: all queries filtered by owner
+- Isolation tests verify cross-tenant data leakage is impossible
+
 ### Phase 30: Parallel Tool Dispatch (COMPLETE)
 
 **Files:** `agent/pipeline/parallel_dispatch.go`
@@ -61,6 +70,16 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 - Extraction runs in own goroutine with timeout + 3 retries with backoff
 - Uses cheapest available model for extraction (JSON structured task)
 - Full test suite: subscribe, receive, skip-on-empty, nil-mnemo, cheapest-model selection
+
+### Phase 32: Prompt Caching (COMPLETE)
+
+**Files:** `agent/pipeline/cache_prep_test.go`, `agent/provider/anthropic.go`
+
+- `RequestPrepStage` calculates `CacheBreakpoint` based on system prompt length
+- `CacheDisabled` flag on `ConversationContext` when hot block changes (invalidation)
+- Anthropic provider injects `cache_control: ephemeral` on content blocks up to breakpoint
+- Metrics track cache hit rate
+- 9 tests all passing
 
 ### Phase 33: Observability & Structured Logging (COMPLETE)
 
@@ -122,17 +141,15 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ---
 
-### Phase 28: Namespace — Multi-Tenancy (finish)
+### Phase 28: Namespace — Multi-Tenancy (COMPLETE)
 
-**Problem:** Schema and gRPC interceptor for namespace scoping exist, but the store layer doesn't scope queries by namespace yet.
+**Files:** `daemon/internal/store/schema.go` (migrations v5–v8), `daemon/internal/store/store.go`, `daemon/internal/grpc/namespace.go`, `daemon/internal/grpc/namespace_test.go`, `daemon/internal/store/namespace_test.go`
 
-**Remaining work:**
-1. Add `namespace` column to all store tables
-2. Scope all store queries with `WHERE namespace = ?`
-3. Namespace-isolated memory, sessions, and tools
-4. Integration tests with multiple namespaces
-
----
+- `owner` columns on all tables (memories, sessions, todos, cron_jobs, skills, saved_tools) with `DEFAULT 'default'`
+- `api_keys` table mapping API key → owner
+- gRPC interceptor extracts owner from API key via `OwnerFromCtx()`
+- Store-layer scoping: all queries filtered by owner (AddMemory, Search, Remove, List, etc.)
+- Full isolation tests: cross-namespace memory leak prevention, API key → owner lookup
 
 ### Phase 32: Prompt Caching — Anthropic Cache Control (finish)
 
@@ -196,9 +213,7 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 | Priority | Phase | Rationale |
 |----------|-------|-----------|
-| 1 | **Phase 28** (Namespace) | Multi-tenancy foundation; schema + interceptor already exist, needs store scoping |
-| 2 | **Phase 32** (Prompt Caching) | Cost — Anthropic already supports it; needs cache-hit tracking and invalidation |
-| 3 | **Phase 34** (Tool Interruptibility) | UX — Ctrl+C during long tool runs is a real pain point |
-| 4 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers |
-| 5 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
-| 6 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
+| 1 | **Phase 34** (Tool Interruptibility) | UX — Ctrl+C during long tool runs is a real pain point |
+| 2 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers |
+| 3 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
+| 4 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
