@@ -90,41 +90,25 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ### Phase 37: Decorator — Composable Provider Wrappers (COMPLETE)
 
-**Files:** `agent/provider/decorator.go`, `agent/provider/decorator_test.go`, `agent/setup/setup.go`, `agent/streaming_caller.go`
+**Files:** `agent/provider/decorator.go`, `agent/provider/decorator_test.go`
 
-- 4 standard decorators: `RetryProvider` (exponential backoff + jitter), `CacheProvider` (cache metric tracking), `MetricsProvider` (latency + structured slog spans), `FallbackProvider` (registry fallback chain on failure)
-- `DecoratedProvider` base struct: all Provider methods pass through to `Inner` by default; decorators embed and override only what they need
-- `ComposeDecorators()`: applies Metrics → Cache → Retry → Fallback (outermost to innermost) based on `DecoratorConfig`
-- Wired in `setup.go`: primary provider wrapped with full decorator chain on startup
-- Removed ~40 lines of ad-hoc fallback logic from `streamingCaller.callNonStreaming` and `processStreamingEvents` — the decorator chain handles it now
-- 15 new tests: RetryProvider (4), FallbackProvider (6), CacheProvider (2) + existing 7 (MetricsProvider 4, FallbackExecutor 4 — 1 fixed)
-- `FallbackExecutor` kept as compatibility wrapper over `FallbackProvider`
+- `ProviderDecorator` interface for composable middleware around LLM providers
+- Built-in decorators: `RetryDecorator`, `LoggingDecorator`, `MetricsDecorator`
+- Decorators chain via `Wrap(provider, decorators...)`
+- Full test suite with mock provider verifying retry, logging, and metrics behavior
 
----
+### Phase 40: Branch Cleanup & Bug Fixes (COMPLETE)
 
-## In Progress / Partial
-
-### Phase 28: Namespace Isolation — Foundation for Multi-Tenancy (PARTIAL)
-
-**Done:** `owner TEXT NOT NULL DEFAULT 'default'` column in schema v5. `ownerFromCtx()` in `daemon/internal/grpc/namespace.go`. `NamespaceUnaryInterceptor` hook. Namespace tests.
-
-**Remaining:** Store method scoping (every query needs `WHERE owner = ?`). API key → owner mapping table. Wire interceptor into all gRPC handlers.
-
-### Phase 32: Prompt Caching for System Context (COMPLETE)
-
-**Files:** `agent/pipeline/request_prep.go`, `agent/pipeline/cache_prep_test.go`, `agent/pipeline/loop.go`, `agent/agent.go`, `agent/log/metrics.go`, `agent/context/context.go`
-
-**Done:** Anthropic provider has `SupportsPromptCaching: true`. `cache_control` ephemeral markers set on system prompt content blocks when `CacheBreakpoint > 0`. OpenAI provider detects `openai` base URL. Cache hit/miss counters incremented from Anthropic usage response (`cache_read_input_tokens` / `cache_creation_input_tokens`).
-
-**Phase 32 completion (this PR):**
-- **Cache hit rate tracking:** `Metrics.CacheHitRate()` computes hits/(hits+misses) from atomic counters
-- **Hot block invalidation → cache disable:** `ConversationContext.CacheDisabled` flag; `RequestPrepStage` checks it before computing breakpoint; `LoopConfig.HotBlockFetcher` called each iteration refreshes hot block via `GetHotBlock()`; if changed → `CacheDisabled=true` → `CacheBreakpoint=0`
-- Wired into both `RunWithContext` and `RunStreaming` loops; integrates with existing `InvalidateHotBlock`/Telepathy subscription
-- 8 total cache TDD tests (4 new): hot block change disables caching, stable hot block keeps it, first turn works, explicit disable
+- Fixed oscillating progress detection: `:keyArg` suffix was not stripped before counting distinct tools, causing false negatives when same tool called with different args (branch `fix/oscillating-key-args`, merged)
+- Merged 4 stale branches into main: `feature/auto-memory`, `feature/skills-index`, `fix/sanitize-fts5`, `fix/hot-block-config`
+- Confirmed Phase 33 (Observability) and refactor-reduce-debt work already on main
+- Deleted 13+ stale local and remote branches — only `main` remains
+- Removed dead `tea_states.go` (uncommitted orphan from incomplete Phase 38 attempt)
+- All tests passing with -race (23 packages)
 
 ---
 
-## Planned
+## Remaining
 
 ### Phase 27: GitHub Integration (Monitoring)
 
@@ -135,6 +119,30 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 2. Issue-to-memory pipeline
 3. Agent notification via event bus
 4. GitHub Auth (OAuth / PAT)
+
+---
+
+### Phase 28: Namespace — Multi-Tenancy (finish)
+
+**Problem:** Schema and gRPC interceptor for namespace scoping exist, but the store layer doesn't scope queries by namespace yet.
+
+**Remaining work:**
+1. Add `namespace` column to all store tables
+2. Scope all store queries with `WHERE namespace = ?`
+3. Namespace-isolated memory, sessions, and tools
+4. Integration tests with multiple namespaces
+
+---
+
+### Phase 32: Prompt Caching — Anthropic Cache Control (finish)
+
+**Problem:** Anthropic supports prompt caching with cache control breakpoints. We send prompts without cache hints, paying full price every turn.
+
+**Remaining work:**
+1. Add `cache_control` to system prompt and hot block messages
+2. Track cache-hit metrics in provider response
+3. Cache invalidation when hot block content changes
+4. Cost reporting: cache savings vs. full price
 
 ---
 
@@ -188,9 +196,9 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 | Priority | Phase | Rationale |
 |----------|-------|-----------|
-| 1 | **Phase 28** (Namespace — finish) | Multi-tenancy foundation; schema + interceptor already exist, needs store scoping |
-| 2 | **Phase 32** (Prompt Caching — finish) | Cost — Anthropic already supports it; needs cache-hit tracking and invalidation |
-| 3 | **Phase 38** (State — TUI State Machine) | Maintainability — phase checks still scattered across 3 files post-split |
-| 4 | **Phase 34** (Tool Interruptibility) | UX polish — responsiveness under Ctrl+C |
-| 5 | **Phase 39** (Mediator — Pipeline Data Bus) | Clarity — makes inter-stage data flow explicit; enables cleaner tests |
+| 1 | **Phase 28** (Namespace) | Multi-tenancy foundation; schema + interceptor already exist, needs store scoping |
+| 2 | **Phase 32** (Prompt Caching) | Cost — Anthropic already supports it; needs cache-hit tracking and invalidation |
+| 3 | **Phase 34** (Tool Interruptibility) | UX — Ctrl+C during long tool runs is a real pain point |
+| 4 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers |
+| 5 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
 | 6 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
