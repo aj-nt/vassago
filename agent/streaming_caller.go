@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	agentctx "github.com/aj-nt/mnemosyne/agent/context"
-	agentlog "github.com/aj-nt/mnemosyne/agent/log"
 	"github.com/aj-nt/mnemosyne/agent/pipeline"
 	"github.com/aj-nt/mnemosyne/agent/provider"
 )
@@ -18,6 +17,9 @@ import (
 // streamingCaller implements pipeline.ProviderCaller for streaming execution.
 // It tries streaming first, falls back to non-streaming on stream init failure,
 // and accumulates streaming events into a ParsedResponse.
+//
+// Phase 37: provider-level fallback is handled by the FallbackProvider decorator
+// composed in setup.go. This caller no longer duplicates fallback logic.
 type streamingCaller struct {
 	agent   *Agent
 	out     chan<- StreamEvent
@@ -59,10 +61,12 @@ func (c *streamingCaller) Call(ctx context.Context, convCtx *agentctx.Conversati
 		return agentctx.ParsedResponse{}, false, fmt.Errorf("prepare error: %w", prepErr)
 	}
 
-	// Try streaming
+	// Try streaming. FallbackProvider (if composed) handles provider fallback
+	// internally — if the primary's Stream fails, it tries the fallback chain
+	// and returns a synthetic stream channel from non-streaming results.
 	streamCh, streamErr := p.Stream(ctx, req)
 	if streamErr != nil {
-		// Streaming not supported or init error — fall back to non-streaming
+		// Streaming init failed even after decorator fallback — use Stage 2-3.
 		return c.callNonStreaming(ctx, convCtx, prepared, p, modelName)
 	}
 
@@ -81,29 +85,8 @@ func (c *streamingCaller) callNonStreaming(ctx context.Context, convCtx *agentct
 	stage2 := pipeline.NewProviderCallStageWithRouter(c.agent.Registry, c.agent.Router)
 	result := stage2.Process(ctx, convCtx, prepared)
 	if result.Error != nil {
-		// Record failure for routing demotion
 		c.recordFailure(p, modelName, result.Error)
-
-		// If not the primary provider, try primary as fallback
-		if p.Name() != c.agent.Registry.Primary() {
-			if primary, err := c.agent.Registry.GetPrimary(); err == nil {
-				agentlog.Printf("Provider %q failed, falling back to primary %q: %v", p.Name(), primary.Name(), result.Error)
-				req, prepErr := primary.Prepare(ctx, convCtx, prepared)
-				if prepErr == nil {
-					fallbackResult, execErr := primary.Execute(ctx, req)
-					if execErr == nil && fallbackResult.Error == nil {
-						result = fallbackResult
-					}
-				}
-				if result.Error != nil {
-					return agentctx.ParsedResponse{}, false, fmt.Errorf("provider call failed: %w", result.Error)
-				}
-			} else {
-				return agentctx.ParsedResponse{}, false, fmt.Errorf("provider call failed: %w", result.Error)
-			}
-		} else {
-			return agentctx.ParsedResponse{}, false, fmt.Errorf("provider call failed: %w", result.Error)
-		}
+		return agentctx.ParsedResponse{}, false, fmt.Errorf("provider call failed: %w", result.Error)
 	}
 
 	parsed, err := c.agent.Stage3.Process(ctx, result)
@@ -160,23 +143,10 @@ func (c *streamingCaller) processStreamingEvents(streamCh <-chan agentctx.Stream
 				Arguments: json.RawMessage(currentToolInput.String()),
 			})
 		case agentctx.StreamError:
-			// Record failure for routing demotion
+			// Phase 37: provider-level fallback is handled by decorators.
+			// Mid-stream errors are unrecoverable — record and return.
 			c.recordFailure(p, modelName, event.Error)
-
-			// If not the primary provider, try the primary as immediate fallback
-			if p.Name() != c.agent.Registry.Primary() {
-				if primary, err := c.agent.Registry.GetPrimary(); err == nil {
-					agentlog.Printf("Provider %q failed during streaming, falling back to primary %q: %v", p.Name(), primary.Name(), event.Error)
-					// Execute with primary provider (non-streaming)
-					// This is a best-effort fallback — we can only do stages 2-3 here
-					// since stages 4-5 are handled by the pipeline loop.
-					// For streaming errors mid-stream, we return an error and let the
-					// outer loop handle it (consecutive error tracking).
-					return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed, primary fallback available: %w", event.Error)
-				}
-				return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming failed and primary fallback failed: %w", event.Error)
-			}
-			return agentctx.ParsedResponse{}, fmt.Errorf("primary provider streaming failed: %w", event.Error)
+			return agentctx.ParsedResponse{}, fmt.Errorf("provider streaming error: %w", event.Error)
 
 		case agentctx.StreamReasoning:
 			c.out <- StreamEvent{Type: agentctx.StreamReasoning, Reasoning: event.Reasoning}

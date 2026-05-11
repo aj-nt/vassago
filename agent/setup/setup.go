@@ -370,6 +370,16 @@ func Providers(cfg *agent.ProviderSection) *provider.ProviderRegistry {
 		agentlog.Fatalf("Primary provider %q not registered: %v", cfg.Name, err)
 	}
 
+	// Phase 37: wrap primary provider with decorator chain.
+	// Apply: Metrics → Cache → Retry → Fallback (if fallback chain configured).
+	primary, _ := registry.Get(cfg.Name)
+	decoratorCfg := provider.DecoratorConfig{
+		Retry:          provider.DefaultRetryConfig(),
+		EnableFallback: len(fallbackChain) > 0,
+	}
+	wrapped := provider.ComposeDecorators(primary, registry, nil, decoratorCfg)
+	registry.Register(cfg.Name, wrapped)
+
 	return registry
 }
 
