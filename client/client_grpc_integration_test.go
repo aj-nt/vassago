@@ -105,8 +105,8 @@ func TestClientGRPC_SearchMemories(t *testing.T) {
 	c, _, _ := setupMockServer(t)
 	ctx := context.Background()
 
-	c.AddMemory(ctx, "memory", "environment", "key1", "python is great", 3, "agent1")
-	c.AddMemory(ctx, "memory", "observation", "key2", "go is fast", 3, "agent1")
+	_, _ = c.AddMemory(ctx, "memory", "environment", "key1", "python is great", 3, "agent1")
+	_, _ = c.AddMemory(ctx, "memory", "observation", "key2", "go is fast", 3, "agent1")
 
 	results, err := c.SearchMemories(ctx, "python", "memory", 10)
 	if err != nil {
@@ -121,8 +121,8 @@ func TestClientGRPC_ListMemories(t *testing.T) {
 	c, _, _ := setupMockServer(t)
 	ctx := context.Background()
 
-	c.AddMemory(ctx, "memory", "environment", "key1", "content 1", 3, "agent1")
-	c.AddMemory(ctx, "memory", "observation", "key2", "content 2", 3, "agent1")
+	_, _ = c.AddMemory(ctx, "memory", "environment", "key1", "content 1", 3, "agent1")
+	_, _ = c.AddMemory(ctx, "memory", "observation", "key2", "content 2", 3, "agent1")
 
 	entries, err := c.ListMemories(ctx, "memory", nil, nil)
 	if err != nil {
@@ -195,7 +195,7 @@ func TestClientGRPC_SearchSessions(t *testing.T) {
 	c, _, _ := setupMockServer(t)
 	ctx := context.Background()
 
-	c.CreateSession(ctx, "test-agent", "cli", "test session about python")
+	_, _ = c.CreateSession(ctx, "test-agent", "cli", "test session about python")
 
 	sessions, err := c.SearchSessions(ctx, "python", 10)
 	if err != nil {
@@ -210,7 +210,7 @@ func TestClientGRPC_ListRecentSessions(t *testing.T) {
 	c, _, _ := setupMockServer(t)
 	ctx := context.Background()
 
-	c.CreateSession(ctx, "test-agent", "cli", "session 1")
+	_, _ = c.CreateSession(ctx, "test-agent", "cli", "session 1")
 
 	sessions, err := c.ListRecentSessions(ctx, 10)
 	if err != nil {
