@@ -262,14 +262,10 @@ func TestAnalyzeImage_RedTeam(t *testing.T) {
 		// The analyzer itself doesn't check paths (that's done by ProviderImageAnalyzer)
 		// But the tool handler accepts any path since the analyzer handles validation
 		// This test verifies the analyzer interface works
-		result, isError := AnalyzeImage(map[string]interface{}{
+		result, _ := AnalyzeImage(map[string]interface{}{
 			"image_path": "/etc/passwd",
 			"question":   "What is this?",
 		})
-		if isError {
-			// The mock analyzer doesn't check paths, so this should succeed
-			// Real ProviderImageAnalyzer would block with isPathSafe
-		}
 		_ = result
 	})
 

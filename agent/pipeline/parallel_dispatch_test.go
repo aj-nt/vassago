@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,15 +25,20 @@ func TestParallelDispatch_IndependentToolsRunConcurrently(t *testing.T) {
 	registry := tools.NewToolRegistry()
 
 	// Two slow, independent tools that record their execution order
+	var orderMu sync.Mutex
 	var order []string
 	var activeCount atomic.Int32
 
 	slowTool := func(name string) tools.ToolHandler {
 		return func(args map[string]interface{}) (string, bool) {
 			activeCount.Add(1)
+			orderMu.Lock()
 			order = append(order, name+"-start")
+			orderMu.Unlock()
 			time.Sleep(50 * time.Millisecond) // simulate I/O
+			orderMu.Lock()
 			order = append(order, name+"-end")
+			orderMu.Unlock()
 			activeCount.Add(-1)
 			return name + " result", false
 		}

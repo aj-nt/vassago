@@ -211,10 +211,10 @@ func (s *ParallelToolDispatchStage) executeSingle(tc agentctx.ToolCall) agentctx
 	count := s.callCounts[tc.Name]
 	s.callMu.Unlock()
 
-	if !tools.CheckBudget(tc.Name, count) {
+	if !tools.DefaultToolBudget().CheckBudget(tc.Name, count) {
 		return agentctx.ToolResult{
 			CallID: tc.ID, Name: tc.Name,
-			Result:  tools.BudgetExceededMessage(tc.Name, count),
+			Result:  tools.DefaultToolBudget().BudgetExceededMessage(tc.Name, count),
 			IsError: true,
 		}
 	}
