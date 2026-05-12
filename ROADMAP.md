@@ -127,56 +127,36 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ---
 
-## Remaining
+## Completed (this session)
 
-### Phase 27: GitHub Integration (Monitoring)
+### Phase 38: TUI State Pattern ✅
 
-**Problem:** When Mnemosyne goes public, we need to monitor the GitHub repo for issues, discussions, PRs, and community submissions.
+Removed 229-line legacy fallback switch in `tea_handlers.go`. All message handling now goes through the 5 state types in `tui_state.go`. `WindowSizeMsg` hoisted above dispatch. Added `approvalRequestMsg` to thinking/streaming/toolCall states with shared `handleApprovalRequest` helper.
 
-**Planned components:**
-1. GitHub webhook listener
-2. Issue-to-memory pipeline
-3. Agent notification via event bus
-4. GitHub Auth (OAuth / PAT)
+### Phase 27: GitHub Webhook Integration ✅
 
----
+`daemon/internal/github/` — HTTP handler at `/github/webhook` with:
+- HMAC-SHA256 validation (`X-Hub-Signature-256`)
+- Issue and PR event parsing → structured observation memories
+- Store persistence + Telepathy event emission
+- Config: `github.enabled` + `github.webhook_secret` in daemon YAML
 
-### Phase 38: State — TUI Phase State Machine
+### Bug Fixes
 
-**Pattern:** **State (GoF)** — Replaces the current `phase` enum + switch-based dispatch with polymorphic state objects.
-
-**Problem:** The TUI uses a `phase` enum with 5 values. The `Update()` method (now in `tea_handlers.go`, 554 lines post-split) still has phase checks scattered throughout. Adding a new phase means touching 3+ files. This is the classic State pattern smell.
-
-**Proposal:**
-1. Define `TUIState` interface with `Update`, `View`, `Enter`, `Exit`.
-2. Create state objects: `ReadyState`, `ThinkingState`, `StreamingState`, `ToolCallState`, `ApprovalState`, `ErrorState`.
-3. Move phase-specific fields into their state objects (e.g., `spinner` lives in `ThinkingState`).
-4. `teaModel.Update()` delegates to `m.state.Update()`, which returns the next state.
-
-**Estimated effort:** 2 sessions.
+- **CodeRead** tool for full-file reading (50K char cap vs FileRead's 20K)
+- **Progress detection** threshold raised 5→8; added `ExecuteCode` and `CodeRead` to `keyArgFields`
+- **setupAllowedDirs** now resolves macOS `/tmp → /private/tmp` symlink
+- Roadmap deduplication — removed Phase 28/32/34 from "Remaining" section
 
 ---
 
-### Phase 39: Mediator — Explicit Pipeline Data Bus
+## Skipped
 
-**Pattern:** **Mediator (GoF)** — Introduces a `PipelineBus` that stages write results to and read results from, replacing implicit mutation of `ConversationContext`.
-
-**Problem:** Pipeline stages communicate by mutating `ConversationContext` directly. Stage 4 appends tool results; Stage 5 reads them. This implicit data flow means you can't tell what a stage reads/writes without reading its source. Testing a stage in isolation requires constructing the full `ConversationContext`.
-
-**Proposal:**
-1. Define `PipelineBus` struct with fields for each inter-stage data dependency.
-2. Refactor each stage's `Process()` to read from bus and write to bus.
-3. `ConversationContext` becomes read-only during a single iteration.
-4. Dramatically simplifies testing: mock a bus with known inputs, call one stage, assert bus outputs.
-
-**Estimated effort:** 3 sessions. Touches every pipeline stage and the loop skeleton.
+### Phase 39: Pipeline Bus — reassessed as not worth the 3-session cost. Inter-stage data flow is already explicit (each stage returns its own result type). `convCtx.Messages` mutation is the correct accumulation point across iterations. No further work planned.
 
 ---
 
-## Suggested Priority Order
+## Status: roadmap complete
 
-| Priority | Phase | Rationale |
-|----------|-------|-----------|
-| 1 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers; partial implementation already on main |
-| 2 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
-| 3 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
+All phases are either done or deliberately skipped. The project is ready for open-source launch.
+
