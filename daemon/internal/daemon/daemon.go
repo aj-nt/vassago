@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
+	"github.com/aj-nt/mnemosyne/daemon/internal/github"
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/messaging"
@@ -35,6 +36,12 @@ type Config struct {
 	HotBlock   HotBlockConfig    `yaml:"hot_block"`
 	Messaging  MessagingConfig   `yaml:"messaging"`
 	Cron       CronConfig        `yaml:"cron"`
+	GitHub     GitHubConfig      `yaml:"github"`
+}
+
+type GitHubConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	WebhookSecret string `yaml:"webhook_secret"`
 }
 
 type CronConfig struct {
@@ -346,6 +353,21 @@ func (d *Daemon) Run() error {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/api/chat", d.handleChat)
 
+		// GitHub webhook integration
+		if d.config.GitHub.Enabled {
+			github.WebhookSecret = d.config.GitHub.WebhookSecret
+			webhookHandler := github.NewHandler(func(eventType string, payload []byte) (string, error) {
+				memory, err := d.processGitHubEvent(eventType, payload)
+				if err != nil {
+					slog.Error("github webhook: event processing failed", "event", eventType, "error", err)
+					return "", err
+				}
+				return memory, nil
+			})
+			mux.Handle("/github/webhook", webhookHandler)
+			slog.Info("GitHub webhook enabled", "path", "/github/webhook")
+		}
+
 		d.httpServer = &http.Server{
 			Addr:    d.config.Daemon.HTTP,
 			Handler: mux,
@@ -439,6 +461,50 @@ func (d *Daemon) handleChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)
 	w.Write([]byte(`{"error":"chat via HTTP not implemented; use gRPC ChatStream instead"}`))
+}
+
+// processGitHubEvent converts a GitHub webhook event into a memory and persists it.
+func (d *Daemon) processGitHubEvent(eventType string, payload []byte) (string, error) {
+	var memory string
+	var err error
+
+	switch eventType {
+	case "issues":
+		memory, err = github.ParseIssueEvent(payload)
+	case "pull_request":
+		memory, err = github.ParsePREvent(payload)
+	default:
+		// ping, push, star, etc. — silently skip
+		return "", nil
+	}
+
+	if err != nil {
+		return "", err
+	}
+	if memory == "" {
+		return "", nil
+	}
+
+	// Persist as a memory
+	if _, saveErr := d.store.AddMemory(store.AddMemoryParams{
+		Owner:       "default",
+		Content:     memory,
+		Category:    "observation",
+		Priority:    3,
+		SourceAgent: "github-webhook",
+	}); saveErr != nil {
+		return "", fmt.Errorf("save memory: %w", saveErr)
+	}
+
+	// Emit telepathy event so agents invalidate their hot blocks
+	d.hub.Publish(pubsub.Event{
+		Type:    pb.UpdateEvent_UPDATED,
+		Target:  "memory",
+		AgentID: "daemon",
+	})
+
+	slog.Info("github webhook: memory saved", "event", eventType, "chars", len(memory))
+	return memory, nil
 }
 
 // runAutoConsolidation runs periodic consolidation (expired + idle sweep) every hour.
