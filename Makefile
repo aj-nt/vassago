@@ -88,14 +88,15 @@ all: check-licenses build test-race lint
 check-licenses:
 	@./scripts/check-license-headers.sh
 
-# Deploy to local machine (build + copy to ~/bin)
+# Deploy to local machine (build + copy to ~/bin and ~/.local/bin)
 deploy: build
-	mkdir -p $(HOME)/bin
+	mkdir -p $(HOME)/bin $(HOME)/.local/bin
 	cp $(BINARY_DIR)/mnemosyne-daemon $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne-cli $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/bin/
-	@echo "✓ Binaries deployed to $(HOME)/bin/"
+	cp $(BINARY_DIR)/mnemosyne $(HOME)/.local/bin/
+	@echo "✓ Binaries deployed to $(HOME)/bin/ and $(HOME)/.local/bin/"
 
 # Install: build + deploy + add to PATH hint
 install: deploy
