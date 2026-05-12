@@ -141,42 +141,6 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 ---
 
-### Phase 28: Namespace — Multi-Tenancy (COMPLETE)
-
-**Files:** `daemon/internal/store/schema.go` (migrations v5–v8), `daemon/internal/store/store.go`, `daemon/internal/grpc/namespace.go`, `daemon/internal/grpc/namespace_test.go`, `daemon/internal/store/namespace_test.go`
-
-- `owner` columns on all tables (memories, sessions, todos, cron_jobs, skills, saved_tools) with `DEFAULT 'default'`
-- `api_keys` table mapping API key → owner
-- gRPC interceptor extracts owner from API key via `OwnerFromCtx()`
-- Store-layer scoping: all queries filtered by owner (AddMemory, Search, Remove, List, etc.)
-- Full isolation tests: cross-namespace memory leak prevention, API key → owner lookup
-
-### Phase 32: Prompt Caching — Anthropic Cache Control (finish)
-
-**Problem:** Anthropic supports prompt caching with cache control breakpoints. We send prompts without cache hints, paying full price every turn.
-
-**Remaining work:**
-1. Add `cache_control` to system prompt and hot block messages
-2. Track cache-hit metrics in provider response
-3. Cache invalidation when hot block content changes
-4. Cost reporting: cache savings vs. full price
-
----
-
-### Phase 34: Tool Execution Interruptibility ✅
-
-**Problem:** `InterruptSignal` is checked between iterations in the pipeline loop, but not during tool execution. If a user presses Ctrl+C while the agent is running a 30-second `Execute` command or a slow web fetch, they have to wait for the tool to finish before the interrupt takes effect.
-
-**Proposal:**
-1. Pass `ctx context.Context` to `ToolHandler` (change signature to include `ctx`).
-2. Tools that support cancellation (terminal commands, HTTP fetches) check `ctx.Done()` periodically.
-3. Wire the `InterruptSignal` to cancel the context passed to tool dispatch.
-4. Tools that can't be interrupted (e.g., atomic file writes) complete normally.
-
-**Estimated effort:** 2 sessions. Touches every tool handler.
-
----
-
 ### Phase 38: State — TUI Phase State Machine
 
 **Pattern:** **State (GoF)** — Replaces the current `phase` enum + switch-based dispatch with polymorphic state objects.
@@ -213,7 +177,6 @@ Branch: `feat/bubbletea-tui`, merged to main (commit 665c88b)
 
 | Priority | Phase | Rationale |
 |----------|-------|-----------|
-| 1 | **Phase 34** (Tool Interruptibility) ✅ | UX — Ctrl+C during long tool runs is a real pain point |
-| 2 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers |
-| 3 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
-| 4 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
+| 1 | **Phase 38** (State — TUI) | Maintainability — phase checks scattered across handlers; partial implementation already on main |
+| 2 | **Phase 39** (Mediator — Pipeline Bus) | Clarity — explicit data flow; enables cleaner isolated tests |
+| 3 | **Phase 27** (GitHub Integration) | Community — needed for open-source launch |
