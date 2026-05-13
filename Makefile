@@ -96,6 +96,7 @@ deploy: build
 	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/.local/bin/
+	codesign -s - -f $(HOME)/bin/mnemosyne $(HOME)/bin/mnemosyne-agent $(HOME)/bin/mnemosyne-daemon $(HOME)/bin/mnemosyne-cli 2>/dev/null; true
 	@echo "✓ Binaries deployed to $(HOME)/bin/ and $(HOME)/.local/bin/"
 
 # Install: build + deploy + add to PATH hint
