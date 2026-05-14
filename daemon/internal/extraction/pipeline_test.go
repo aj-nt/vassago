@@ -4,10 +4,10 @@
 package extraction
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
-
 func TestBuildExtractionPrompt(t *testing.T) {
 	msgs := []SessionMessage{
 		{Role: "user", Content: "I prefer short commit messages"},
@@ -66,7 +66,6 @@ func TestParseExtractionResponse_Invalid(t *testing.T) {
 		{"empty json", `{}`},
 		{"no memories key", `{"other": []}`},
 		{"invalid json", `not json`},
-		{"empty array", `{"memories": []}`},
 	}
 
 	for _, tt := range tests {
@@ -76,6 +75,18 @@ func TestParseExtractionResponse_Invalid(t *testing.T) {
 				t.Error("expected error for invalid input")
 			}
 		})
+	}
+}
+
+func TestParseExtractionResponse_EmptyMemories(t *testing.T) {
+	// The prompt explicitly tells the LLM: "If nothing durable is found,
+	// return an empty memories array." Empty is valid, not an error.
+	candidates, err := parseExtractionResponse(`{"memories": []}`)
+	if err != nil {
+		t.Fatalf("unexpected error for empty memories: %v", err)
+	}
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
 	}
 }
 
@@ -181,6 +192,45 @@ func TestExtractionPipeline_EmptyMessages(t *testing.T) {
 	}
 }
 
+func TestExtractionPipeline_PartialPersist(t *testing.T) {
+	// Simulate the case where the LLM returns 3 candidates, but
+	// AddMemory fails for one of them. The pipeline should still
+	// persist the other two and report the correct count.
+	store := &mockMemoryStore{
+		keys: []string{},
+		addErrors: map[string]error{
+			"bad_key": fmt.Errorf("constraint violation"),
+		},
+	}
+	mockResp := `{"memories": [
+		{"key": "good_one", "content": "ok 1", "category": "quirk", "target": "memory", "priority": 2},
+		{"key": "bad_key", "content": "will fail", "category": "quirk", "target": "memory", "priority": 2},
+		{"key": "good_two", "content": "ok 2", "category": "quirk", "target": "memory", "priority": 2}
+	]}`
+
+	cfg := DefaultConfig()
+	cfg.Model = "test"
+	pipeline := NewPipeline(cfg, store)
+	pipeline.SetClient(&mockLLMClient{response: mockResp})
+
+	msgs := []SessionMessage{
+		{Role: "user", Content: "I use vim"},
+	}
+
+	persisted, err := pipeline.ExtractAndPersist("test-owner", "test-agent", msgs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if persisted != 2 {
+		t.Errorf("expected 2 persisted, got %d (bad_key should be skipped, not block others)", persisted)
+	}
+
+	// Verify all three were attempted
+	if len(store.addCalls) != 3 {
+		t.Errorf("expected 3 AddMemory calls (one failed), got %d", len(store.addCalls))
+	}
+}
+
 // ---- Mock LLM Client ----
 
 type mockLLMClient struct {
@@ -191,4 +241,24 @@ type mockLLMClient struct {
 func (m *mockLLMClient) Complete(prompt string) (string, error) {
 	m.calledWith = prompt
 	return m.response, nil
+}
+
+// ---- Mock Memory Store ----
+
+type mockMemoryStore struct {
+	keys       []string
+	addErrors  map[string]error // key → error to return when key matches
+	addCalls   []string         // track keys that were persisted
+}
+
+func (m *mockMemoryStore) AddMemory(owner, target, category, key, content string, priority int32, sourceAgent string) (string, error) {
+	m.addCalls = append(m.addCalls, key)
+	if err, ok := m.addErrors[key]; ok {
+		return "", err
+	}
+	return "id-" + key, nil
+}
+
+func (m *mockMemoryStore) ListMemoryKeys(owner string) ([]string, error) {
+	return m.keys, nil
 }
