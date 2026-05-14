@@ -149,3 +149,50 @@ func indexOf(s, substr string) int {
 	}
 	return -1
 }
+func TestComputeHotBlock_withLastSession(t *testing.T) {
+    s := testStore(t)
+
+    addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+    result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+        CharLimit:     4000,
+        BoostPriority: 2,
+    }, "session-abc", "309 messages, 1h 55m")
+    if err != nil {
+        t.Fatalf("compute hot block: %v", err)
+    }
+
+    // Should start with session info
+    if indexOf(result.Content, "[session]") < 0 {
+        t.Error("hot block should start with session info")
+    }
+    if indexOf(result.Content, "session-abc") < 0 {
+        t.Error("hot block should contain session ID")
+    }
+    if indexOf(result.Content, "309 messages, 1h 55m") < 0 {
+        t.Error("hot block should contain session summary")
+    }
+    // Memory entry should still be there
+    if indexOf(result.Content, "Python 3.11") < 0 {
+        t.Error("hot block should still contain memories")
+    }
+}
+
+func TestComputeHotBlock_withoutLastSession(t *testing.T) {
+    s := testStore(t)
+
+    addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+    result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+        CharLimit:     4000,
+        BoostPriority: 2,
+    }, "", "")
+    if err != nil {
+        t.Fatalf("compute hot block: %v", err)
+    }
+
+    // Should NOT have session section when empty
+    if indexOf(result.Content, "[session]") >= 0 {
+        t.Error("hot block should not have session section when session ID is empty")
+    }
+}

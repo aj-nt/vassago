@@ -106,8 +106,26 @@ func (s *Store) ComputeHotBlock(owner, target string, config HotBlockConfig) (*H
 	}, nil
 }
 
-// formatEntry renders a memory entry in the hot block format:
-// [category] key: content
+// ComputeHotBlockWithSession builds a hot block with optional last-session context
+// prepended above the memory entries.
+func (s *Store) ComputeHotBlockWithSession(owner, target string, config HotBlockConfig, lastSessionID, lastSessionSummary string) (*HotBlockResult, error) {
+	result, err := s.ComputeHotBlock(owner, target, config)
+	if err != nil {
+		return nil, err
+	}
+
+	if lastSessionID != "" {
+		prefix := fmt.Sprintf("[session] Last session: %s — %s", lastSessionID, lastSessionSummary)
+		if result.Content != "" {
+			result.Content = prefix + "\n" + result.Content
+		} else {
+			result.Content = prefix
+		}
+		result.CharCount += int32(len(prefix)) + 1 // +1 for newline
+	}
+
+	return result, nil
+}
 func formatEntry(e *MemoryEntry) string {
 	if e.Key != "" {
 		return fmt.Sprintf("[%s] %s: %s", e.Category, e.Key, e.Content)
