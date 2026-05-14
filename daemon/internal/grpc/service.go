@@ -38,6 +38,22 @@ type Service struct {
 	// The daemon wires this to trigger debounced memory extraction.
 	// May be nil (no extraction configured).
 	OnMessagesAdded func(sessionID, owner string)
+
+	// summaryClient is an optional LLM client used to generate session
+	// summaries when EndSession is called. If nil, falls back to a
+	// metadata-based summary (message count + duration).
+	summaryClient LLMClient
+}
+
+// LLMClient is the interface for generating text from prompts.
+// extraction.HTTPClient satisfies this.
+type LLMClient interface {
+	Complete(prompt string) (string, error)
+}
+
+// SetSummaryClient sets the LLM client for session summary generation.
+func (s *Service) SetSummaryClient(c LLMClient) {
+	s.summaryClient = c
 }
 
 // NewService creates a new gRPC service backed by the given store.

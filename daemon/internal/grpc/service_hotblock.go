@@ -38,7 +38,17 @@ func (s *Service) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb
 		config.CharLimit = store.DefaultHotBlockCharLimit
 	}
 
-	result, err := s.store.ComputeHotBlock(ownerFromCtx(ctx), req.Target, config)
+	// Fetch agent's last session info if agent_id provided
+	var lastSessionID, lastSessionSummary string
+	if req.AgentId != "" {
+		agent, err := s.store.GetAgentByID(req.AgentId)
+		if err == nil {
+			lastSessionID = agent.LastSessionID
+			lastSessionSummary = agent.LastSessionSummary
+		}
+	}
+
+	result, err := s.store.ComputeHotBlockWithSession(ownerFromCtx(ctx), req.Target, config, lastSessionID, lastSessionSummary)
 	if err != nil {
 		slog.Error("GetHotBlock failed", "error", err, "target", req.Target)
 		return nil, status.Errorf(codes.Internal, "compute hot block: %v", err)

@@ -345,6 +345,9 @@ func New(cfg *Config) (*Daemon, error) {
 			APIKey:   cfg.Extraction.APIKey,
 		})
 
+		// Reuse the LLM client for session summaries on EndSession
+		grpcSvc.SetSummaryClient(client)
+
 		pipeline := extraction.NewPipeline(extCfg, newExtractionStore(st))
 		pipeline.SetClient(client)
 

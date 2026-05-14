@@ -5,7 +5,10 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
@@ -81,12 +84,82 @@ func (s *Service) EndSession(ctx context.Context, req *pb.EndSessionRequest) (*p
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}
 
+	// Get session before ending — we need the agent_id
+	sess, err := s.store.GetSession(req.SessionId)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "session not found: %s", req.SessionId)
+	}
+
 	if err := s.store.EndSession(req.SessionId); err != nil {
 		slog.Error("EndSession failed", "error", err, "session_id", req.SessionId)
 		return nil, status.Errorf(codes.Internal, "end session: %v", err)
 	}
 
+	// Generate summary and update agent
+	summary := generateSessionSummary(s.store, s.summaryClient, sess)
+	if err := s.store.SetAgentLastSession(sess.AgentID, req.SessionId, summary); err != nil {
+		slog.Error("EndSession: failed to update agent last session", "error", err)
+		// Non-fatal — session is already ended
+	}
+
 	return &pb.EndSessionResponse{Ended: true}, nil
+}
+
+// generateSessionSummary produces a one-line summary of a session.
+// If an LLM client is available and the session has enough messages,
+// it uses AI summarization. Otherwise falls back to metadata.
+func generateSessionSummary(st *store.Store, client LLMClient, sess *store.Session) string {
+	// Fallback: metadata summary
+	metaSummary := fmt.Sprintf("%d messages", sess.MessageCount)
+	if sess.CreatedAt > 0 && sess.LastActiveAt > sess.CreatedAt {
+		dur := time.Duration(sess.LastActiveAt-sess.CreatedAt) * time.Second
+		if dur >= time.Minute {
+			metaSummary = fmt.Sprintf("%d messages, %s", sess.MessageCount,
+				dur.Truncate(time.Minute).String())
+		}
+	}
+
+	if client == nil || sess.MessageCount < 2 {
+		return metaSummary
+	}
+
+	msgs, err := st.GetSessionMessages(sess.ID)
+	if err != nil || len(msgs) == 0 {
+		return metaSummary
+	}
+
+	// Build prompt from first few messages
+	var sb strings.Builder
+	sb.WriteString("Summarize this AI agent session in ONE short line (max 100 chars). What was the main topic or accomplishment?\n\n")
+	count := 0
+	for _, m := range msgs {
+		if m.Role == "user" || m.Role == "assistant" {
+			content := m.Content
+			if len(content) > 200 {
+				content = content[:200]
+			}
+			sb.WriteString(fmt.Sprintf("[%s] %s\n", m.Role, content))
+			count++
+			if count >= 10 {
+				break
+			}
+		}
+	}
+
+	summary, err := client.Complete(sb.String())
+	if err != nil {
+		slog.Debug("EndSession: LLM summary failed, using fallback", "error", err)
+		return metaSummary
+	}
+
+	summary = strings.TrimSpace(summary)
+	if len(summary) > 200 {
+		summary = summary[:200]
+	}
+	if summary == "" {
+		return metaSummary
+	}
+	return summary
 }
 
 func (s *Service) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*pb.Session, error) {
