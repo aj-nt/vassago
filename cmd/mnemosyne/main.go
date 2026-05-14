@@ -28,10 +28,6 @@ func main() {
 		cmdStatus(args)
 	case "daemon":
 		cmdDaemon(args)
-	case "agent":
-		cmdAgent(args)
-	case "chat":
-		cmdChat(args)
 	case "config":
 		cmdConfig(args)
 	case "memory":
@@ -58,22 +54,20 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`Mnemosyne — AI agent memory and management system
+	fmt.Println(`Mnemosyne — Shared memory daemon for AI agents
 
 Usage:
   mnemosyne <command> [arguments]
 
 Commands:
   init            First-run setup (create dirs, configs)
-  start           Start daemon and agent services
-  stop            Stop daemon and agent services
-  status          Show daemon and agent status
-  daemon          Run the Mnemosyne daemon (background service)
-  agent           Run the Mnemosyne agent (interactive or server)
-  chat            Start an interactive chat session
+  start           Start the daemon service
+  stop            Stop the daemon service
+  status          Show daemon status
+  daemon          Run the Mnemosyne daemon (foreground)
   memory          Memory management (add, get, search, list, remove, stats)
-  export           Export all memories to JSON file
-  import           Import memories from JSON file (with backup)
+  export          Export all memories to JSON file
+  import          Import memories from JSON file (with backup)
   hot-block       Show the computed hot block
   sessions        Session management (list, resume, get)
   health          Health check for the daemon
@@ -83,8 +77,8 @@ Commands:
 
 Getting Started:
   mnemosyne init          # Set up directories and configs
-  mnemosyne start         # Start the daemon and agent
-  mnemosyne chat          # Start chatting
+  mnemosyne start         # Start the daemon
+  mnemosyne status        # Check daemon is running
 
 Use "mnemosyne <command> --help" for more information about a command.`)
 }
