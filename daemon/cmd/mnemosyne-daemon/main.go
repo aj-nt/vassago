@@ -12,6 +12,11 @@ import (
 )
 
 func main() {
+	// Suppress gRPC C-core INFO logs about fork() handlers.
+	// These fire whenever a process with active gRPC threads calls
+	// exec.Command (e.g., iMessage adapter, daemon spawn).
+	os.Setenv("GRPC_VERBOSITY", "ERROR")
+
 	configPath := flag.String("config", "", "Path to mnemosyne.yaml (default: ~/.mnemosyne/mnemosyne.yaml)")
 	flag.Parse()
 

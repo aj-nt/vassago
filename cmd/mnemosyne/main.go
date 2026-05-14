@@ -9,6 +9,9 @@ import (
 )
 
 func main() {
+	// Suppress gRPC C-core INFO logs about fork() handlers.
+	os.Setenv("GRPC_VERBOSITY", "ERROR")
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
