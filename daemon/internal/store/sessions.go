@@ -214,19 +214,26 @@ func (s *Store) EnsureAgent(agentID, name, role string) (*Agent, bool, error) {
 		return nil, false, fmt.Errorf("ensure agent: %w", err)
 	}
 
-	// Read the actual created_at (preserved on update)
-	var createdAt int64
-	row = s.db.QueryRow("SELECT created_at FROM agents WHERE id = ?", agentID)
-	if err := row.Scan(&createdAt); err != nil {
+	// Read the stored agent record to return all fields
+	var createdAt, lastSeenAt int64
+	var lastSessionID, lastSessionSummary, config string
+	row = s.db.QueryRow(
+		"SELECT created_at, last_seen_at, COALESCE(config,'{}'), COALESCE(last_session_id,''), COALESCE(last_session_summary,'') FROM agents WHERE id = ?",
+		agentID,
+	)
+	if err := row.Scan(&createdAt, &lastSeenAt, &config, &lastSessionID, &lastSessionSummary); err != nil {
 		return nil, false, fmt.Errorf("read agent: %w", err)
 	}
 
 	return &Agent{
-		ID:         agentID,
-		Name:       name,
-		Role:       role,
-		CreatedAt:  createdAt,
-		LastSeenAt: now,
+		ID:                 agentID,
+		Name:               name,
+		Role:               role,
+		CreatedAt:          createdAt,
+		LastSeenAt:         lastSeenAt,
+		Config:             config,
+		LastSessionID:      lastSessionID,
+		LastSessionSummary: lastSessionSummary,
 	}, isNew, nil
 }
 
@@ -266,6 +273,39 @@ func (s *Store) GetSessionMessages(sessionID string) ([]Message, error) {
 // AddMessage adds a single message to a session.
 func (s *Store) AddMessage(m Message) error {
 	return s.AddMessages(m.SessionID, []Message{m})
+}
+
+// SetAgentLastSession updates the agent's last session tracking fields.
+func (s *Store) SetAgentLastSession(agentID, sessionID, summary string) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	_, err := s.db.Exec(
+		"UPDATE agents SET last_session_id = ?, last_session_summary = ? WHERE id = ?",
+		sessionID, summary, agentID,
+	)
+	if err != nil {
+		return fmt.Errorf("set agent last session: %w", err)
+	}
+	return nil
+}
+
+// GetAgentByID retrieves an agent record by ID.
+func (s *Store) GetAgentByID(agentID string) (*Agent, error) {
+	agent := &Agent{}
+	err := s.db.QueryRow(
+		`SELECT id, name, role, created_at, last_seen_at,
+		 COALESCE(config,'{}'), COALESCE(last_session_id,''), COALESCE(last_session_summary,'')
+		 FROM agents WHERE id = ?`, agentID,
+	).Scan(&agent.ID, &agent.Name, &agent.Role, &agent.CreatedAt,
+		&agent.LastSeenAt, &agent.Config, &agent.LastSessionID, &agent.LastSessionSummary)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("agent not found: %s", agentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get agent: %w", err)
+	}
+	return agent, nil
 }
 
 // Agent represents a connected agent.

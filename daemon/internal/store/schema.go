@@ -43,7 +43,9 @@ var SchemaStmts = []string{
     role TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,
     last_seen_at INTEGER NOT NULL,
-    config TEXT NOT NULL DEFAULT '{}'
+    config TEXT NOT NULL DEFAULT '{}',
+    last_session_id TEXT NOT NULL DEFAULT '',
+    last_session_summary TEXT NOT NULL DEFAULT ''
 )`,
 
 	`CREATE TABLE IF NOT EXISTS sessions (

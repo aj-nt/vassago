@@ -130,3 +130,87 @@ func TestEnsureAgent(t *testing.T) {
 		t.Error("expected isNew=false for re-registration")
 	}
 }
+func TestSetAgentLastSession(t *testing.T) {
+    s := testStore(t)
+
+    // Create agent
+    agent, _, err := s.EnsureAgent("agent-sess", "test", "test")
+    if err != nil {
+        t.Fatalf("ensure agent: %v", err)
+    }
+
+    // Set last session
+    err = s.SetAgentLastSession(agent.ID, "session-123", "309 messages, 1h 55m")
+    if err != nil {
+        t.Fatalf("set agent last session: %v", err)
+    }
+
+    // Read back
+    got, err := s.GetAgentByID(agent.ID)
+    if err != nil {
+        t.Fatalf("get agent: %v", err)
+    }
+    if got.LastSessionID != "session-123" {
+        t.Errorf("LastSessionID = %q, want %q", got.LastSessionID, "session-123")
+    }
+    if got.LastSessionSummary != "309 messages, 1h 55m" {
+        t.Errorf("LastSessionSummary = %q, want %q", got.LastSessionSummary, "309 messages, 1h 55m")
+    }
+}
+
+func TestSetAgentLastSession_overwrite(t *testing.T) {
+    s := testStore(t)
+
+    agent, _, _ := s.EnsureAgent("agent-sess-2", "test", "test")
+
+    // Set first session
+    err := s.SetAgentLastSession(agent.ID, "old-id", "old summary")
+    if err != nil {
+        t.Fatalf("set agent last session (first): %v", err)
+    }
+
+    // Overwrite
+    err = s.SetAgentLastSession(agent.ID, "new-id", "new summary")
+    if err != nil {
+        t.Fatalf("set agent last session (second): %v", err)
+    }
+
+    got, err := s.GetAgentByID(agent.ID)
+    if err != nil {
+        t.Fatalf("get agent: %v", err)
+    }
+    if got.LastSessionID != "new-id" {
+        t.Errorf("LastSessionID = %q, want %q", got.LastSessionID, "new-id")
+    }
+    if got.LastSessionSummary != "new summary" {
+        t.Errorf("LastSessionSummary = %q, want %q", got.LastSessionSummary, "new summary")
+    }
+}
+
+func TestGetAgentByID_notFound(t *testing.T) {
+    s := testStore(t)
+
+    _, err := s.GetAgentByID("nonexistent")
+    if err == nil {
+        t.Error("expected error for nonexistent agent")
+    }
+}
+
+func TestEnsureAgent_returnsLastSessionFields(t *testing.T) {
+    s := testStore(t)
+
+    // Create agent with EnsureAgent — should get empty session fields
+    agent, isNew, err := s.EnsureAgent("agent-fresh", "fresh", "test")
+    if err != nil {
+        t.Fatalf("ensure agent: %v", err)
+    }
+    if !isNew {
+        t.Error("expected isNew=true")
+    }
+    if agent.LastSessionID != "" {
+        t.Errorf("new agent LastSessionID = %q, want empty", agent.LastSessionID)
+    }
+    if agent.LastSessionSummary != "" {
+        t.Errorf("new agent LastSessionSummary = %q, want empty", agent.LastSessionSummary)
+    }
+}
