@@ -42,23 +42,6 @@ builds:
       - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
-  - id: mnemosyne-agent
-    main: ./agent/cmd/mnemosyne-agent
-    binary: mnemosyne-agent
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - darwin
-      - linux
-    goarch:
-      - arm64
-      - amd64
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
-    mod_timestamp: '{{ .CommitTimestamp }}'
-
   - id: mnemosyne-cli
     main: ./daemon/cmd/mnemosyne-cli
     binary: mnemosyne-cli
@@ -135,7 +118,6 @@ brews:
     install: |
       bin.install "mnemosyne"
       bin.install "mnemosyne-daemon"
-      bin.install "mnemosyne-agent"
       bin.install "mnemosyne-cli"
       bin.install "mnemosyne-import"
     test: |

@@ -9,12 +9,11 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDDATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS  = -X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildDate=$(BUILDDATE)
 
-# Build all binaries
+# Build all binaries (daemon only)
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY_DIR)/mnemosyne ./cmd/mnemosyne
 	go build -o $(BINARY_DIR)/mnemosyne-daemon ./daemon/cmd/mnemosyne-daemon
 	go build -o $(BINARY_DIR)/mnemosyne-cli ./daemon/cmd/mnemosyne-cli
-	go build -o $(BINARY_DIR)/mnemosyne-agent ./agent/cmd/mnemosyne-agent
 	go build -o $(BINARY_DIR)/mnemosyne-import ./daemon/cmd/mnemosyne-import
 
 # Run all tests
@@ -52,7 +51,7 @@ generate:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I proto proto/mnemosyne.proto proto/messaging.proto
 
-# Generate Python gRPC stubs from proto (for examples/python/ and SDK)
+# Generate Python gRPC stubs from proto (for SDK)
 proto-python:
 	pip3 install -q grpcio-tools 2>/dev/null
 	python3 -m grpc_tools.protoc \
@@ -93,10 +92,9 @@ deploy: build
 	mkdir -p $(HOME)/bin $(HOME)/.local/bin
 	cp $(BINARY_DIR)/mnemosyne-daemon $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne-cli $(HOME)/bin/
-	cp $(BINARY_DIR)/mnemosyne-agent $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/bin/
 	cp $(BINARY_DIR)/mnemosyne $(HOME)/.local/bin/
-	codesign -s - -f $(HOME)/bin/mnemosyne $(HOME)/bin/mnemosyne-agent $(HOME)/bin/mnemosyne-daemon $(HOME)/bin/mnemosyne-cli 2>/dev/null; true
+	codesign -s - -f $(HOME)/bin/mnemosyne $(HOME)/bin/mnemosyne-daemon $(HOME)/bin/mnemosyne-cli 2>/dev/null; true
 	@echo "✓ Binaries deployed to $(HOME)/bin/ and $(HOME)/.local/bin/"
 
 # Install: build + deploy + add to PATH hint
@@ -109,8 +107,8 @@ install: deploy
 
 # Deploy to Studio over SSH
 deploy-studio: build
-	scp $(BINARY_DIR)/mnemosyne-daemon $(BINARY_DIR)/mnemosyne-cli $(BINARY_DIR)/mnemosyne-agent $(BINARY_DIR)/mnemosyne studio:~/bin/
-	ssh studio 'codesign --force --sign - ~/bin/mnemosyne-daemon ~/bin/mnemosyne-cli ~/bin/mnemosyne-agent ~/bin/mnemosyne'
+	scp $(BINARY_DIR)/mnemosyne-daemon $(BINARY_DIR)/mnemosyne-cli $(BINARY_DIR)/mnemosyne studio:~/bin/
+	ssh studio 'codesign --force --sign - ~/bin/mnemosyne-daemon ~/bin/mnemosyne-cli ~/bin/mnemosyne'
 	@echo "✓ Binaries deployed to Studio"
 
 # First-run setup (creates configs, directories, launchd plists)

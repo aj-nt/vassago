@@ -24,8 +24,7 @@ RUN CGO_ENABLED=0 go build \
       ./cmd/mnemosyne \
       ./daemon/cmd/mnemosyne-daemon \
       ./daemon/cmd/mnemosyne-cli \
-      ./daemon/cmd/mnemosyne-import \
-      ./agent/cmd/mnemosyne-agent
+      ./daemon/cmd/mnemosyne-import
 
 # Runtime stage
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -34,7 +33,6 @@ COPY --from=builder /go/bin/mnemosyne /usr/local/bin/mnemosyne
 COPY --from=builder /go/bin/mnemosyne-daemon /usr/local/bin/mnemosyne-daemon
 COPY --from=builder /go/bin/mnemosyne-cli /usr/local/bin/mnemosyne-cli
 COPY --from=builder /go/bin/mnemosyne-import /usr/local/bin/mnemosyne-import
-COPY --from=builder /go/bin/mnemosyne-agent /usr/local/bin/mnemosyne-agent
 
 EXPOSE 50051
 

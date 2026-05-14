@@ -5,11 +5,10 @@
 [![License: AGPLv3](https://img.shields.io/badge/Core-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
-[![Tests](https://img.shields.io/badge/tests-1236%20%2B-race-brightgreen)]()
 
-> **v0.1.0** — Public release. 1236+ tests, race-clean.
+> **v0.1.0** — The memory daemon. Agents connect via gRPC to read, write, search, and subscribe to shared memory.
 
-Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
+Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every connected agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
 
 **The problem it solves:** Agents without shared memory are amnesiacs. They forget everything between sessions, can't coordinate, and echo each other's outputs in feedback loops. Mnemosyne fixes all three.
 
@@ -19,44 +18,49 @@ Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***sha
 
 ## Try it in 5 minutes
 
-**Prerequisites:** Go 1.21+, an LLM API key (Anthropic or OpenAI), and `make`.
+**Prerequisites:** Go 1.21+ and `make`.
 
 ```bash
 git clone https://github.com/aj-nt/mnemosyne.git && cd mnemosyne
 make install              # build + install to ~/bin
 export PATH="$HOME/bin:$PATH"
-mnemosyne init            # interactive setup (configs, API key, tools)
-mnemosyne start           # start daemon + agent (with health verification)
-mnemosyne chat            # talk to your agent
+mnemosyne init            # interactive setup (creates config + dirs)
+mnemosyne start           # start the daemon
+mnemosyne status          # verify it's healthy
 ```
 
-That's it. You're now running an agent with persistent memory. Try:
-
-```
-> Remember that the deploy server is at node-3.internal
-
-> What's the deploy server address?     ← it remembers across sessions
-
-> /quit                                 ← exit and come back later
-```
-
-Outside the chat, you can inspect memory directly:
+Now connect an agent. Use [mnemoagent](https://github.com/aj-nt/mnemoagent) (Go CLI/TUI agent), or the Python SDK:
 
 ```bash
-mnemosyne hot-block        # show computed context window
-mnemosyne memory list      # show all memories
-mnemosyne memory search "deploy"   # full-text search
-mnemosyne health           # daemon health check
+pip install mnemosyne-sdk
 ```
 
-The agent automatically saves important facts to memory and retrieves them in future sessions. No prompt engineering required.
+```python
+import asyncio
+from mnemosyne import MnemosyneClient
+
+async def main():
+    async with MnemosyneClient("localhost:50051") as client:
+        # Add a memory
+        await client.add_memory(
+            key="deploy-server",
+            content="The deploy server is at node-3.internal",
+            category="environment",
+            priority=4,
+        )
+        # Get the hot block
+        block = await client.get_hot_block()
+        print(block.content)
+
+asyncio.run(main())
+```
 
 ## What you get
 
 | Feature | What it does |
 |---------|-------------|
-| **Hot Block** | Per-agent priority-sorted context window — the agent always starts a session knowing what matters |
-| **Skills** | Shared procedural memory — reusable workflows, debug procedures, and project conventions injected into agent prompts |
+| **Hot Block** | Per-agent priority-sorted context window — inject relevant context into any agent's prompt |
+| **Skills** | Shared procedural memory — reusable workflows, debug procedures, project conventions |
 | **Telepathy** | Real-time pub/sub: agent A writes memory → agent B gets notified instantly |
 | **Self-exclusion** | Agents never see their own writes echo back — no feedback loops |
 | **Consolidation** | Auto-expiry sweeps idle observations after 30 days. Manual consolidation for spring cleaning |
@@ -68,7 +72,7 @@ The agent automatically saves important facts to memory and retrieves them in fu
 ```
 ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
 │  Agent A     │   │  Agent B     │   │  Agent C     │
-│  (Go SDK)    │   │  (gRPC)      │   │  (Python)    │
+│  (Go)        │   │  (gRPC)      │   │  (Python)    │
 └──────┬───────┘   └──────┬──────┘   └──────┬───────┘
        │                  │                  │
        └──────────────────┼──────────────────┘
@@ -89,17 +93,17 @@ The agent automatically saves important facts to memory and retrieves them in fu
                   └───────────────┘
 ```
 
-## Unified CLI
+## CLI
 
 Everything through one binary:
 
 | Command | What it does |
 |---------|-------------|
 | `mnemosyne init` | First-run setup (dirs, configs, launchd) |
-| `mnemosyne start` | Start daemon + agent (with health verification) |
-| `mnemosyne stop` | Stop services |
-| `mnemosyne chat` | Interactive chat (type `/quit` to exit, `/hot` for context) |
-| `mnemosyne status` | Service health + database info |
+| `mnemosyne start` | Start the daemon (with health verification) |
+| `mnemosyne stop` | Stop the daemon |
+| `mnemosyne status` | Daemon health + database info |
+| `mnemosyne daemon` | Run daemon in foreground |
 | `mnemosyne memory` | Memory CRUD + search + stats |
 | `mnemosyne hot-block` | Show computed context window |
 | `mnemosyne sessions` | List, resume, and inspect past sessions |
@@ -108,8 +112,6 @@ Everything through one binary:
 | `mnemosyne health` | Daemon health check |
 | `mnemosyne config` | Validate / show / edit config |
 | `mnemosyne version` | Build info with commit hash |
-
-Legacy binaries (`mnemosyne-daemon`, `mnemosyne-agent`, `mnemosyne-cli`) also work.
 
 ## Configuration
 
@@ -132,39 +134,14 @@ hot_block:
   suppress_categories: [observation]
 ```
 
-Agent config (`~/.mnemosyne/agent.yaml`):
-
-```yaml
-agent:
-  id: mnemosyne
-  name: mnemosyne
-  personality: |-
-    You are a direct, dry-witted collaborator. You know a lot but don't lecture. You prefer short, concise answers. You are proactive with your tools. You do not fluff or flatter. You are honest about uncertainty. 
-  max_turns: 30
-
-provider:
-  name: anthropic
-  model: claude-sonnet-4-6
-  temperature: 0.7
-
-tools:
-  enabled:
-    - AddMemory
-    - SearchMemories
-    - FileRead
-    - FileSearch
-    - Execute
-  approval_required: [FileWrite, Execute]
-```
-
 ## Deployment
 
 **macOS (launchd):**
 
 ```bash
-mnemosyne init      # creates LaunchAgent plists
+mnemosyne init      # creates LaunchAgent plist
 mnemosyne start     # launchctl start + health verification
-mnemosyne status    # check all services
+mnemosyne status    # check daemon is running
 ```
 
 **Linux (systemd):**
@@ -199,14 +176,14 @@ docker compose up -d
 # Or build manually
 docker build -t mnemosyne .
 
-# Run daemon only
+# Run daemon
 docker run -d -p 50051:50051 -v mnemosyne-data:/data mnemosyne
 
 # Check health
 docker compose exec daemon mnemosyne health
 ```
 
-The Docker image includes all binaries (`mnemosyne`, `mnemosyne-daemon`, `mnemosyne-agent`, `mnemosyne-cli`, `mnemosyne-import`). By default it starts the unified CLI in daemon mode.
+The Docker image includes the unified CLI, `mnemosyne-daemon`, `mnemosyne-cli`, and `mnemosyne-import`. By default it starts the daemon.
 
 ## Troubleshooting
 
@@ -215,9 +192,7 @@ The Docker image includes all binaries (`mnemosyne`, `mnemosyne-daemon`, `mnemos
 | `mnemosyne: command not found` | `export PATH="$HOME/bin:$PATH"` or run `./bin/mnemosyne` directly |
 | `Error: Configuration not found` | Run `mnemosyne init` first |
 | `gRPC unreachable` after `start` | Check logs: `cat ~/.mnemosyne/daemon.err` |
-| `Cannot connect to Mnemosyne daemon` | Run `mnemosyne start` before `mnemosyne chat` |
-| Agent says "I don't have access to tools" | Check `tools.enabled` in `~/.mnemosyne/agent.yaml` |
-| API key not detected | Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in your shell profile |
+| Agent can't connect | Verify the daemon is running: `mnemosyne status` |
 
 ## Why not just...
 
@@ -238,17 +213,13 @@ The Docker image includes all binaries (`mnemosyne`, `mnemosyne-daemon`, `mnemos
 Contributions welcome! Here's how to get started:
 
 1. **Fork & branch:** `git checkout -b your-feature-name`
-2. **Run tests:** `make test-race` — all 1236+ must pass
+2. **Run tests:** `make test-race` — all must pass
 3. **Lint:** `go vet ./...` and `gofmt -s -w .`
 4. **Submit a PR** with a clear description of what and why
 
-**Code style:** Standard Go conventions. `gofmt` is law. Error types in `errors/`, shared helpers in `internal/`.
+**Code style:** Standard Go conventions. `gofmt` is law.
 
-**Bug reports:** Open a GitHub issue with steps to reproduce, expected vs actual behavior, and `mnemosyne version` output.
-
-**Feature requests:** Open a discussion first before writing code. We prefer small, focused PRs over large rewrites.
-
-See [ROADMAP.md](ROADMAP.md) for planned work if you want to pick something up.
+See [ROADMAP.md](ROADMAP.md) for planned work.
 
 ---
 
@@ -264,32 +235,12 @@ mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 pip install mnemosyne-sdk
 ```
 
-```python
-import asyncio
-from mnemosyne import MnemosyneClient
-
-async def main():
-    async with MnemosyneClient("localhost:50051") as client:
-        # Add a memory
-        mem = await client.add_memory(
-            key="deploy-server",
-            content="The deploy server is at node-3.internal",
-            category="environment",
-            priority=4,
-        )
-        # Get the hot block
-        block = await client.get_hot_block()
-        print(block.content)
-
-asyncio.run(main())
-```
-
 See [`sdk/python/README.md`](sdk/python/README.md) for the full API reference.
 
 ## Testing
 
 ```bash
-make test-race       # 1236+ tests with race detector
+make test-race       # run tests with race detector
 make coverage        # coverage report (coverage.out)
 make coverage-html   # HTML coverage report (coverage.html)
 make lint            # go vet + golangci-lint
@@ -313,30 +264,13 @@ make all             # build + test + lint
 | 25 | Saved Tools — Runtime Tool Creation | ✅ Complete |
 | 26 | Reasoning Model Support | ✅ Complete |
 
-**Known limitations:**
-- ~~No Docker image yet (planned)~~ → Docker image available (see Docker section)
-- ~~No Python SDK on PyPI (gRPC client works, pip package planned — Phase 22)~~ → Python SDK available (`pip install mnemosyne-sdk`)
-- Single-user — no auth/ACL system yet (Phase 23)
-- No web UI (CLI only)
-- Browser tool requires ChromeDP installed
-
-**v1.0 blockers vs. v0.x accepted:**
-
-| Limitation | v1.0 Blocker? | Status |
-|------------|----------------|--------|
-| No Python SDK | No | Phase 22 |
-| No multi-user auth | Yes | Phase 23 |
-| No web UI | No | Future |
-| Single SQLite DB | No | Sufficient for personal/team use |
-| No built-in auth | Yes | Phase 23 |
-
-See [ROADMAP.md](ROADMAP.md) for detailed phase history and remaining items.
+See [ROADMAP.md](ROADMAP.md) for detailed phase history.
 
 ## License
 
 | Component | License | Files |
 |-----------|---------|-------|
-| Core implementation | **GNU AGPLv3** | `daemon/`, `agent/`, `cmd/`, all other packages |
+| Core implementation | **GNU AGPLv3** | `daemon/`, `cmd/`, all other packages |
 | Protocol & client SDK | **Apache 2.0** | `proto/`, `client/`, `messaging/format/` |
 
 The Apache 2.0 packages can be used independently — build compatible clients without AGPLv3 obligations. All other source files are AGPLv3, which requires distributing source (including modifications) when running as a network service.

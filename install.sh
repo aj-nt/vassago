@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mnemosyne installer — build from source and install to ~/bin
+# Mnemosyne Daemon installer — build from source and install to ~/bin
 # Usage: curl -fsSL https://raw.githubusercontent.com/aj-nt/mnemosyne/main/install.sh | bash
 
 set -euo pipefail
@@ -13,7 +13,7 @@ cleanup() { rm -rf "$TMPDIR_BASE"; }
 trap cleanup EXIT
 
 echo "╭─────────────────────────────────────────────╮"
-echo "│  Mnemosyne Installer                       │"
+echo "│  Mnemosyne Daemon Installer                │"
 echo "╰─────────────────────────────────────────────╯"
 echo ""
 
@@ -54,29 +54,29 @@ make build
 # Install
 mkdir -p "$INSTALL_DIR"
 cp bin/"$BINARY" "$INSTALL_DIR/"
-echo "✓ Installed $BINARY to $INSTALL_DIR/"
+cp bin/mnemosyne-daemon "$INSTALL_DIR/"
+cp bin/mnemosyne-cli "$INSTALL_DIR/"
+echo "✓ Installed mnemosyne, mnemosyne-daemon, mnemosyne-cli to $INSTALL_DIR/"
 
 # Verify
 if command -v "$INSTALL_DIR/$BINARY" &>/dev/null; then
     VERSION=$("$INSTALL_DIR/$BINARY" version 2>/dev/null | head -1 || echo "unknown")
     echo "✓ $VERSION"
-else
-    echo "✓ Binary installed"
 fi
 
 # PATH hint
 echo ""
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     echo "⚠ Add $INSTALL_DIR to your PATH:"
-    echo "  echo 'export PATH=\"$INSTALL_DIR:\$PATH\"' >> ~/.bashrc"
+    echo "  echo 'export PATH="$INSTALL_DIR:\$PATH"' >> ~/.bashrc"
     echo "  source ~/.bashrc"
     echo ""
 fi
 
 echo "Next steps:"
 echo "  1. mnemosyne init       # interactive setup"
-echo "  2. mnemosyne start      # start daemon + agent"
-echo "  3. mnemosyne chat       # talk to your agent"
+echo "  2. mnemosyne start      # start the daemon"
+echo "  3. Connect an agent like mnemoagent to the daemon"
 echo ""
 echo "╭─────────────────────────────────────────────╮"
 echo "│  Installation complete!                     │"
