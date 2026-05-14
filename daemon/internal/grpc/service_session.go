@@ -69,6 +69,9 @@ func (s *Service) AddMessages(ctx context.Context, req *pb.AddMessagesRequest) (
 }
 
 func (s *Service) EndSession(ctx context.Context, req *pb.EndSessionRequest) (*pb.EndSessionResponse, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.SessionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}

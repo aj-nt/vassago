@@ -15,6 +15,9 @@ import (
 // --- Consolidation ---
 
 func (s *Service) Consolidate(ctx context.Context, req *pb.ConsolidateRequest) (*pb.ConsolidateResponse, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	var batchSize int
 	if req.BatchSize != nil {
 		batchSize = int(*req.BatchSize)

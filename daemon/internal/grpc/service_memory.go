@@ -96,6 +96,9 @@ func (s *Service) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest)
 }
 
 func (s *Service) RemoveMemory(ctx context.Context, req *pb.RemoveMemoryRequest) (*pb.RemoveMemoryResponse, error) {
+	if err := s.checkDB(); err != nil {
+		return nil, err
+	}
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
