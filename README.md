@@ -6,13 +6,11 @@
 [![License: Apache 2.0](https://img.shields.io/badge/Protocol-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report](https://goreportcard.com/badge/github.com/aj-nt/mnemosyne)](https://goreportcard.com/report/github.com/aj-nt/mnemosyne)
 
-> **v0.1.0** — The memory daemon. Agents connect via gRPC to read, write, search, and subscribe to shared memory.
+> Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory via gRPC.
 
-Mnemosyne is a memory daemon that gives AI agents persistent, searchable, ***shared*** memory. Every connected agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately.
+Every connected agent sees the same hot blocks, the same facts, the same context — and when one agent learns something, the others know immediately. Self-exclusion prevents echo loops.
 
-**The problem it solves:** Agents without shared memory are amnesiacs. They forget everything between sessions, can't coordinate, and echo each other's outputs in feedback loops. Mnemosyne fixes all three.
-
-**How:** A Go daemon backed by SQLite with a gRPC API. Agents connect, get a priority-sorted "hot block" of relevant context, search memories, and subscribe to real-time updates when other agents write. Self-exclusion prevents echo loops — the core innovation behind Mnemosyne's telepathy system.
+**How:** A Go daemon backed by SQLite (WAL mode) with a gRPC API. Agents connect, get a priority-sorted "hot block" of relevant context, search memories, and subscribe to real-time updates when other agents write.
 
 ---
 
@@ -29,31 +27,23 @@ mnemosyne start           # start the daemon
 mnemosyne status          # verify it's healthy
 ```
 
-Now connect an agent. Use [mnemoagent](https://github.com/aj-nt/mnemoagent) (Go CLI/TUI agent), or the Python SDK:
-
-```bash
-pip install mnemosyne-sdk
-```
+Now connect an agent. Use [mnemoagent](https://github.com/aj-nt/mnemoagent) (our Go CLI/TUI agent), or the Python SDK:
 
 ```python
-import asyncio
 from mnemosyne import MnemosyneClient
 
-async def main():
-    async with MnemosyneClient("localhost:50051") as client:
-        # Add a memory
-        await client.add_memory(
-            key="deploy-server",
-            content="The deploy server is at node-3.internal",
-            category="environment",
-            priority=4,
-        )
-        # Get the hot block
-        block = await client.get_hot_block()
-        print(block.content)
-
-asyncio.run(main())
+async with MnemosyneClient("localhost:50051") as client:
+    await client.add_memory(
+        key="deploy-server",
+        content="The deploy server is at node-3.internal",
+        category="environment",
+        priority=4,
+    )
+    block = await client.get_hot_block()
+    print(block.content)
 ```
+
+---
 
 ## What you get
 
@@ -63,9 +53,10 @@ asyncio.run(main())
 | **Skills** | Shared procedural memory — reusable workflows, debug procedures, project conventions |
 | **Telepathy** | Real-time pub/sub: agent A writes memory → agent B gets notified instantly |
 | **Self-exclusion** | Agents never see their own writes echo back — no feedback loops |
-| **Consolidation** | Auto-expiry sweeps idle observations after 30 days. Manual consolidation for spring cleaning |
+| **Consolidation** | Auto-expiry sweeps idle observations. Configurable TTL per priority tier |
 | **FTS5 Search** | Full-text search across all memories, sessions, and skills |
-| **gRPC API** | Connect from Go, Python, any language. Protocol is Apache 2.0 |
+| **Multi-agent** | One database, many agents — serialized writes, concurrent reads |
+| **gRPC API** | Connect from Go, Python, any language. Protocol definitions are Apache 2.0 |
 
 ## Architecture
 
@@ -99,7 +90,7 @@ Everything through one binary:
 
 | Command | What it does |
 |---------|-------------|
-| `mnemosyne init` | First-run setup (dirs, configs, launchd) |
+| `mnemosyne init` | First-run setup (dirs, configs, launchd plists) |
 | `mnemosyne start` | Start the daemon (with health verification) |
 | `mnemosyne stop` | Stop the daemon |
 | `mnemosyne status` | Daemon health + database info |
@@ -113,14 +104,16 @@ Everything through one binary:
 | `mnemosyne config` | Validate / show / edit config |
 | `mnemosyne version` | Build info with commit hash |
 
+Standalone binaries (`mnemosyne-daemon`, `mnemosyne-cli`, `mnemosyne-import`) are also built and available.
+
 ## Configuration
 
 Daemon config (`~/.mnemosyne/config.yaml`):
 
 ```yaml
 daemon:
-  socket: ~/.mnemosyne/mnemosyne.sock
-  tcp: localhost:50051
+  socket: ~/.mnemosyne/mnemosyne.sock   # Unix socket (local)
+  tcp: localhost:50051                   # TCP listener (LAN/internet)
 
 database:
   path: ~/.mnemosyne/mnemosyne.db
@@ -208,18 +201,28 @@ The Docker image includes the unified CLI, `mnemosyne-daemon`, `mnemosyne-cli`, 
 
 ---
 
-## Contributing
+## Client Libraries
 
-Contributions welcome! Here's how to get started:
+**Go:** Import `github.com/aj-nt/mnemosyne/client` — the Go client is in this repo.
 
-1. **Fork & branch:** `git checkout -b your-feature-name`
-2. **Run tests:** `make test-race` — all must pass
-3. **Lint:** `go vet ./...` and `gofmt -s -w .`
-4. **Submit a PR** with a clear description of what and why
+**Python:** The Python SDK lives in `sdk/python/`. Install locally:
 
-**Code style:** Standard Go conventions. `gofmt` is law.
+```bash
+cd sdk/python && pip install -e .
+```
 
-See [ROADMAP.md](ROADMAP.md) for planned work.
+```python
+from mnemosyne import MnemosyneClient
+
+async with MnemosyneClient("localhost:50051") as client:
+    await client.add_memory(key="foo", content="bar", category="project")
+    results = await client.search_memories("foo")
+    block = await client.get_hot_block()
+```
+
+See [`sdk/python/README.md`](sdk/python/README.md) for the full API reference.
+
+**Other languages:** Use the gRPC proto definitions in `proto/`. The protocol is Apache 2.0 licensed.
 
 ---
 
@@ -229,13 +232,9 @@ See [ROADMAP.md](ROADMAP.md) for planned work.
 mnemosyne-import --source ~/.hermes/state.db --target ~/.mnemosyne/mnemosyne.db
 ```
 
-## Python SDK
+See [DESIGN.md §8](DESIGN.md#8-data-migration) for migration details.
 
-```bash
-pip install mnemosyne-sdk
-```
-
-See [`sdk/python/README.md`](sdk/python/README.md) for the full API reference.
+---
 
 ## Testing
 
@@ -247,24 +246,18 @@ make lint            # go vet + golangci-lint
 make all             # build + test + lint
 ```
 
-## Project status
+---
 
-| Phase | Deliverable | Status |
-|-------|-------------|--------|
-| 1–5 | Daemon, Agent, Telepathy, Search, Tools | ✅ Complete |
-| 6–9 | Migration, Client, Hardening, Security | ✅ Complete |
-| 10–14 | E2E, Stress, Provider, Multi-Agent | ✅ Complete |
-| 15–18 | Messaging, Cron, Quality, Browser, Vision | ✅ Complete |
-| 19 | GoF Refactoring, Spiral Detection, Polish | ✅ Complete |
-| 20 | Memory Migration, Personality Simplification, Agent Loop Fixes | ✅ Complete |
-| 21 | Open Source Readiness | ✅ Complete |
-| 22 | Python SDK | ✅ Complete |
-| 23 | Multi-User & Auth | 🔜 Planned |
-| 24 | Bubble Tea TUI | ✅ Complete |
-| 25 | Saved Tools — Runtime Tool Creation | ✅ Complete |
-| 26 | Reasoning Model Support | ✅ Complete |
+## Contributing
 
-See [ROADMAP.md](ROADMAP.md) for detailed phase history.
+1. **Fork & branch:** `git checkout -b your-feature-name`
+2. **Run tests:** `make test-race` — all must pass
+3. **Lint:** `go vet ./...` and `gofmt -s -w .`
+4. **Submit a PR** with a clear description of what and why
+
+**Code style:** Standard Go conventions. `gofmt` is law.
+
+---
 
 ## License
 
