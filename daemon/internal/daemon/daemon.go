@@ -214,6 +214,57 @@ func (d *Daemon) transportCredentials() (credentials.TransportCredentials, error
 	return credentials.NewServerTLSFromCert(&cert), nil
 }
 
+// setupMessagingAdapters registers platform adapters on the messaging service
+// based on the daemon config. Only platforms with configured tokens/credentials
+// get registered; others are silently skipped.
+func setupMessagingAdapters(cfg *Config, messagingService *daemongrpc.MessagingService) {
+	// Add Discord adapter if token is configured
+	if cfg.Messaging.Discord.Token != "" {
+		discordAdapter := messaging.NewDiscordAdapter(messaging.DiscordConfig{
+			Token:           cfg.Messaging.Discord.Token,
+			Guilds:          cfg.Messaging.Discord.Guilds,
+			AllowedChannels: cfg.Messaging.Discord.AllowedChannels,
+		})
+		messagingService.AddAdapter("discord", discordAdapter)
+	}
+
+	// Add Telegram adapter if token is configured
+	if cfg.Messaging.Telegram.Token != "" {
+		telegramAdapter := messaging.NewTelegramAdapter(messaging.TelegramConfig{
+			Token:        cfg.Messaging.Telegram.Token,
+			AllowedChats: cfg.Messaging.Telegram.AllowedChats,
+		})
+		messagingService.AddAdapter("telegram", telegramAdapter)
+	}
+
+	// Add iMessage adapter if enabled (macOS only)
+	if cfg.Messaging.IMessage.Enabled {
+		pollInterval := time.Duration(cfg.Messaging.IMessage.PollInterval) * time.Second
+		imessageAdapter := messaging.NewIMessageAdapter(messaging.IMessageConfig{
+			AllowedRecipients: cfg.Messaging.IMessage.AllowedRecipients,
+			DBPath:            cfg.Messaging.IMessage.DBPath,
+			PollInterval:      pollInterval,
+		})
+		messagingService.AddAdapter("imessage", imessageAdapter)
+	}
+
+	// Add Email adapter if enabled
+	if cfg.Messaging.Email.Enabled {
+		pollInterval := time.Duration(cfg.Messaging.Email.PollInterval) * time.Second
+		emailAdapter := messaging.NewEmailAdapter(messaging.EmailConfig{
+			IMAPHost:     cfg.Messaging.Email.IMAPHost,
+			SMTPHost:     cfg.Messaging.Email.SMTPHost,
+			Username:     cfg.Messaging.Email.Username,
+			Password:     cfg.Messaging.Email.Password,
+			FromAddress:  cfg.Messaging.Email.FromAddress,
+			AllowedFrom:  cfg.Messaging.Email.AllowedFrom,
+			Folders:      cfg.Messaging.Email.Folders,
+			PollInterval: pollInterval,
+		})
+		messagingService.AddAdapter("email", emailAdapter)
+	}
+}
+
 // New creates a new daemon instance.
 func New(cfg *Config) (*Daemon, error) {
 	// Ensure database directory exists
@@ -240,54 +291,9 @@ func New(cfg *Config) (*Daemon, error) {
 	// Create pub/sub hub
 	hub := pubsub.NewHub()
 
-	// Create messaging service
+	// Create messaging service and register platform adapters
 	messagingService := daemongrpc.NewMessagingService()
-
-	// Add Discord adapter if token is configured
-	if cfg.Messaging.Discord.Token != "" {
-		discordAdapter := messaging.NewDiscordAdapter(messaging.DiscordConfig{
-			Token:           cfg.Messaging.Discord.Token,
-			Guilds:          cfg.Messaging.Discord.Guilds,
-			AllowedChannels: cfg.Messaging.Discord.AllowedChannels,
-		})
-		messagingService.AddAdapter("discord", discordAdapter)
-	}
-
-	// Add Telegram adapter if token is configured
-	if cfg.Messaging.Telegram.Token != "" {
-		telegramAdapter := messaging.NewTelegramAdapter(messaging.TelegramConfig{
-			Token:        cfg.Messaging.Telegram.Token,
-			AllowedChats: cfg.Messaging.Telegram.AllowedChats,
-		})
-		messagingService.AddAdapter("telegram", telegramAdapter)
-	}
-
-	// Add iMessage adapter if enabled (macOS only)
-	if cfg.Messaging.IMessage.Enabled {
-		pollInterval := time.Duration(cfg.Messaging.IMessage.PollInterval) * time.Second
-		imessageAdapter := messaging.NewIMessageAdapter(messaging.IMessageConfig{
-			AllowedRecipients: cfg.Messaging.IMessage.AllowedRecipients,
-			DBPath:             cfg.Messaging.IMessage.DBPath,
-			PollInterval:       pollInterval,
-		})
-		messagingService.AddAdapter("imessage", imessageAdapter)
-	}
-
-	// Add Email adapter if enabled
-	if cfg.Messaging.Email.Enabled {
-		pollInterval := time.Duration(cfg.Messaging.Email.PollInterval) * time.Second
-		emailAdapter := messaging.NewEmailAdapter(messaging.EmailConfig{
-			IMAPHost:     cfg.Messaging.Email.IMAPHost,
-			SMTPHost:     cfg.Messaging.Email.SMTPHost,
-			Username:     cfg.Messaging.Email.Username,
-			Password:     cfg.Messaging.Email.Password,
-			FromAddress:  cfg.Messaging.Email.FromAddress,
-			AllowedFrom:  cfg.Messaging.Email.AllowedFrom,
-			Folders:       cfg.Messaging.Email.Folders,
-			PollInterval:  pollInterval,
-		})
-		messagingService.AddAdapter("email", emailAdapter)
-	}
+	setupMessagingAdapters(cfg, messagingService)
 
 	// Register services
 	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub, messagingService))
@@ -318,31 +324,45 @@ func New(cfg *Config) (*Daemon, error) {
 	}, nil
 }
 
-// Run starts the daemon and blocks until shutdown.
-// Sets up gRPC server, listeners, and handles graceful shutdown.
-func (d *Daemon) Run() error {
+// setupListeners creates network listeners from the daemon config.
+// Supports Unix domain sockets and TCP. If neither is configured,
+// returns an error.
+func setupListeners(cfg DaemonConfig) ([]net.Listener, error) {
 	var listeners []net.Listener
 
-	// Unix socket listener
-	if d.config.Daemon.Socket != "" {
-		l, err := ListenUnix(d.config.Daemon.Socket)
+	if cfg.Socket != "" {
+		l, err := ListenUnix(cfg.Socket)
 		if err != nil {
-			return fmt.Errorf("unix socket: %w", err)
+			return nil, fmt.Errorf("unix socket: %w", err)
 		}
 		listeners = append(listeners, l)
 	}
 
-	// TCP listener
-	if d.config.Daemon.TCP != "" {
-		l, err := ListenTCP(d.config.Daemon.TCP)
+	if cfg.TCP != "" {
+		l, err := ListenTCP(cfg.TCP)
 		if err != nil {
-			// Clean up unix socket on error
+			// Clean up already-opened listeners on error
 			for _, ul := range listeners {
 				ul.Close()
 			}
-			return fmt.Errorf("TCP: %w", err)
+			return nil, fmt.Errorf("TCP: %w", err)
 		}
 		listeners = append(listeners, l)
+	}
+
+	if len(listeners) == 0 {
+		return nil, fmt.Errorf("no listener configured: set daemon.socket or daemon.tcp")
+	}
+
+	return listeners, nil
+}
+
+// Run starts the daemon and blocks until shutdown.
+// Sets up gRPC server, listeners, and handles graceful shutdown.
+func (d *Daemon) Run() error {
+	listeners, err := setupListeners(d.config.Daemon)
+	if err != nil {
+		return err
 	}
 
 	// HTTP server setup
