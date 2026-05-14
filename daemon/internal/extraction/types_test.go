@@ -4,6 +4,7 @@
 package extraction
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -99,21 +100,8 @@ func TestFormatMessagesForExtraction(t *testing.T) {
 	if !contains(result, "terminal") {
 		t.Error("formatted result should contain tool call information")
 	}
-	// Should NOT contain giant tool output (just summarized)
-	if contains(result, "[commit abc123]") && len(result) > 200 {
-		// tool output may be truncated, which is fine
-	}
 }
 
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && stringContains(s, substr)
-}
-
-func stringContains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return len(s) > 0 && len(substr) > 0 && strings.Contains(s, substr)
 }

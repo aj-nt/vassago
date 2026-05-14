@@ -6,6 +6,7 @@ package extraction
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -89,7 +90,11 @@ func (p *Pipeline) ExtractAndPersist(owner, sourceAgent string, msgs []SessionMe
 	for _, c := range newCandidates {
 		_, err := p.store.AddMemory(owner, c.Target, c.Category, c.Key, c.Content, c.Priority, sourceAgent)
 		if err != nil {
-			// Log but continue — don't let one bad candidate block the rest
+			slog.Warn("extraction: AddMemory failed for candidate",
+				"key", c.Key,
+				"target", c.Target,
+				"error", err,
+			)
 			continue
 		}
 		persisted++
@@ -98,11 +103,9 @@ func (p *Pipeline) ExtractAndPersist(owner, sourceAgent string, msgs []SessionMe
 	return persisted, nil
 }
 
-// buildExtractionPrompt constructs the LLM prompt for memory extraction.
-func buildExtractionPrompt(msgs []SessionMessage) string {
-	formatted := formatMessagesForExtraction(msgs)
-
-	prompt := fmt.Sprintf(`You are a memory extraction system. Analyze the following conversation and extract durable facts that should be remembered permanently.
+// extractionPromptTemplate is the LLM prompt for memory extraction.
+// The single %s is replaced with formatted session messages.
+const extractionPromptTemplate = `You are a memory extraction system. Analyze the following conversation and extract durable facts that should be remembered permanently.
 
 For each fact, classify it as:
 - "memory": technical facts, project conventions, environment details, lessons learned
@@ -125,9 +128,12 @@ Respond with ONLY a JSON object in this format:
   "memories": [
     {"key": "snake_case_id", "content": "Declarative fact.", "category": "preference|quirk|personal|project|lesson", "target": "memory|user", "priority": 2}
   ]
-}`, formatted)
+}`
 
-	return prompt
+// buildExtractionPrompt constructs the LLM prompt for memory extraction.
+func buildExtractionPrompt(msgs []SessionMessage) string {
+	formatted := formatMessagesForExtraction(msgs)
+	return fmt.Sprintf(extractionPromptTemplate, formatted)
 }
 
 // parseExtractionResponse parses the LLM's JSON response into validated candidates.
@@ -151,8 +157,11 @@ func parseExtractionResponse(response string) ([]Candidate, error) {
 		return nil, fmt.Errorf("parse extraction response: %w", err)
 	}
 
+	if result.Memories == nil {
+		return nil, fmt.Errorf("no memories key in extraction response")
+	}
 	if len(result.Memories) == 0 {
-		return nil, fmt.Errorf("no memories found in extraction response")
+		return nil, nil
 	}
 
 	var valid []Candidate
