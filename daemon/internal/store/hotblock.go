@@ -77,7 +77,7 @@ func (s *Store) ComputeHotBlock(owner, target string, config HotBlockConfig) (*H
 	// Build the text block, respecting char limit
 	charLimit := config.CharLimit
 	if charLimit <= 0 {
-		charLimit = 4000 // Default
+		charLimit = DefaultHotBlockCharLimit
 	}
 
 	var lines []string

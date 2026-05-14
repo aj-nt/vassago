@@ -36,9 +36,7 @@ type ConsolidationCandidate struct {
 // GetConsolidationCandidates returns memory entries that match the given consolidation scope.
 // batchSize limits the number of candidates returned (0 or negative = no limit).
 func (s *Store) GetConsolidationCandidates(owner string, scope ConsolidationScope, category string, batchSize int) ([]*ConsolidationCandidate, error) {
-	if batchSize <= 0 {
-		batchSize = 100
-	}
+	batchSize = ClampLimit(batchSize, 100, 0)
 
 	query := `
 		SELECT id, owner, target, category, key, content, priority, source_agent,

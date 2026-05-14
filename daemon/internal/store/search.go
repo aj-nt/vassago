@@ -12,12 +12,7 @@ import (
 // Multi-word queries use OR semantics by default.
 // Special tokens (colons, dots) are quoted to prevent FTS5 column filter errors.
 func (s *Store) Search(owner, query string, target string, limit int) ([]*MemoryEntry, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > defaultResultLimit {
-		limit = defaultResultLimit
-	}
+	limit = ClampLimit(limit, 50, defaultResultLimit)
 
 	// Sanitize the FTS5 query
 	sanitized := sanitizeFTS5(query)

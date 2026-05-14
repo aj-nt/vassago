@@ -39,7 +39,23 @@ const (
 
 	defaultResultLimit = 1000  // Default number of results for list/search queries
 	maxResultLimit     = 10000 // Upper bound for paginated queries
+
+	DefaultHotBlockCharLimit = 4000 // Default char limit for hot block computation
 )
+
+// ClampLimit clamps a limit value to a reasonable range.
+// If limit <= 0, returns fallback.
+// If max > 0 and limit > max, returns max.
+// Otherwise returns limit unchanged.
+func ClampLimit(limit, fallback, max int) int {
+	if limit <= 0 {
+		return fallback
+	}
+	if max > 0 && limit > max {
+		return max
+	}
+	return limit
+}
 
 // Store is the SQLite-backed data store for Mnemosyne.
 type Store struct {
@@ -223,9 +239,7 @@ func (s *Store) ListMemories(owner, target string, category string, minPriority 
 
 // ListMemoriesPaginated returns memories with explicit pagination.
 func (s *Store) ListMemoriesPaginated(owner, target string, category string, minPriority int32, limit int, offset int) ([]*MemoryEntry, error) {
-	if limit <= 0 || limit > maxResultLimit {
-		limit = defaultResultLimit
-	}
+	limit = ClampLimit(limit, defaultResultLimit, maxResultLimit)
 	if offset < 0 {
 		offset = 0
 	}

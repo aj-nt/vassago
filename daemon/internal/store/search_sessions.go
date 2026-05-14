@@ -10,12 +10,7 @@ import (
 // SearchSessions searches session titles using LIKE matching.
 // Sessions don't have FTS5 indexes, so we use simple pattern matching.
 func (s *Store) SearchSessions(query string, limit int) ([]*Session, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > defaultResultLimit {
-		limit = defaultResultLimit
-	}
+	limit = ClampLimit(limit, 50, defaultResultLimit)
 
 	if query == "" {
 		return nil, fmt.Errorf("search query must not be empty")
@@ -61,12 +56,7 @@ func sanitizeLike(query string) string {
 
 // ListRecentSessions returns the most recently active sessions.
 func (s *Store) ListRecentSessions(limit int) ([]*Session, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > defaultResultLimit {
-		limit = defaultResultLimit
-	}
+	limit = ClampLimit(limit, 20, defaultResultLimit)
 
 	rows, err := s.db.Query(`
 		SELECT id, agent_id, source, title, created_at, last_active_at, message_count

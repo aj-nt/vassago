@@ -65,10 +65,7 @@ func (s *Service) GetSavedTool(ctx context.Context, req *pb.GetSavedToolRequest)
 }
 
 func (s *Service) ListSavedTools(ctx context.Context, req *pb.ListSavedToolsRequest) (*pb.SavedToolList, error) {
-	limit := int(req.GetLimit())
-	if limit <= 0 {
-		limit = 50
-	}
+	limit := store.ClampLimit(int(req.GetLimit()), 50, 0)
 
 	rows, err := s.store.ListSavedTools(ownerFromCtx(ctx), req.Category, req.Author, limit)
 	if err != nil {
@@ -88,10 +85,7 @@ func (s *Service) SearchSavedTools(ctx context.Context, req *pb.SearchSavedTools
 		return nil, status.Error(codes.InvalidArgument, "query is required")
 	}
 
-	limit := int(req.GetLimit())
-	if limit <= 0 {
-		limit = 20
-	}
+	limit := store.ClampLimit(int(req.GetLimit()), 20, 0)
 
 	rows, err := s.store.SearchSavedTools(ownerFromCtx(ctx), req.Query, req.Category, limit)
 	if err != nil {

@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -240,7 +242,7 @@ func NextFireTime(expr string, from int64) (int64, error) {
 
 // parseCronFields parses a 5-field cron expression into field specs.
 func parseCronFields(expr string) ([]cronField, error) {
-	parts := splitFields(expr)
+	parts := strings.Fields(expr)
 	if len(parts) != 5 {
 		return nil, fmt.Errorf("expected 5 fields, got %d", len(parts))
 	}
@@ -279,16 +281,17 @@ func parseFieldSpec(field string, min, max int) (cronField, error) {
 	cf := cronField{values: make(map[int]bool)}
 
 	// Handle comma-separated values
-	parts := splitBy(field, ',')
+	parts := strings.Split(field, ",")
 	for _, part := range parts {
 		// Handle step values (e.g., */5, 1-10/2)
 		step := 1
-		stepIdx := indexOfByte(part, '/')
+		stepIdx := strings.IndexByte(part, '/')
 		if stepIdx >= 0 {
-			_, err := fmtsscanf(part[stepIdx+1:], "%d", &step)
-			if err != nil || step <= 0 {
+			s, err := strconv.Atoi(part[stepIdx+1:])
+			if err != nil || s <= 0 {
 				return cf, fmt.Errorf("invalid step value in %q", part)
 			}
+			step = s
 			part = part[:stepIdx]
 		}
 
@@ -297,20 +300,20 @@ func parseFieldSpec(field string, min, max int) (cronField, error) {
 		if part == "*" {
 			// All values
 		} else {
-			dashIdx := indexOfByte(part, '-')
+			dashIdx := strings.IndexByte(part, '-')
 			if dashIdx >= 0 {
-				val, err := parseInt(part[:dashIdx])
+				val, err := strconv.Atoi(part[:dashIdx])
 				if err != nil {
 					return cf, err
 				}
 				start = val
-				val, err = parseInt(part[dashIdx+1:])
+				val, err = strconv.Atoi(part[dashIdx+1:])
 				if err != nil {
 					return cf, err
 				}
 				end = val
 			} else {
-				val, err := parseInt(part)
+				val, err := strconv.Atoi(part)
 				if err != nil {
 					return cf, err
 				}
@@ -350,68 +353,4 @@ func matchesCron(t time.Time, fields []cronField) bool {
 		return false
 	}
 	return true
-}
-
-// splitFields splits a cron expression by whitespace.
-func splitFields(expr string) []string {
-	var fields []string
-	start := -1
-	for i := 0; i <= len(expr); i++ {
-		if i == len(expr) || expr[i] == ' ' || expr[i] == '\t' {
-			if start >= 0 {
-				fields = append(fields, expr[start:i])
-				start = -1
-			}
-		} else if start < 0 {
-			start = i
-		}
-	}
-	return fields
-}
-
-// splitBy splits a string by a separator character.
-func splitBy(s string, sep byte) []string {
-	var parts []string
-	start := 0
-	for i := 0; i <= len(s); i++ {
-		if i == len(s) || s[i] == sep {
-			parts = append(parts, s[start:i])
-			start = i + 1
-		}
-	}
-	return parts
-}
-
-// indexOfByte finds the index of a byte in a string.
-func indexOfByte(s string, c byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
-}
-
-// parseInt parses an integer from a string.
-func parseInt(s string) (int, error) {
-	n := 0
-	for _, c := range s {
-		if c >= '0' && c <= '9' {
-			n = n*10 + int(c-'0')
-		} else {
-			return 0, fmt.Errorf("invalid number %q", s)
-		}
-	}
-	return n, nil
-}
-
-// fmtsscanf is a minimal single-value scanf that we use for step parsing.
-func fmtsscanf(s string, format string, dest *int) (int, error) {
-	// Simple: just parse an integer from s
-	n, err := parseInt(s)
-	if err != nil {
-		return 0, err
-	}
-	*dest = n
-	return 1, nil
 }

@@ -24,6 +24,15 @@ type AddMemoryParams struct {
 	ExpiresAt   int64
 }
 
+// MemoryPatch holds fields for partial memory update.
+// Nil pointers mean "keep existing value"; non-nil means "update to this value".
+type MemoryPatch struct {
+	Category  *string
+	Content   *string
+	Priority  *int32
+	ExpiresAt *int64
+}
+
 // AddMemory creates a new memory entry. If target+key already exists, it updates instead.
 // The operation is atomic — the check-then-upsert is wrapped in a transaction.
 func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
@@ -93,4 +102,43 @@ func (s *Store) AddMemory(params AddMemoryParams) (*MemoryEntry, error) {
 		return nil, fmt.Errorf("commit insert: %w", err)
 	}
 	return s.GetMemoryByID(id)
+}
+
+// UpdateMemory applies a partial update to an existing memory entry.
+// It reads the existing entry, merges the patch, and re-upserts.
+func (s *Store) UpdateMemory(id, owner string, patch MemoryPatch) (*MemoryEntry, error) {
+	existing, err := s.GetMemoryByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply partial updates
+	category := existing.Category
+	content := existing.Content
+	priority := existing.Priority
+	expiresAt := existing.ExpiresAt
+
+	if patch.Category != nil {
+		category = *patch.Category
+	}
+	if patch.Content != nil {
+		content = *patch.Content
+	}
+	if patch.Priority != nil {
+		priority = *patch.Priority
+	}
+	if patch.ExpiresAt != nil {
+		expiresAt = *patch.ExpiresAt
+	}
+
+	return s.AddMemory(AddMemoryParams{
+		Owner:       owner,
+		Target:      existing.Target,
+		Category:    category,
+		Key:         existing.Key,
+		Content:     content,
+		Priority:    priority,
+		SourceAgent: existing.SourceAgent,
+		ExpiresAt:   expiresAt,
+	})
 }

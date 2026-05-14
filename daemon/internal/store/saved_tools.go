@@ -154,9 +154,7 @@ func (s *Store) SearchSavedTools(owner, query, category string, limit int) ([]Sa
 		args = append(args, category)
 	}
 	sql += " ORDER BY rank LIMIT ?"
-	if limit <= 0 {
-		limit = 20
-	}
+	limit = ClampLimit(limit, 20, 0)
 	args = append(args, limit)
 
 	rows, err := s.db.Query(sql, args...)

@@ -35,7 +35,7 @@ func (s *Service) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb
 	}
 
 	if config.CharLimit <= 0 {
-		config.CharLimit = 4000 // Default from DESIGN.md
+		config.CharLimit = store.DefaultHotBlockCharLimit
 	}
 
 	result, err := s.store.ComputeHotBlock(ownerFromCtx(ctx), req.Target, config)

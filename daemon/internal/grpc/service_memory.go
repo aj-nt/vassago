@@ -81,42 +81,11 @@ func (s *Service) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest)
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 
-	// Get existing entry
-	existing, err := s.store.GetMemoryByID(req.Id)
-	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "memory not found: %s", req.Id)
-	}
-
-	// Apply partial updates
-	target := existing.Target
-	category := existing.Category
-	content := existing.Content
-	priority := existing.Priority
-	expiresAt := existing.ExpiresAt
-
-	if req.Category != nil {
-		category = *req.Category
-	}
-	if req.Content != nil {
-		content = *req.Content
-	}
-	if req.Priority != nil {
-		priority = *req.Priority
-	}
-	if req.ExpiresAt != nil {
-		expiresAt = *req.ExpiresAt
-	}
-
-	// Upsert by target+key (overwrites existing)
-	entry, err := s.store.AddMemory(store.AddMemoryParams{
-		Owner:       ownerFromCtx(ctx),
-		Target:      target,
-		Category:    category,
-		Key:         existing.Key,
-		Content:     content,
-		Priority:    priority,
-		SourceAgent: existing.SourceAgent,
-		ExpiresAt:   expiresAt,
+	entry, err := s.store.UpdateMemory(req.Id, ownerFromCtx(ctx), store.MemoryPatch{
+		Category:  req.Category,
+		Content:   req.Content,
+		Priority:  req.Priority,
+		ExpiresAt: req.ExpiresAt,
 	})
 	if err != nil {
 		slog.Error("UpdateMemory failed", "error", err, "id", req.Id)
