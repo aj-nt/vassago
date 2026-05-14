@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
+	"github.com/aj-nt/mnemosyne/daemon/internal/extraction"
 	"github.com/aj-nt/mnemosyne/daemon/internal/github"
 	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
@@ -37,6 +38,7 @@ type Config struct {
 	Messaging  MessagingConfig   `yaml:"messaging"`
 	Cron       CronConfig        `yaml:"cron"`
 	GitHub     GitHubConfig      `yaml:"github"`
+	Extraction ExtractionConfig  `yaml:"extraction"`
 }
 
 type GitHubConfig struct {
@@ -190,12 +192,13 @@ func (c *Config) Validate() error {
 
 // Daemon represents the Mnemosyne memory daemon.
 type Daemon struct {
-	config     *Config
-	store      *store.Store
-	hub        *pubsub.Hub
-	server     *grpc.Server
-	httpServer *http.Server
-	cronRunner *cron.CronRunner
+	config             *Config
+	store              *store.Store
+	hub                *pubsub.Hub
+	server             *grpc.Server
+	httpServer         *http.Server
+	cronRunner         *cron.CronRunner
+	extractionScheduler *extraction.Scheduler
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
@@ -295,11 +298,14 @@ func New(cfg *Config) (*Daemon, error) {
 	messagingService := daemongrpc.NewMessagingService()
 	setupMessagingAdapters(cfg, messagingService)
 
+	// Create gRPC service
+	grpcSvc := daemongrpc.NewService(st, hub, messagingService)
+
 	// Register services
-	pb.RegisterMnemosyneServer(server, daemongrpc.NewService(st, hub, messagingService))
+	pb.RegisterMnemosyneServer(server, grpcSvc)
 	pb.RegisterMessagingServer(server, messagingService)
 	pb.RegisterCronServiceServer(server, daemongrpc.NewCronService(st))
-	
+
 	// Enable gRPC reflection
 	reflection.Register(server)
 
@@ -315,12 +321,76 @@ func New(cfg *Config) (*Daemon, error) {
 		})
 	}
 
+	// Wire autonomous memory extraction
+	var extractionScheduler *extraction.Scheduler
+	if cfg.Extraction.Enabled {
+		extCfg := extraction.Config{
+			DebounceInterval:         cfg.Extraction.DebounceInterval,
+			HardCapInterval:          cfg.Extraction.HardCapInterval,
+			MaxMessagesPerExtraction: 50,
+			MinMessagesForExtraction: 4,
+			Priority:                 2,
+			Model:                    cfg.Extraction.Model,
+		}
+		if extCfg.DebounceInterval <= 0 {
+			extCfg.DebounceInterval = 30
+		}
+		if extCfg.HardCapInterval <= 0 {
+			extCfg.HardCapInterval = 900
+		}
+
+		client := extraction.NewHTTPClient(extraction.HTTPClientConfig{
+			Model:    cfg.Extraction.Model,
+			BaseURL:  cfg.Extraction.BaseURL,
+			APIKey:   cfg.Extraction.APIKey,
+		})
+
+		pipeline := extraction.NewPipeline(extCfg, newExtractionStore(st))
+		pipeline.SetClient(client)
+
+		extractionScheduler = extraction.NewScheduler(extCfg, func(sessionID string) {
+			msgs, err := st.GetSessionMessages(sessionID)
+			if err != nil {
+				slog.Error("extraction: failed to get session messages", "session_id", sessionID, "error", err)
+				return
+			}
+			if len(msgs) < extCfg.MinMessagesForExtraction {
+				return
+			}
+			extMsgs := make([]extraction.SessionMessage, len(msgs))
+			for i, m := range msgs {
+				extMsgs[i] = extraction.SessionMessage{
+					Role:     m.Role,
+					Content:  m.Content,
+					ToolName: m.ToolName,
+				}
+				if m.ToolName != "" && m.Role == "assistant" {
+					extMsgs[i].ToolCalls = []extraction.ToolCall{{Name: m.ToolName}}
+				}
+			}
+			persisted, err := pipeline.ExtractAndPersist("default", "mnemosyne-daemon", extMsgs)
+			if err != nil {
+				slog.Error("extraction: pipeline failed", "session_id", sessionID, "error", err)
+				return
+			}
+			if persisted > 0 {
+				slog.Info("extraction: new memories persisted", "session_id", sessionID, "count", persisted)
+			}
+		})
+
+		// Wire the AddMessages hook
+		grpcSvc.OnMessagesAdded = func(sessionID, owner string) {
+			extractionScheduler.Notify(sessionID)
+		}
+	}
+
 	return &Daemon{
-		config:     cfg,
-		store:      st,
-		hub:        hub,
-		server:     server,
-		cronRunner: cronRunner,
+		config:              cfg,
+		store:               st,
+		hub:                 hub,
+		server:              server,
+		cronRunner:          cronRunner,
+		extractionScheduler: extractionScheduler,
 	}, nil
 }
 
@@ -430,6 +500,15 @@ func (d *Daemon) Run() error {
 		if err := d.cronRunner.RecomputeNextFireTimes(ctx); err != nil {
 			slog.Error("cron runner recompute failed", "error", err)
 		}
+	}
+
+	// Start extraction scheduler if configured
+	if d.extractionScheduler != nil {
+		d.extractionScheduler.Start(ctx)
+		defer d.extractionScheduler.Stop()
+		slog.Info("memory extraction enabled",
+			"debounce", d.config.Extraction.DebounceInterval,
+			"hard_cap", d.config.Extraction.HardCapInterval)
 	}
 
 	// Wait for shutdown signal

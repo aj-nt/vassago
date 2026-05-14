@@ -60,6 +60,11 @@ func (s *Service) AddMessages(ctx context.Context, req *pb.AddMessagesRequest) (
 		return nil, status.Errorf(codes.Internal, "add messages: %v", err)
 	}
 
+	// Trigger debounced memory extraction if configured
+	if s.OnMessagesAdded != nil {
+		go s.OnMessagesAdded(req.SessionId, ownerFromCtx(ctx))
+	}
+
 	sess, err := s.store.GetSession(req.SessionId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "get session after add messages: %v", err)

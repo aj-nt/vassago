@@ -30,9 +30,14 @@ func protoToConsolidateScope(scope pb.ConsolidateScope) store.ConsolidationScope
 // Service implements the Mnemosyne gRPC service.
 type Service struct {
 	pb.UnimplementedMnemosyneServer
-	store    *store.Store
-	hub      *pubsub.Hub
+	store     *store.Store
+	hub       *pubsub.Hub
 	messaging *MessagingService
+
+	// OnMessagesAdded is called after messages are persisted to a session.
+	// The daemon wires this to trigger debounced memory extraction.
+	// May be nil (no extraction configured).
+	OnMessagesAdded func(sessionID, owner string)
 }
 
 // NewService creates a new gRPC service backed by the given store.
