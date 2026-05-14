@@ -6,7 +6,7 @@ package store
 // Schema version for the Mnemosyne database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 8 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces, 6:owner_columns, 7:fix_v6, 8:api_keys
+const SchemaVersion = 9 // 1:todos, 2:cron, 3:skills, 4:saved_tools, 5:namespaces, 6:owner_columns, 7:fix_v6, 8:api_keys, 9:agent_last_session
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -320,4 +320,8 @@ var Migrations = []string{
 	)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_api_keys_owner ON api_keys(owner)`,
+
+	// Migration 9: Add last-session tracking to agents
+	`ALTER TABLE agents ADD COLUMN last_session_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE agents ADD COLUMN last_session_summary TEXT NOT NULL DEFAULT ''`,
 }

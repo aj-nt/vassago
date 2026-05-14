@@ -270,10 +270,12 @@ func (s *Store) AddMessage(m Message) error {
 
 // Agent represents a connected agent.
 type Agent struct {
-	ID         string
-	Name       string
-	Role       string
-	CreatedAt  int64
-	LastSeenAt int64
-	Config     string // JSON: HotBlockConfig per role
+	ID                 string
+	Name               string
+	Role               string
+	CreatedAt          int64
+	LastSeenAt         int64
+	Config             string // JSON: HotBlockConfig per role
+	LastSessionID      string
+	LastSessionSummary string
 }
