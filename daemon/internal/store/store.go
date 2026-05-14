@@ -143,8 +143,8 @@ func (s *Store) initDB() error {
 	// Apply pending migrations
 	if version < SchemaVersion {
 		for i := version; i < SchemaVersion; i++ {
-			idx := i - 1 // 0-indexed
-			if idx < len(Migrations) {
+			idx := i
+			if idx >= 0 && idx < len(Migrations) {
 				if _, err := s.db.Exec(Migrations[idx]); err != nil {
 					return fmt.Errorf("apply migration %d: %w", i, err)
 				}
