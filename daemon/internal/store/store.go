@@ -6,6 +6,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -145,8 +146,19 @@ func (s *Store) initDB() error {
 		for i := version; i < SchemaVersion; i++ {
 			idx := i
 			if idx >= 0 && idx < len(Migrations) {
-				if _, err := s.db.Exec(Migrations[idx]); err != nil {
-					return fmt.Errorf("apply migration %d: %w", i, err)
+				stmt := Migrations[idx]
+				if _, err := s.db.Exec(stmt); err != nil {
+					// SQLite doesn't support ADD COLUMN IF NOT EXISTS.
+					// If a migration re-adds a column that already exists
+					// (e.g., when re-opening a DB that was partially migrated),
+					// treat it as a non-fatal condition and continue.
+					if strings.Contains(err.Error(), "duplicate column name") ||
+						strings.Contains(err.Error(), "already exists") {
+						slog.Warn("store: migration column already exists, skipping",
+							"migration", i, "stmt", stmt[:min(len(stmt), 60)])
+					} else {
+						return fmt.Errorf("apply migration %d: %w", i, err)
+					}
 				}
 			}
 			if _, err := s.db.Exec(
@@ -212,8 +224,11 @@ func (s *Store) GetMemoryByID(id string) (*MemoryEntry, error) {
 		return nil, fmt.Errorf("get memory: %w", err)
 	}
 
-	// Update accessed_at (side effect of read — consider making this explicit)
-	s.db.Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", time.Now().Unix(), id) //nolint:errcheck
+	// Update accessed_at. Failure is non-fatal — the entry was read successfully,
+	// but a consolidation sweep may later consider it idle if this timestamp isn't updated.
+	if _, err := s.db.Exec("UPDATE memories SET accessed_at = ? WHERE id = ?", time.Now().Unix(), id); err != nil {
+		slog.Warn("store: failed to update accessed_at (non-fatal, but consolidation may be affected)", "id", id, "error", err)
+	}
 	return entry, nil
 }
 

@@ -31,4 +31,12 @@ type ExtractionConfig struct {
 	// HardCapInterval is the maximum interval (seconds) between extractions
 	// for a long-running session. Default: 900 (15 minutes).
 	HardCapInterval int `yaml:"hard_cap_interval"`
+
+	// MaxMessagesPerExtraction limits how many recent messages are sent to
+	// the LLM for analysis. Default: 50.
+	MaxMessagesPerExtraction int `yaml:"max_messages_per_extraction"`
+
+	// MinMessagesForExtraction prevents extraction on sessions with too few
+	// messages. Default: 4.
+	MinMessagesForExtraction int `yaml:"min_messages_for_extraction"`
 }

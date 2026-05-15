@@ -327,8 +327,8 @@ func New(cfg *Config) (*Daemon, error) {
 		extCfg := extraction.Config{
 			DebounceInterval:         cfg.Extraction.DebounceInterval,
 			HardCapInterval:          cfg.Extraction.HardCapInterval,
-			MaxMessagesPerExtraction: 50,
-			MinMessagesForExtraction: 4,
+			MaxMessagesPerExtraction: cfg.Extraction.MaxMessagesPerExtraction,
+			MinMessagesForExtraction: cfg.Extraction.MinMessagesForExtraction,
 			Priority:                 2,
 			Model:                    cfg.Extraction.Model,
 		}
@@ -337,6 +337,12 @@ func New(cfg *Config) (*Daemon, error) {
 		}
 		if extCfg.HardCapInterval <= 0 {
 			extCfg.HardCapInterval = 900
+		}
+		if extCfg.MaxMessagesPerExtraction <= 0 {
+			extCfg.MaxMessagesPerExtraction = 50
+		}
+		if extCfg.MinMessagesForExtraction <= 0 {
+			extCfg.MinMessagesForExtraction = 4
 		}
 
 		client := extraction.NewHTTPClient(extraction.HTTPClientConfig{
