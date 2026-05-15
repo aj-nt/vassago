@@ -76,12 +76,11 @@ func TestRedTeam_OversizedContent(t *testing.T) {
 		SourceAgent: "redteam",
 	})
 
-	// BUG: The store currently has NO content size limit.
-	// It will accept and store 2MB content. This is a finding.
+	// MaxContentLength is 100KB — 2MB should be rejected
 	if err != nil {
-		t.Logf("Store rejected oversized content (good): %v", err)
+		t.Logf("Store correctly rejected oversized content: %v", err)
 	} else {
-		t.Logf("FINDING: Store accepted 2MB content with no size limit. Consider adding a max_content_length config.")
+		t.Error("FINDING: Store accepted 2MB content. MaxContentLength should have rejected this.")
 	}
 }
 
