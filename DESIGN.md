@@ -563,90 +563,99 @@ goroutines is exactly the kind of code that hides data races.
 
 ## 11. Project Structure
 
+Mnemosyne is a daemon-only repository. Agent binaries live in separate repos
+and connect to the daemon via gRPC.
+
 ```
-mnemosyne/                          # Monorepo
-├── daemon/                         # The memory daemon (this document)
-│   ├── cmd/mnemosyne-daemon/      # Daemon entry point
-│   │   └── main.go
-│   ├── cmd/mnemosyne-cli/         # CLI client for admin/debug
-│   │   └── main.go
-│   ├── cmd/mnemosyne-import/      # Hermes DB import tool
-│   │   └── main.go
-│   ├── internal/
-│   │   ├── daemon/
-│   │   │   ├── daemon.go          # Core daemon lifecycle
-│   │   │   ├── config.go          # Single source of truth for config
-│   │   │   └── listener.go        # gRPC + Unix socket listeners
-│   │   ├── store/
-│   │   │   ├── store.go           # SQLite data access layer
-│   │   │   ├── schema.go          # Schema definition + migrations
-│   │   │   ├── hotblock.go        # Hot block computation
-│   │   │   ├── sessions.go        # Session + message CRUD
-│   │   │   └── fts5.go            # FTS5 query sanitization + search
-│   │   ├── pubsub/
-│   │   │   ├── hub.go             # Pub/sub hub (in-process)
-│   │   │   └── subscription.go    # Subscription matching
-│   │   ├── grpc/
-│   │   │   ├── service.go         # gRPC service implementation
-│   │   │   └── interceptors.go    # Auth, logging, recovery
-│   │   └── migration/
-│   │       └── hermes.go          # Hermes state.db import
-│   └── proto/
-│       └── mnemosyne.proto        # gRPC service definition
+mnemosyne/
+├── cmd/mnemosyne/                # Unified CLI
+│   ├── main.go                   # Entry point
+│   ├── cmd_init.go               # First-run setup (dirs, config, launchd)
+│   ├── cmd_start.go              # Start daemon + health check
+│   ├── cmd_status.go             # Daemon health + database info
+│   ├── cmd_memory.go             # Memory CRUD + search
+│   ├── cmd_sessions.go           # Session listing + inspection
+│   ├── cmd_config.go             # Config validation + display
+│   ├── cmd_validate.go           # Deep config validation
+│   ├── cmd_version.go            # Build info with commit hash
+│   └── cmd_export.go             # Export memories to JSON
 │
-├── agent/                          # The agent (see AGENT.md)
-│   ├── cmd/mnemosyne-agent/
-│   │   └── main.go                # CLI entry point
-│   ├── context/
-│   │   ├── context.go             # ConversationContext, SessionState
-│   │   ├── types.go               # PreparedRequest, ParsedResponse, etc.
-│   │   └── capabilities.go       # ProviderCapabilities
-│   ├── pipeline/
-│   │   ├── request_prep.go        # Stage 1: Build prompt, inject hot block
-│   │   ├── provider_call.go        # Stage 2: Call LLM via ProviderRegistry
-│   │   ├── response_processing.go  # Stage 3: Parse into ParsedResponse
-│   │   ├── tool_dispatch.go        # Stage 4: Route tool calls, collect results
-│   │   └── context_management.go   # Stage 5: Append results, check limits
-│   ├── provider/
-│   │   ├── registry.go            # ProviderRegistry: name → Provider
-│   │   ├── provider.go             # Provider interface
-│   │   ├── openai.go              # OpenAI-compatible (covers Ollama, OpenRouter)
-│   │   ├── anthropic.go           # Anthropic Messages API + prompt caching
-│   │   └── mock.go                # MockProvider for testing
-│   ├── tools/
-│   │   ├── registry.go            # ToolRegistry: name → ToolHandler
-│   │   ├── memory.go               # Memory tools via gRPC client
-│   │   ├── terminal.go             # Shell command execution
-│   │   └── file.go                 # File read/write/search
-│   ├── eventbus/
-│   │   └── bus.go                  # EventBus: emit/subscribe for observability
-│   └── interface/
-│       ├── cli.go                  # Terminal interface (stdin/stdout)
-│       ├── api.go                  # HTTP API (future)
-│       └── telegram.go             # Telegram bot (future)
+├── daemon/
+│   ├── cmd/
+│   │   ├── mnemosyne-daemon/     # Daemon binary entry point
+│   │   ├── mnemosyne-cli/        # Admin/debug CLI client
+│   │   └── mnemosyne-import/     # Hermes state.db import tool
+│   └── internal/
+│       ├── daemon/               # Core daemon: config, listeners, lifecycle
+│       ├── store/                 # SQLite data access layer
+│       │   ├── store.go          # Store initialization, schema, migrations
+│       │   ├── add_memory.go     # Atomic upsert with validation
+│       │   ├── hotblock.go       # Per-agent hot block computation
+│       │   ├── sessions.go       # Session + message CRUD
+│       │   ├── search.go         # FTS5 search with sanitization
+│       │   ├── consolidate.go    # Expiry sweeps, idle cleanup
+│       │   ├── schema.go         # Schema v9 + 35 migration statements
+│       │   ├── skills.go         # Skills CRUD + FTS5
+│       │   ├── saved_tools.go    # Agent-defined scripts
+│       │   ├── cron.go           # Cron job storage
+│       │   ├── todo.go           # Todo items
+│       │   └── export.go         # Memory export to JSON
+│       ├── grpc/                  # gRPC service implementation
+│       │   ├── service.go        # Service struct + conversion helpers
+│       │   ├── service_memory.go # Memory CRUD handlers
+│       │   ├── service_hotblock.go
+│       │   ├── service_session.go
+│       │   ├── service_search.go
+│       │   ├── service_agent.go
+│       │   ├── service_pubsub.go
+│       │   ├── service_consolidation.go
+│       │   ├── service_health.go
+│       │   └── interceptors.go  # Recovery + API key auth
+│       ├── pubsub/               # In-process pub/sub hub
+│       ├── cron/                 # 5-field cron expression runner
+│       ├── messaging/            # Platform adapters (Discord, Telegram, iMessage, Email)
+│       ├── extraction/           # LLM-powered memory extraction pipeline
+│       ├── migration/            # Hermes state.db → Mnemosyne importer
+│       └── github/               # GitHub webhook handler
 │
-├── client/                         # Shared gRPC client library
-│   ├── client.go                  # Connect, CRUD, GetHotBlock, sessions
-│   └── hotblock_cache.go          # Client-side hot block cache + merge
+├── client/                        # Public gRPC client (Apache 2.0)
+│   ├── client.go                 # gRPC connection + health check
+│   ├── mnemo_client.go           # MnemoClient interface (50+ methods)
+│   ├── reconnect.go              # Auto-reconnection with backoff
+│   ├── hotblock_cache.go         # Client-side hot block cache
+│   ├── agent.go                  # Agent session lifecycle
+│   └── null_client.go            # Null object pattern for testing
 │
-├── configs/
-│   ├── mnemosyne.yaml             # Daemon config
-│   ├── agent-dev.yaml             # Dev agent config
-│   └── agent-monitor.yaml         # Monitor agent config
+├── sdk/                           # Go SDK (batteries-included client)
+│   ├── sdk.go                    # Connect(), MemoryStore, Config
+│   ├── conversation.go           # Multi-turn conversation manager
+│   ├── memstore.go               # MemoryStore interface
+│   └── python/                   # Python SDK (async gRPC)
+│       ├── pyproject.toml
+│       └── src/mnemosyne/
+│           └── client.py         # MnemosyneClient (async context manager)
 │
-├── proto/
-│   └── mnemosyne.proto            # Shared proto definition
+├── proto/                         # gRPC protocol definitions (Apache 2.0)
+│   ├── mnemosyne.proto           # Mnemosyne + AgentChat services
+│   └── messaging.proto           # Messaging service
 │
-├── tests/
-│   ├── integration/               # Integration tests
-│   └── fixtures/                  # Test databases
+├── messaging/format/              # Shared message formatting (Apache 2.0)
+│   └── format.go                 # Platform limits, chunking, context labels
 │
+├── configs/                       # Example configs
+│   ├── mnemosyne.yaml            # Daemon configuration
+│   └── com.mnemosyne.daemon.plist # macOS LaunchAgent plist
+│
+├── scripts/                       # CI and migration helpers
+│
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── DESIGN.md                      # This document
+├── README.md
+├── Makefile
 ├── go.mod
-├── go.sum
-├── DESIGN.md                      # Daemon spec (this document)
-├── AGENT.md                       # Agent spec
-├── ROADMAP.md                     # Phased delivery
-└── README.md
+├── Dockerfile
+└── docker-compose.yml
 ```
 
 ## 12. Configuration
