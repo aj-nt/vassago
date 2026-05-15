@@ -1,9 +1,9 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
 
-// Schema version for the Mnemosyne database.
+// Schema version for the Vassago database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
 const SchemaVersion = 35

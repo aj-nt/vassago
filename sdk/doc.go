@@ -1,7 +1,7 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
-// Package sdk demonstrates integrating with the Mnemosyne memory daemon.
+// Package sdk demonstrates integrating with the Vassago memory daemon.
 //
 // # Quick start — Hermes as a memory-backed agent
 //

@@ -1,6 +1,6 @@
-# Mnemosyne — Shared Memory Daemon for AI Agents
+# Vassago — Shared Memory Daemon for AI Agents
 
-> *In Greek mythology, Mnemosyne is the goddess of memory and the mother of the Muses.
+> *In Greek mythology, Vassago is the goddess of memory and the mother of the Muses.
 > She is the source of all knowledge recalled — every insight, preference, and lesson
 > that persists across the fleeting lives of those she watches over.*
 
@@ -10,7 +10,7 @@ Hermes is a capable and feature-rich agent framework that we've used extensively
 Our experience with it taught us what a memory subsystem needs to do — and where
 the architecture reaches its limits under new requirements it wasn't designed for.
 
-Mnemosyne exists because we need capabilities that don't fit cleanly into Hermes'
+Vassago exists because we need capabilities that don't fit cleanly into Hermes'
 existing architecture:
 
 1. **Multi-agent memory sharing** — Hermes assumes a single agent owns the
@@ -36,7 +36,7 @@ existing architecture:
    actual content the agent needs in its working context.
 
 These are growth constraints, not bugs. Hermes reliably serves a single agent.
-Mnemosyne addresses the next scale: multiple agents, shared memory, and
+Vassago addresses the next scale: multiple agents, shared memory, and
 per-agent context — requirements that call for a different architectural model.
 
 ## 2. Design Principles
@@ -64,7 +64,7 @@ per-agent context — requirements that call for a different architectural model
        └───────────────────┼───────────────────┘
                            │
                     ┌──────▼──────┐
-                    │  Mnemosyne  │
+                    │  Vassago  │
                     │   Daemon    │
                     │             │
                     │  ┌───────┐  │
@@ -77,7 +77,7 @@ per-agent context — requirements that call for a different architectural model
                     └─────────────┘
 ```
 
-### 3.1 Daemon (mnemosyne-daemon)
+### 3.1 Daemon (vassago-daemon)
 
 A single long-running process that owns the SQLite database. It:
 
@@ -88,7 +88,7 @@ A single long-running process that owns the SQLite database. It:
 - Computes hot blocks per-agent on request
 - Manages schema migrations internally
 
-### 3.2 Agent Client Library (mnemosyne-client)
+### 3.2 Agent Client Library (vassago-client)
 
 A Go library (also with C bindings for potential Python/C# consumption) that:
 
@@ -209,7 +209,7 @@ CREATE INDEX idx_messages_session ON messages(session_id, timestamp);
 
 ### 4.3 Design Decisions vs Old Schema
 
-| Aspect | Old (Hermes) | New (Mnemosyne) |
+| Aspect | Old (Hermes) | New (Vassago) |
 |---|---|---|
 | Timestamps | `REAL` (float) | `INTEGER` (Unix seconds) — no floating point ambiguity |
 | Agent tracking | None | `source_agent` on memories, `agents` table |
@@ -248,7 +248,7 @@ categories. An agent doing personal assistant work might boost `user` and
 ```
 [memories]
 ● Environment: dev-server (192.168.1.100) — always-on daemon host. Ollama on localhost.
-● Project: Mnemosyne rewrite — Go daemon, gRPC, SQLite, pub/sub for telepathy.
+● Project: Vassago rewrite — Go daemon, gRPC, SQLite, pub/sub for telepathy.
 ● Project: Dogfood fork independent from upstream. 561 tests green.
 ● Quirk: FTS5 doesn't support * as wildcard. Use real search terms.
 
@@ -287,9 +287,9 @@ This is identical in logic to the old `_build_hot_block()` but:
 ```protobuf
 syntax = "proto3";
 
-package mnemosyne;
+package vassago;
 
-service Mnemosyne {
+service Vassago {
     // --- Memory CRUD ---
     rpc AddMemory(AddMemoryRequest) returns (MemoryResponse);
     rpc ReplaceMemory(ReplaceMemoryRequest) returns (MemoryResponse);
@@ -393,7 +393,7 @@ Agents can subscribe to specific scopes to reduce noise:
 ### 7.3 Event Flow
 
 ```
-Agent B calls AddMemory("memory", "project", "mnemosyne-design", "...")
+Agent B calls AddMemory("memory", "project", "vassago-design", "...")
     ↓
 Daemon writes to SQLite
     ↓
@@ -462,28 +462,28 @@ Support two paths:
 ### 8.2 Import Process
 
 ```
-mnemosyne import --source ~/.hermes/state.db
+vassago import --source ~/.hermes/state.db
 ```
 
 The import tool:
 1. Opens the Hermes SQLite database (read-only)
 2. Reads all memories, sessions, messages
 3. Transforms schema (REAL timestamps → INTEGER, adds source_agent defaults)
-4. Writes into Mnemosyne database
+4. Writes into Vassago database
 5. Validates row counts match
 6. Rebuilds FTS5 indexes
 
 ### 8.3 No Running Migration
 
 There is no in-place migration path. The Hermes database is treated as a
-read-only source. Mnemosyne writes to its own database. Both can coexist
+read-only source. Vassago writes to its own database. Both can coexist
 during evaluation.
 
 ## 9. Deployment Topology
 
 ### 9.1 Local Machine
 
-- Daemon on Unix socket (`~/.mnemosyne/mnemosyne.sock`)
+- Daemon on Unix socket (`~/.vassago/vassago.sock`)
 - Single agent on same machine
 - Zero network overhead
 
@@ -563,12 +563,12 @@ goroutines is exactly the kind of code that hides data races.
 
 ## 11. Project Structure
 
-Mnemosyne is a daemon-only repository. Agent binaries live in separate repos
+Vassago is a daemon-only repository. Agent binaries live in separate repos
 and connect to the daemon via gRPC.
 
 ```
-mnemosyne/
-├── cmd/mnemosyne/                # Unified CLI
+vassago/
+├── cmd/vassago/                # Unified CLI
 │   ├── main.go                   # Entry point
 │   ├── cmd_init.go               # First-run setup (dirs, config, launchd)
 │   ├── cmd_start.go              # Start daemon + health check
@@ -582,9 +582,9 @@ mnemosyne/
 │
 ├── daemon/
 │   ├── cmd/
-│   │   ├── mnemosyne-daemon/     # Daemon binary entry point
-│   │   ├── mnemosyne-cli/        # Admin/debug CLI client
-│   │   └── mnemosyne-import/     # Hermes state.db import tool
+│   │   ├── vassago-daemon/     # Daemon binary entry point
+│   │   ├── vassago-cli/        # Admin/debug CLI client
+│   │   └── vassago-import/     # Hermes state.db import tool
 │   └── internal/
 │       ├── daemon/               # Core daemon: config, listeners, lifecycle
 │       ├── store/                 # SQLite data access layer
@@ -615,12 +615,12 @@ mnemosyne/
 │       ├── cron/                 # 5-field cron expression runner
 │       ├── messaging/            # Platform adapters (Discord, Telegram, iMessage, Email)
 │       ├── extraction/           # LLM-powered memory extraction pipeline
-│       ├── migration/            # Hermes state.db → Mnemosyne importer
+│       ├── migration/            # Hermes state.db → Vassago importer
 │       └── github/               # GitHub webhook handler
 │
 ├── client/                        # Public gRPC client (Apache 2.0)
 │   ├── client.go                 # gRPC connection + health check
-│   ├── mnemo_client.go           # MnemoClient interface (50+ methods)
+│   ├── vassago_client.go           # MnemoClient interface (50+ methods)
 │   ├── reconnect.go              # Auto-reconnection with backoff
 │   ├── hotblock_cache.go         # Client-side hot block cache
 │   ├── agent.go                  # Agent session lifecycle
@@ -632,19 +632,19 @@ mnemosyne/
 │   ├── memstore.go               # MemoryStore interface
 │   └── python/                   # Python SDK (async gRPC)
 │       ├── pyproject.toml
-│       └── src/mnemosyne/
-│           └── client.py         # MnemosyneClient (async context manager)
+│       └── src/vassago/
+│           └── client.py         # VassagoClient (async context manager)
 │
 ├── proto/                         # gRPC protocol definitions (Apache 2.0)
-│   ├── mnemosyne.proto           # Mnemosyne + AgentChat services
+│   ├── vassago.proto           # Vassago + AgentChat services
 │   └── messaging.proto           # Messaging service
 │
 ├── messaging/format/              # Shared message formatting (Apache 2.0)
 │   └── format.go                 # Platform limits, chunking, context labels
 │
 ├── configs/                       # Example configs
-│   ├── mnemosyne.yaml            # Daemon configuration
-│   └── com.mnemosyne.daemon.plist # macOS LaunchAgent plist
+│   ├── vassago.yaml            # Daemon configuration
+│   └── com.vassago.daemon.plist # macOS LaunchAgent plist
 │
 ├── scripts/                       # CI and migration helpers
 │
@@ -663,16 +663,16 @@ mnemosyne/
 One file. One source of truth. No deep merge. No fallback chains.
 
 ```yaml
-# mnemosyne.yaml
+# vassago.yaml
 daemon:
-  socket: ~/.mnemosyne/mnemosyne.sock   # Unix socket (local)
+  socket: ~/.vassago/vassago.sock   # Unix socket (local)
   tcp: localhost:50051                   # TCP listener (LAN/internet)
   tls:
     cert: ""                             # Empty = no TLS
     key: ""
 
 database:
-  path: ~/.mnemosyne/mnemosyne.db
+  path: ~/.vassago/vassago.db
   wal_mode: true                         # WAL for concurrent reads
   busy_timeout: 5000                     # ms to wait on lock
 
@@ -705,7 +705,7 @@ logging:
 
 ## 14. From Hermes — What We Learned, What We're Building Differently
 
-| What Hermes Does | What We Learned | How Mnemosyne Approaches It |
+| What Hermes Does | What We Learned | How Vassago Approaches It |
 |---|---|---|
 | Three config sources for memory limits | Multiple sources makes debugging hard | One config file, one loader, one code constant |
 | Deep merge re-applies removed defaults | Removing a config key should work | No deep merge. Absent keys use the code constant |

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mnemosyne Daemon installer — build from source and install to ~/bin
+# Vassago Daemon installer — build from source and install to ~/bin
 # Usage: curl -fsSL https://raw.githubusercontent.com/aj-nt/vassago/main/install.sh | bash
 
 set -euo pipefail
@@ -13,7 +13,7 @@ cleanup() { rm -rf "$TMPDIR_BASE"; }
 trap cleanup EXIT
 
 echo "╭─────────────────────────────────────────────╮"
-echo "│  Mnemosyne Daemon Installer                │"
+echo "│  Vassago Daemon Installer                │"
 echo "╰─────────────────────────────────────────────╯"
 echo ""
 
@@ -43,7 +43,7 @@ echo "✓ make found"
 
 # Clone
 echo ""
-echo "Cloning Mnemosyne..."
+echo "Cloning Vassago..."
 git clone --depth 1 "$REPO" "$TMPDIR_BASE/vassago"
 cd "$TMPDIR_BASE/vassago"
 

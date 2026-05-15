@@ -1,6 +1,6 @@
-"""Integration tests for the Mnemosyne Python SDK.
+"""Integration tests for the Vassago Python SDK.
 
-These tests require a running Mnemosyne daemon. Run with:
+These tests require a running Vassago daemon. Run with:
 
     pytest tests/ --live-daemon localhost:50051
 
@@ -12,7 +12,7 @@ import pytest
 import asyncio
 from datetime import datetime, timezone
 
-from vassago import MnemosyneClient, MnemosyneError, NotFoundError
+from vassago import VassagoClient, VassagoError, NotFoundError
 
 
 # Skip all tests in this module unless --live-daemon is provided
@@ -30,8 +30,8 @@ def daemon_address(request):
 
 @pytest.fixture
 async def client(daemon_address):
-    """Provide a connected MnemosyneClient, cleaned up after each test."""
-    c = MnemosyneClient(daemon_address)
+    """Provide a connected VassagoClient, cleaned up after each test."""
+    c = VassagoClient(daemon_address)
     await c.connect()
     yield c
     await c.close()
@@ -157,7 +157,7 @@ class TestSessions:
         )
         await client.add_messages(session.id, [
             ChatMessage(role="user", content="Hello from integration test"),
-            ChatMessage(role="assistant", content="Hello! I'm Mnemosyne."),
+            ChatMessage(role="assistant", content="Hello! I'm Vassago."),
         ])
 
         ended = await client.end_session(session.id)

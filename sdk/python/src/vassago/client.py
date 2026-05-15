@@ -1,10 +1,10 @@
-"""Async-first Python client for the Mnemosyne memory daemon.
+"""Async-first Python client for the Vassago memory daemon.
 
 Usage::
 
-    from mnemosyne import MnemosyneClient
+    from vassago import VassagoClient
 
-    async with MnemosyneClient("localhost:50051") as client:
+    async with VassagoClient("localhost:50051") as client:
         mem = await client.add_memory(
             key="deploy-server",
             content="The deploy server is at node-3.internal",
@@ -30,12 +30,12 @@ from .types import (
     _to_timestamp,
 )
 from .exceptions import (
-    MnemosyneError, ConnectionError, NotFoundError,
+    VassagoError, ConnectionError, NotFoundError,
     ValidationError, TimeoutError, AuthenticationError,
     ServiceUnavailableError,
 )
-from ._proto import mnemosyne_pb2 as pb
-from ._proto import mnemosyne_pb2_grpc as rpc
+from ._proto import vassago_pb2 as pb
+from ._proto import vassago_pb2_grpc as rpc
 from ._proto import messaging_pb2 as mpb
 from ._proto import messaging_pb2_grpc as mrpc
 
@@ -53,12 +53,12 @@ _STATUS_MAP = {
 
 def _handle_error(exc: grpc.aio.AioRpcError) -> None:
     """Convert gRPC errors to Python exceptions."""
-    cls = _STATUS_MAP.get(exc.code(), MnemosyneError)
+    cls = _STATUS_MAP.get(exc.code(), VassagoError)
     raise cls(f"{exc.code()}: {exc.details()}") from exc
 
 
-class MnemosyneClient:
-    """Async Python client for the Mnemosyne memory daemon.
+class VassagoClient:
+    """Async Python client for the Vassago memory daemon.
 
     Args:
         address: Host:port or Unix socket path (e.g. "localhost:50051").
@@ -76,10 +76,10 @@ class MnemosyneClient:
         self.api_key = api_key
         self.timeout = timeout
         self._channel: Optional[aio.Channel] = None
-        self._stub: Optional[rpc.MnemosyneStub] = None
+        self._stub: Optional[rpc.VassagoStub] = None
         self._messaging_stub: Optional[mrpc.MessagingStub] = None
 
-    async def __aenter__(self) -> MnemosyneClient:
+    async def __aenter__(self) -> VassagoClient:
         await self.connect()
         return self
 
@@ -87,7 +87,7 @@ class MnemosyneClient:
         await self.close()
 
     async def connect(self) -> None:
-        """Connect to the Mnemosyne daemon."""
+        """Connect to the Vassago daemon."""
         if self._channel is not None:
             return
 
@@ -99,7 +99,7 @@ class MnemosyneClient:
         else:
             self._channel = aio.insecure_channel(self.address)
 
-        self._stub = rpc.MnemosyneStub(self._channel)
+        self._stub = rpc.VassagoStub(self._channel)
         self._messaging_stub = mrpc.MessagingStub(self._channel)
 
     async def close(self) -> None:
@@ -505,7 +505,7 @@ class MnemosyneClient:
 
         This is a server-streaming RPC. Use with ``async for``::
 
-            async with MnemosyneClient() as client:
+            async with VassagoClient() as client:
                 async for event in client.subscribe(agent_id="my-agent"):
                     print(f"Event: {event.event_type} key={event.key}")
 

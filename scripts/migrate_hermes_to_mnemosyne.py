@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Migrate Hermes state.db → Mnemosyne mnemosyne.db
+Migrate Hermes state.db → Vassago vassago.db
 
 Handles schema differences:
-- memories: Hermes INTEGER id → Mnemosyne UUID (deterministic via namespace UUID)
+- memories: Hermes INTEGER id → Vassago UUID (deterministic via namespace UUID)
 - sessions: Preserve Hermes TEXT ids directly
-- messages: Hermes has more columns; we map what Mnemosyne needs
+- messages: Hermes has more columns; we map what Vassago needs
 - agents: Create a "hermes" agent for all imported data
 
 Usage:
-  1. Stop the Mnemosyne daemon
-  2. Back up existing mnemosyne.db
-  3. Run: python3 migrate_hermes_to_mnemosyne.py [--fresh]
+  1. Stop the Vassago daemon
+  2. Back up existing vassago.db
+  3. Run: python3 migrate_hermes_to_vassago.py [--fresh]
      --fresh: Drop all existing data and start fresh
-     --merge: Keep existing Mnemosyne data and merge Hermes data in (default)
+     --merge: Keep existing Vassago data and merge Hermes data in (default)
   4. Restart the daemon
 """
 
@@ -25,14 +25,14 @@ import os
 import shutil
 
 HERMES_DB = os.path.expanduser("~/.hermes/state.db")
-MNEMOSYNE_DB = os.path.expanduser("~/.mnemosyne/mnemosyne.db")
+VASSAGO_DB = os.path.expanduser("~/.vassago/vassago.db")
 BACKUP_SUFFIX = f".pre-migration-{int(time.time())}"
 
-# Namespace UUID for deterministic Hermes→Mnemosyne ID mapping
+# Namespace UUID for deterministic Hermes→Vassago ID mapping
 NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # standard DNS namespace
 
 def hermes_memory_id_to_uuid(hid: int) -> str:
-    """Deterministically map Hermes INTEGER memory id to Mnemosyne UUID string."""
+    """Deterministically map Hermes INTEGER memory id to Vassago UUID string."""
     return str(uuid.uuid5(NAMESPACE, f"hermes-memory-{hid}"))
 
 def create_hermes_agent(cursor) -> str:
@@ -46,7 +46,7 @@ def create_hermes_agent(cursor) -> str:
     return agent_id
 
 def migrate_memories(src_cursor, dst_cursor, agent_id: str) -> int:
-    """Migrate memories from Hermes to Mnemosyne."""
+    """Migrate memories from Hermes to Vassago."""
     src_cursor.execute("""
         SELECT id, target, category, key, content, priority, 
                created_at, updated_at, last_accessed, access_count, source_session
@@ -58,13 +58,13 @@ def migrate_memories(src_cursor, dst_cursor, agent_id: str) -> int:
         hid, target, category, key, content, priority = row[:6]
         created_at, updated_at, last_accessed = int(row[6]), int(row[7]), int(row[8])
         access_count = row[9]
-        # source_session = row[10]  # Mnemosyne doesn't have this field
+        # source_session = row[10]  # Vassago doesn't have this field
         
         new_id = hermes_memory_id_to_uuid(hid)
         
-        # Mnemosyne memories table schema:
+        # Vassago memories table schema:
         # id, target, category, key, content, priority, source_agent, created_at, updated_at, accessed_at, expires_at
-        # NOTE: Mnemosyne doesn't have access_count or source_session
+        # NOTE: Vassago doesn't have access_count or source_session
         
         dst_cursor.execute("""
             INSERT OR REPLACE INTO memories 
@@ -76,7 +76,7 @@ def migrate_memories(src_cursor, dst_cursor, agent_id: str) -> int:
     return count
 
 def migrate_sessions(src_cursor, dst_cursor, agent_id: str) -> dict:
-    """Migrate sessions from Hermes to Mnemosyne.
+    """Migrate sessions from Hermes to Vassago.
     Returns mapping of session_id → agent_id for use in message migration.
     """
     src_cursor.execute("""
@@ -106,8 +106,8 @@ def migrate_sessions(src_cursor, dst_cursor, agent_id: str) -> dict:
     return count
 
 def migrate_messages(src_cursor, dst_cursor) -> int:
-    """Migrate messages from Hermes to Mnemosyne.
-    Mnemosyne schema: id (auto), session_id, role, content, tool_call_id, tool_name, timestamp
+    """Migrate messages from Hermes to Vassago.
+    Vassago schema: id (auto), session_id, role, content, tool_call_id, tool_name, timestamp
     Hermes schema: id (auto), session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, ...
     """
     # Process in batches to avoid memory issues with 76K+ messages
@@ -129,7 +129,7 @@ def migrate_messages(src_cursor, dst_cursor) -> int:
         for row in rows:
             session_id, role, content, tool_call_id, tool_name, timestamp = row
             
-            # Handle NULL/empty content - Mnemosyne requires empty string default
+            # Handle NULL/empty content - Vassago requires empty string default
             content = content or ""
             tool_call_id = tool_call_id or ""
             tool_name = tool_name or ""
@@ -147,8 +147,8 @@ def migrate_messages(src_cursor, dst_cursor) -> int:
     
     return total
 
-def clear_mnemosyne_data(cursor):
-    """Clear all existing data from Mnemosyne tables (for --fresh mode)."""
+def clear_vassago_data(cursor):
+    """Clear all existing data from Vassago tables (for --fresh mode)."""
     # Delete in reverse dependency order
     # Note: FTS tables already dropped before this function is called
     cursor.execute("DELETE FROM messages")
@@ -167,7 +167,7 @@ def main():
             mode = "--merge"
         else:
             print(f"Unknown option: {sys.argv[1]}")
-            print("Usage: python3 migrate_hermes_to_mnemosyne.py [--fresh|--merge]")
+            print("Usage: python3 migrate_hermes_to_vassago.py [--fresh|--merge]")
             sys.exit(1)
     
     # Verify source DB exists
@@ -175,21 +175,21 @@ def main():
         print(f"ERROR: Hermes DB not found at {HERMES_DB}")
         sys.exit(1)
     
-    if not os.path.exists(MNEMOSYNE_DB):
-        print(f"ERROR: Mnemosyne DB not found at {MNEMOSYNE_DB}")
+    if not os.path.exists(VASSAGO_DB):
+        print(f"ERROR: Vassago DB not found at {VASSAGO_DB}")
         sys.exit(1)
     
-    # Backup Mnemosyne DB
-    backup_path = MNEMOSYNE_DB + BACKUP_SUFFIX
-    print(f"Backing up {MNEMOSYNE_DB} → {backup_path}")
-    shutil.copy2(MNEMOSYNE_DB, backup_path)
+    # Backup Vassago DB
+    backup_path = VASSAGO_DB + BACKUP_SUFFIX
+    print(f"Backing up {VASSAGO_DB} → {backup_path}")
+    shutil.copy2(VASSAGO_DB, backup_path)
     
     # Open connections
     src_conn = sqlite3.connect(HERMES_DB, uri=True)
     src_conn.row_factory = None  # plain tuples
     src_cursor = src_conn.cursor()
     
-    dst_conn = sqlite3.connect(MNEMOSYNE_DB)
+    dst_conn = sqlite3.connect(VASSAGO_DB)
     dst_cursor = dst_conn.cursor()
     
     # Drop and recreate FTS index for bulk insert performance
@@ -201,10 +201,10 @@ def main():
     dst_cursor.execute("DROP TRIGGER IF EXISTS memories_fts_delete")
     
     if mode == "--fresh":
-        print("CLEARING existing Mnemosyne data (--fresh mode)...")
-        clear_mnemosyne_data(dst_cursor)
+        print("CLEARING existing Vassago data (--fresh mode)...")
+        clear_vassago_data(dst_cursor)
     else:
-        print("MERGE mode: Keeping existing Mnemosyne data, adding Hermes data...")
+        print("MERGE mode: Keeping existing Vassago data, adding Hermes data...")
     
     # Create the hermes agent
     print("\nCreating hermes agent...")
@@ -292,7 +292,7 @@ def main():
     dst_conn.close()
     
     print(f"\n✅ Migration complete! Backup at: {backup_path}")
-    print("   Restart the Mnemosyne daemon to use the new data.")
+    print("   Restart the Vassago daemon to use the new data.")
 
 if __name__ == "__main__":
     main()

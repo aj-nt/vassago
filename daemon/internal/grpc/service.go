@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -27,9 +27,9 @@ func protoToConsolidateScope(scope pb.ConsolidateScope) store.ConsolidationScope
 	}
 }
 
-// Service implements the Mnemosyne gRPC service.
+// Service implements the Vassago gRPC service.
 type Service struct {
-	pb.UnimplementedMnemosyneServer
+	pb.UnimplementedVassagoServer
 	store     *store.Store
 	hub       *pubsub.Hub
 	messaging *MessagingService

@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package migration
@@ -12,7 +12,7 @@ import (
 )
 
 // DryRunImport reads a Hermes state.db and reports what would be imported,
-// without writing anything to Mnemosyne.
+// without writing anything to Vassago.
 func DryRunImport(hermesDBPath string, agentID string) (*ImportResult, error) {
 	if agentID == "" {
 		agentID = "hermes-import"

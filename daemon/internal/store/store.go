@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
@@ -58,7 +58,7 @@ func ClampLimit(limit, fallback, max int) int {
 	return limit
 }
 
-// Store is the SQLite-backed data store for Mnemosyne.
+// Store is the SQLite-backed data store for Vassago.
 type Store struct {
 	db      *sql.DB
 	writeMu sync.Mutex // Serializes write operations for SQLite BUSY avoidance

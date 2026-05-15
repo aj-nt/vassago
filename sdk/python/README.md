@@ -1,6 +1,6 @@
-# Mnemosyne Python SDK
+# Vassago Python SDK
 
-Async-first Python client for the [Mnemosyne](https://github.com/aj-nt/vassago) memory daemon.
+Async-first Python client for the [Vassago](https://github.com/aj-nt/vassago) memory daemon.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Async-first Python client for the [Mnemosyne](https://github.com/aj-nt/vassago) 
 pip install vassago-sdk
 ```
 
-**Prerequisite:** The Mnemosyne daemon must be running. Start it with:
+**Prerequisite:** The Vassago daemon must be running. Start it with:
 
 ```bash
 vassago start
@@ -18,10 +18,10 @@ vassago start
 
 ```python
 import asyncio
-from vassago import MnemosyneClient
+from vassago import VassagoClient
 
 async def main():
-    async with MnemosyneClient("localhost:50051") as client:
+    async with VassagoClient("localhost:50051") as client:
         # Health check
         status = await client.ping()
         print(f"Daemon status: {status}")
@@ -53,15 +53,15 @@ asyncio.run(main())
 
 ```python
 # Connect with defaults (localhost:50051)
-async with MnemosyneClient() as client:
+async with VassagoClient() as client:
     ...
 
 # Custom address and timeout
-async with MnemosyneClient("192.168.1.100:50051", timeout=10.0) as client:
+async with VassagoClient("192.168.1.100:50051", timeout=10.0) as client:
     ...
 
 # With API key
-async with MnemosyneClient("localhost:50051", api_key="sk-your-key") as client:
+async with VassagoClient("localhost:50051", api_key="sk-your-key") as client:
     ...
 ```
 
@@ -159,7 +159,7 @@ async for event in client.subscribe(agent_id="my-agent"):
 ## Error Handling
 
 ```python
-from vassago.exceptions import NotFoundError, ValidationError, MnemosyneError
+from vassago.exceptions import NotFoundError, ValidationError, VassagoError
 
 try:
     mem = await client.get_memory("nonexistent-id")
@@ -167,7 +167,7 @@ except NotFoundError:
     print("Memory not found")
 except ValidationError as e:
     print(f"Invalid input: {e}")
-except MnemosyneError as e:
+except VassagoError as e:
     print(f"Unexpected error: {e}")
 ```
 
@@ -180,20 +180,20 @@ pip install vassago-sdk[langchain]
 ```
 
 ```python
-from vassago import MnemosyneClient
+from vassago import VassagoClient
 from vassago.integrations.langchain import (
-    MnemosyneMemoryTool,
-    MnemosyneSearchTool,
-    MnemosyneHotBlockTool,
+    VassagoMemoryTool,
+    VassagoSearchTool,
+    VassagoHotBlockTool,
 )
 
-client = MnemosyneClient("localhost:50051")
+client = VassagoClient("localhost:50051")
 await client.connect()
 
 tools = [
-    MnemosyneMemoryTool(client=client),
-    MnemosyneSearchTool(client=client),
-    MnemosyneHotBlockTool(client=client),
+    VassagoMemoryTool(client=client),
+    VassagoSearchTool(client=client),
+    VassagoHotBlockTool(client=client),
 ]
 
 # Use with any LangChain agent
@@ -215,4 +215,4 @@ pytest tests/
 
 ## License
 
-Apache 2.0 — same as the Mnemosyne protocol and client SDK.
+Apache 2.0 — same as the Vassago protocol and client SDK.

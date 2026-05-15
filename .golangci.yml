@@ -1,4 +1,4 @@
-# golangci-lint configuration for Mnemosyne
+# golangci-lint configuration for Vassago
 # Strategy: broad exemptions for test files and CLI entry points.
 # Individual suppression only for the handful of pre-existing
 # non-test, non-CLI issues.

@@ -1,7 +1,7 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
-// Package client provides a gRPC client for the Mnemosyne memory daemon.
+// Package client provides a gRPC client for the Vassago memory daemon.
 package client
 
 import (
@@ -19,7 +19,7 @@ import (
 type ClientInterface interface {
 	RegisterAgent(ctx context.Context, agentID, name, role string) (string, bool, error)
 	Heartbeat(ctx context.Context, agentID string) error
-	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error)
+	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error)
 	Close() error
 	AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error)
 	GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error)
@@ -56,10 +56,10 @@ type ClientInterface interface {
 // Ensure Client implements ClientInterface
 var _ ClientInterface = &Client{}
 
-// Client is a gRPC client for the Mnemosyne daemon.
+// Client is a gRPC client for the Vassago daemon.
 type Client struct {
 	conn      *grpc.ClientConn
-	api       pb.MnemosyneClient
+	api       pb.VassagoClient
 	messaging pb.MessagingClient
 	cron      pb.CronServiceClient
 }
@@ -84,7 +84,7 @@ func (c *Client) Heartbeat(ctx context.Context, agentID string) error {
 }
 
 // Subscribe opens a server-streaming subscription for memory change events.
-func (c *Client) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+func (c *Client) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 	return c.api.Subscribe(ctx, req)
 }
 
@@ -98,13 +98,13 @@ type Config struct {
 func NewClientFromConn(conn *grpc.ClientConn) *Client {
 	return &Client{
 		conn:      conn,
-		api:       pb.NewMnemosyneClient(conn),
+		api:       pb.NewVassagoClient(conn),
 		messaging: pb.NewMessagingClient(conn),
 		cron:      pb.NewCronServiceClient(conn),
 	}
 }
 
-// Connect creates a new client connection to the Mnemosyne daemon.
+// Connect creates a new client connection to the Vassago daemon.
 func Connect(ctx context.Context, cfg Config) (*Client, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -115,7 +115,7 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
 	}
 
 	// Verify connection is alive
-	c := pb.NewMnemosyneClient(conn)
+	c := pb.NewVassagoClient(conn)
 	_, err = c.GetHotBlock(ctx, &pb.HotBlockRequest{
 		Target:    "memory",
 		AgentId:   "health-check",

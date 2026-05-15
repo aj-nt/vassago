@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -25,7 +25,7 @@ type AgentConfig struct {
 type AgentAPI interface {
 	RegisterAgent(ctx context.Context, agentID, name, role string) (returnedAgentID string, isNew bool, err error)
 	Heartbeat(ctx context.Context, agentID string) error
-	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error)
+	Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error)
 }
 
 // OnEventFunc is called when a Telepathy event arrives.
@@ -33,7 +33,7 @@ type AgentAPI interface {
 // thread-safe and non-blocking.
 type OnEventFunc func(event *pb.UpdateEvent)
 
-// AgentSession manages an agent's lifecycle with the Mnemosyne daemon:
+// AgentSession manages an agent's lifecycle with the Vassago daemon:
 // registration, heartbeat, and subscription.
 type AgentSession struct {
 	api               AgentAPI
@@ -45,7 +45,7 @@ type AgentSession struct {
 	registered   bool
 	cancelHB     context.CancelFunc // stops heartbeat goroutine
 	done         chan struct{}      // closed when heartbeat goroutine exits
-	stream       pb.Mnemosyne_SubscribeClient
+	stream       pb.Vassago_SubscribeClient
 	streamCancel context.CancelFunc
 }
 

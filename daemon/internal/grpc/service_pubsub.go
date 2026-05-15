@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -17,7 +17,7 @@ import (
 // Subscribe implements the server-streaming Subscribe RPC.
 // Agent subscribes to memory change events. The stream stays open
 // until the client disconnects or cancels.
-func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_SubscribeServer) error {
+func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Vassago_SubscribeServer) error {
 	agentID := req.AgentId
 	if agentID == "" {
 		return status.Error(codes.InvalidArgument, "agent_id is required")

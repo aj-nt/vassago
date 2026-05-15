@@ -1,10 +1,10 @@
-"""Mnemosyne Python SDK — async client for the Mnemosyne memory daemon.
+"""Vassago Python SDK — async client for the Vassago memory daemon.
 
 Usage::
 
-    from vassago import MnemosyneClient
+    from vassago import VassagoClient
 
-    async with MnemosyneClient("localhost:50051") as client:
+    async with VassagoClient("localhost:50051") as client:
         await client.add_memory(key="server", content="node-3.internal")
         block = await client.get_hot_block()
         print(block.content)
@@ -14,7 +14,7 @@ See https://github.com/aj-nt/vassago for full documentation.
 
 __version__ = "0.1.0"
 
-from .client import MnemosyneClient
+from .client import VassagoClient
 from .types import (
     Memory,
     HotBlock,
@@ -34,7 +34,7 @@ from .types import (
     EventEventType,
 )
 from .exceptions import (
-    MnemosyneError,
+    VassagoError,
     ConnectionError,
     NotFoundError,
     ValidationError,
@@ -45,7 +45,7 @@ from .exceptions import (
 
 __all__ = [
     # Client
-    "MnemosyneClient",
+    "VassagoClient",
     # Types
     "Memory",
     "HotBlock",
@@ -64,7 +64,7 @@ __all__ = [
     "Category",
     "EventEventType",
     # Exceptions
-    "MnemosyneError",
+    "VassagoError",
     "ConnectionError",
     "NotFoundError",
     "ValidationError",

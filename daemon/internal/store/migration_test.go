@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// v0Schema is a minimal SQLite schema matching a fresh Mnemosyne v0 database
+// v0Schema is a minimal SQLite schema matching a fresh Vassago v0 database
 // with no migrations applied. It includes the core tables (memories, agents,
 // sessions, messages, subscriptions, memories_fts) without any columns added
 // by migrations (owner, config, last_session, etc.).

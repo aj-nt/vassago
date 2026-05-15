@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package messaging
@@ -155,7 +155,7 @@ func TestEmailAdapter_Send_Success(t *testing.T) {
 	if msgID == "" {
 		t.Error("expected non-empty message ID")
 	}
-	if capturedSubject != "Message from Mnemosyne" {
+	if capturedSubject != "Message from Vassago" {
 		t.Errorf("expected default subject, got %s", capturedSubject)
 	}
 }

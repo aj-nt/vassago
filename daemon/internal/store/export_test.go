@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
@@ -299,7 +299,7 @@ func TestSearchValidation_everyEntryFindable(t *testing.T) {
 	testEntries := []AddMemoryParams{
 		{Target: "memory", Category: "environment", Key: "os_version", Content: "Ubuntu 22.04 LTS server", Priority: 3, SourceAgent: "test"},
 		{Target: "memory", Category: "quirk", Key: "path_bug", Content: "Paths with colons break FTS5: C:\\Users\\test", Priority: 4, SourceAgent: "test"},
-		{Target: "memory", Category: "project", Key: "mnemosyne_status", Content: "Mnemosyne Phase 20: safety hardening", Priority: 4, SourceAgent: "test"},
+		{Target: "memory", Category: "project", Key: "vassago_status", Content: "Vassago Phase 20: safety hardening", Priority: 4, SourceAgent: "test"},
 		{Target: "user", Category: "user", Key: "name", Content: "AJ prefers concise answers", Priority: 4, SourceAgent: "test"},
 		{Target: "memory", Category: "observation", Key: "weather_today", Content: "Temperature 72°F, sunny, light breeze", Priority: 2, SourceAgent: "test"},
 		{Target: "memory", Category: "quirk", Key: "unicode_test", Content: "Special chars: αβγ δζη ٩٠١ 🔧⚙️", Priority: 3, SourceAgent: "test"},
@@ -319,7 +319,7 @@ func TestSearchValidation_everyEntryFindable(t *testing.T) {
 	}{
 		{"Ubuntu", "os_version"},
 		{"colons", "path_bug"},
-		{"hardening", "mnemosyne_status"},
+		{"hardening", "vassago_status"},
 		{"concise", "name"},
 		{"72°F", "weather_today"},
 		{"αβγ", "unicode_test"},

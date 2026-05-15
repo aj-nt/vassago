@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -19,7 +19,7 @@ func (s *Service) AddTodo(ctx context.Context, req *pb.AddTodoRequest) (*pb.Todo
 }
 
 // ListTodos returns a stream of todos, scoped to owner (Phase 28).
-func (s *Service) ListTodos(req *pb.ListTodosRequest, stream pb.Mnemosyne_ListTodosServer) error {
+func (s *Service) ListTodos(req *pb.ListTodosRequest, stream pb.Vassago_ListTodosServer) error {
 	includeCompleted := req.IncludeCompleted
 	sourceAgent := ""
 	if req.SourceAgent != nil {

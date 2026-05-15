@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -17,7 +17,7 @@ func TestAgentSession_OnEventCallback(t *testing.T) {
 
 	subCtx := context.Background()
 	api := &mockAgentAPI{
-		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 			return &mockSubscribeStream{
 				ctx: subCtx,
 				events: []*pb.UpdateEvent{
@@ -63,7 +63,7 @@ func TestAgentSession_OnEventNil(t *testing.T) {
 	// Test that nil OnEvent doesn't panic
 	subCtx := context.Background()
 	api := &mockAgentAPI{
-		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 			return &mockSubscribeStream{
 				ctx: subCtx,
 				events: []*pb.UpdateEvent{
@@ -102,7 +102,7 @@ func TestAgentSession_OnEventUsedForHotBlockInvalidation(t *testing.T) {
 
 	subCtx := context.Background()
 	api := &mockAgentAPI{
-		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 			return &mockSubscribeStream{
 				ctx: subCtx,
 				events: []*pb.UpdateEvent{

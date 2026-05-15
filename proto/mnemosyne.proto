@@ -1,16 +1,16 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 syntax = "proto3";
 
-package mnemosyne;
+package vassago;
 
 option go_package = "github.com/aj-nt/vassago/proto";
 
-// Mnemosyne — Shared Memory Daemon for AI Agents
+// Vassago — Shared Memory Daemon for AI Agents
 // gRPC service definition
 
-service Mnemosyne {
+service Vassago {
   // Health check
   rpc Ping(HealthCheckRequest) returns (HealthCheckResponse);
 
@@ -75,7 +75,7 @@ service Mnemosyne {
 
 // AgentChat is a lightweight gRPC service exposed by the agent binary
 // for interactive conversations over gRPC. It only implements chat
-// and health, not the full Mnemosyne daemon service.
+// and health, not the full Vassago daemon service.
 service AgentChat {
   rpc ChatStream(ChatRequest) returns (stream ChatEvent);
   rpc Ping(HealthCheckRequest) returns (HealthCheckResponse);

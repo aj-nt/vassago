@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package daemon
@@ -232,7 +232,7 @@ func TestSetupMessagingAdapters_IMessageDefaultPoll(t *testing.T) {
 
 func TestSetupListeners_TCPFailsAfterUnixSuccess(t *testing.T) {
 	// macOS has a 104-byte limit on Unix socket paths. Use a short path.
-	socketPath := filepath.Join("/tmp", "mnemosyne-test-"+t.Name()+".sock")
+	socketPath := filepath.Join("/tmp", "vassago-test-"+t.Name()+".sock")
 
 	// Bind a TCP port first, then try to use the same port
 	blocker, err := ListenTCP("localhost:0")

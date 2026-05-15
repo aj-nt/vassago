@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -249,7 +249,7 @@ func TestRedTeamTodoListWithFilter(t *testing.T) {
 	}
 }
 
-// mockTodoListStream implements pb.Mnemosyne_ListTodosServer for testing.
+// mockTodoListStream implements pb.Vassago_ListTodosServer for testing.
 type mockTodoListStream struct {
 	sent []*pb.TodoItem
 }

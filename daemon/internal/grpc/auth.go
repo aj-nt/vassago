@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -16,7 +16,7 @@ import (
 func APIKeyInterceptor(apiKey string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// Skip authentication for health check endpoints
-		if info.FullMethod == "/mnemosyne.Mnemosyne/Health" {
+		if info.FullMethod == "/vassago.Vassago/Health" {
 			return handler(ctx, req)
 		}
 
@@ -51,7 +51,7 @@ func APIKeyInterceptor(apiKey string) grpc.UnaryServerInterceptor {
 func StreamAPIKeyInterceptor(apiKey string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		// Skip authentication for health check endpoints
-		if info.FullMethod == "/mnemosyne.Mnemosyne/Health" {
+		if info.FullMethod == "/vassago.Vassago/Health" {
 			return handler(srv, ss)
 		}
 

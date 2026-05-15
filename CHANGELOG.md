@@ -1,10 +1,10 @@
 # Changelog
 
-All notable changes to Mnemosyne.
+All notable changes to Vassago.
 
 ## [0.1.0] - 2026-05-14
 
-First public release. Mnemosyne is a shared memory daemon for AI agents — one daemon, many agents, zero echo loops.
+First public release. Vassago is a shared memory daemon for AI agents — one daemon, many agents, zero echo loops.
 
 ### Core — Daemon
 
@@ -35,9 +35,9 @@ First public release. Mnemosyne is a shared memory daemon for AI agents — one 
 
 ### CLI
 
-- **Unified binary** — `mnemosyne init|start|stop|status|memory|hot-block|sessions|config|version`
-- **Interactive first-run setup** — `mnemosyne init` walks through configuration
-- **Import from Hermes** — `mnemosyne-import --source state.db` migrates Hermes state.db (memories, sessions, messages) with UTF-8 sanitization
+- **Unified binary** — `vassago init|start|stop|status|memory|hot-block|sessions|config|version`
+- **Interactive first-run setup** — `vassago init` walks through configuration
+- **Import from Hermes** — `vassago-import --source state.db` migrates Hermes state.db (memories, sessions, messages) with UTF-8 sanitization
 
 ### Client Libraries
 

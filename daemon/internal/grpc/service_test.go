@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -153,7 +153,7 @@ func TestService_Search(t *testing.T) {
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "python", Content: "Python 3.11 on venv", Priority: 3, SourceAgent: "a1"})        //nolint:errcheck
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "mnemosyne", Content: "Memory daemon in Go", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "vassago", Content: "Memory daemon in Go", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
 
 	resp, err := svc.Search(ctx, &pb.SearchRequest{Query: "Python venv"})
 	if err != nil {
@@ -181,7 +181,7 @@ func TestService_GetHotBlock(t *testing.T) {
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "environment", Key: "python", Content: "Python 3.11", Priority: 3, SourceAgent: "a1"})  //nolint:errcheck
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "mnemosyne", Content: "Memory daemon", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "vassago", Content: "Memory daemon", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
 
 	resp, err := svc.GetHotBlock(ctx, &pb.HotBlockRequest{
 		Target:    "memory",

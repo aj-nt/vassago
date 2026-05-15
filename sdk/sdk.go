@@ -1,7 +1,7 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
-// Package sdk provides a batteries-included client for the Mnemosyne memory
+// Package sdk provides a batteries-included client for the Vassago memory
 // daemon. It handles connection lifecycle, agent registration, heartbeats,
 // pub/sub event streaming, and offers a clean MemoryStore interface for
 // CRUD, search, sessions, tools, skills, todos, cron, and messaging.

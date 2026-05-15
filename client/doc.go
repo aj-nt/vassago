@@ -1,7 +1,7 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
-// Package client provides a Go gRPC client for the Mnemosyne memory daemon.
+// Package client provides a Go gRPC client for the Vassago memory daemon.
 //
 // Connect to a running daemon and perform memory operations: add, search, replace,
 // remove, and retrieve the computed hot block. Also supports session management,

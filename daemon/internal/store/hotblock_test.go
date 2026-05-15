@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
@@ -13,7 +13,7 @@ func TestComputeHotBlock_basic(t *testing.T) {
 	s := testStore(t)
 
 	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0) //nolint:errcheck
-	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)  //nolint:errcheck
+	addMemory(s, "memory", "project", "vassago", "Memory daemon in Go", 2, testAgentHotBlock, 0)  //nolint:errcheck
 	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                             //nolint:errcheck
 
 	// Memory hot block

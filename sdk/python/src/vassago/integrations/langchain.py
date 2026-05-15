@@ -1,23 +1,23 @@
 """
-LangChain tool wrapper for Mnemosyne.
+LangChain tool wrapper for Vassago.
 
-Wraps the Mnemosyne Python SDK as LangChain tools so agents using
+Wraps the Vassago Python SDK as LangChain tools so agents using
 LangChain can directly access persistent memory.
 
 Usage::
 
-    from mnemosyne.integrations.langchain import (
-        MnemosyneMemoryTool,
-        MnemosyneSearchTool,
-        MnemosyneHotBlockTool,
+    from vassago.integrations.langchain import (
+        VassagoMemoryTool,
+        VassagoSearchTool,
+        VassagoHotBlockTool,
     )
-    from mnemosyne import MnemosyneClient
+    from vassago import VassagoClient
 
-    client = MnemosyneClient("localhost:50051")
+    client = VassagoClient("localhost:50051")
     tools = [
-        MnemosyneMemoryTool(client),
-        MnemosyneSearchTool(client),
-        MnemosyneHotBlockTool(client),
+        VassagoMemoryTool(client),
+        VassagoSearchTool(client),
+        VassagoHotBlockTool(client),
     ]
 
 Requires: langchain-core >= 0.1.0
@@ -32,18 +32,18 @@ try:
     from langchain_core.callbacks import CallbackManagerForToolRun
 except ImportError:
     raise ImportError(
-        "langchain-core is required for Mnemosyne LangChain integration. "
+        "langchain-core is required for Vassago LangChain integration. "
         "Install with: pip install vassago-sdk[langchain]"
     )
 
 if TYPE_CHECKING:
-    from mnemosyne import MnemosyneClient
+    from vassago import VassagoClient
 
 
-class MnemosyneMemoryTool(BaseTool):
-    """LangChain tool for adding memories to Mnemosyne."""
+class VassagoMemoryTool(BaseTool):
+    """LangChain tool for adding memories to Vassago."""
 
-    name: str = "mnemosyne_add_memory"
+    name: str = "vassago_add_memory"
     description: str = (
         "Save a fact or memory to persistent storage. "
         "Use this when you learn something important that should be remembered "
@@ -51,7 +51,7 @@ class MnemosyneMemoryTool(BaseTool):
         "and optionally a category (environment, project, quirk, observation, user) "
         "and priority (1-5, higher = more important)."
     )
-    client: object = None  # MnemosyneClient
+    client: object = None  # VassagoClient
 
     class Config:
         arbitrary_types_allowed = True
@@ -66,7 +66,7 @@ class MnemosyneMemoryTool(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Add a memory synchronously (requires async client — use arun instead)."""
-        raise NotImplementedError("Use arun() for async Mnemosyne client")
+        raise NotImplementedError("Use arun() for async Vassago client")
 
     async def _arun(
         self,
@@ -88,16 +88,16 @@ class MnemosyneMemoryTool(BaseTool):
         return f"Memory saved: {mem.key} (id={mem.id[:8]}..., category={mem.category}, priority={mem.priority})"
 
 
-class MnemosyneSearchTool(BaseTool):
-    """LangChain tool for searching memories in Mnemosyne."""
+class VassagoSearchTool(BaseTool):
+    """LangChain tool for searching memories in Vassago."""
 
-    name: str = "mnemosyne_search"
+    name: str = "vassago_search"
     description: str = (
         "Search persistent memory for relevant facts. "
         "Use this when you need to recall information from previous conversations "
         "or look up stored knowledge. Provide a search query."
     )
-    client: object = None  # MnemosyneClient
+    client: object = None  # VassagoClient
 
     class Config:
         arbitrary_types_allowed = True
@@ -109,7 +109,7 @@ class MnemosyneSearchTool(BaseTool):
         limit: int = 5,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("Use arun() for async Mnemosyne client")
+        raise NotImplementedError("Use arun() for async Vassago client")
 
     async def _arun(
         self,
@@ -132,16 +132,16 @@ class MnemosyneSearchTool(BaseTool):
         return "\n".join(lines)
 
 
-class MnemosyneHotBlockTool(BaseTool):
-    """LangChain tool for retrieving the hot block from Mnemosyne."""
+class VassagoHotBlockTool(BaseTool):
+    """LangChain tool for retrieving the hot block from Vassago."""
 
-    name: str = "mnemosyne_hot_block"
+    name: str = "vassago_hot_block"
     description: str = (
         "Retrieve the current hot block — a priority-sorted summary of the most "
         "relevant context from persistent memory. Use this at the start of a "
         "conversation to load relevant context."
     )
-    client: object = None  # MnemosyneClient
+    client: object = None  # VassagoClient
 
     class Config:
         arbitrary_types_allowed = True
@@ -151,7 +151,7 @@ class MnemosyneHotBlockTool(BaseTool):
         target: str = "memory",
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("Use arun() for async Mnemosyne client")
+        raise NotImplementedError("Use arun() for async Vassago client")
 
     async def _arun(
         self,

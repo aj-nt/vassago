@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -18,10 +18,10 @@ import (
 // TestAgentSession_RegisterViaGRPC tests that AgentSession.Register works
 // through a real gRPC wire with the mock server.
 func TestAgentSession_RegisterViaGRPC(t *testing.T) {
-	memoSrv := newMockMnemosyneServer()
+	memoSrv := newMockVassagoServer()
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, memoSrv)
+	pb.RegisterVassagoServer(s, memoSrv)
 	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
@@ -59,10 +59,10 @@ func TestAgentSession_RegisterViaGRPC(t *testing.T) {
 // TestAgentSession_RegisterTwiceViaGRPC tests idempotent registration
 // through a real gRPC wire.
 func TestAgentSession_RegisterTwiceViaGRPC(t *testing.T) {
-	memoSrv := newMockMnemosyneServer()
+	memoSrv := newMockVassagoServer()
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, memoSrv)
+	pb.RegisterVassagoServer(s, memoSrv)
 	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
@@ -100,10 +100,10 @@ func TestAgentSession_RegisterTwiceViaGRPC(t *testing.T) {
 // through a real gRPC wire. Since our mock server doesn't implement
 // streaming Subscribe, this tests the error path.
 func TestAgentSession_SubscribeViaGRPC(t *testing.T) {
-	memoSrv := newMockMnemosyneServer()
+	memoSrv := newMockVassagoServer()
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, memoSrv)
+	pb.RegisterVassagoServer(s, memoSrv)
 	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 
@@ -146,10 +146,10 @@ func TestAgentSession_SubscribeViaGRPC(t *testing.T) {
 // TestAgentSession_HeartbeatViaGRPC tests that Heartbeat works
 // through a real gRPC wire.
 func TestAgentSession_HeartbeatViaGRPC(t *testing.T) {
-	memoSrv := newMockMnemosyneServer()
+	memoSrv := newMockVassagoServer()
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, memoSrv)
+	pb.RegisterVassagoServer(s, memoSrv)
 	go func() { _ = s.Serve(lis) }()
 	t.Cleanup(s.Stop)
 

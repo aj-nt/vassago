@@ -1,4 +1,4 @@
-# Mnemosyne Docker Compose
+# Vassago Docker Compose
 #
 # Usage:
 #   docker compose up -d          # start daemon
@@ -8,16 +8,16 @@
 services:
   daemon:
     build: .
-    container_name: mnemosyne-daemon
+    container_name: vassago-daemon
     ports:
       - "50051:50051"
     volumes:
-      - mnemosyne-data:/data
-      - ./config:/etc/mnemosyne:ro
+      - vassago-data:/data
+      - ./config:/etc/vassago:ro
     environment:
-      - MNEMOSYNE_CONFIG_PATH=/etc/mnemosyne/daemon.yaml
+      - VASSAGO_CONFIG_PATH=/etc/vassago/daemon.yaml
     healthcheck:
-      test: ["CMD", "mnemosyne", "health"]
+      test: ["CMD", "vassago", "health"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -25,4 +25,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mnemosyne-data:
+  vassago-data:

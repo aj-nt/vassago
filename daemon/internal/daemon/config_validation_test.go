@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package daemon
@@ -17,11 +17,11 @@ func TestConfigValidate(t *testing.T) {
 			name: "valid config",
 			config: Config{
 				Daemon: DaemonConfig{
-					Socket: "/tmp/mnemosyne.sock",
+					Socket: "/tmp/vassago.sock",
 					TCP:    "localhost:50051",
 				},
 				Store: StoreConfig{
-					Path:        "/tmp/mnemosyne.db",
+					Path:        "/tmp/vassago.db",
 					WALMode:     true,
 					BusyTimeout: 5000,
 				},
@@ -39,7 +39,7 @@ func TestConfigValidate(t *testing.T) {
 			config: Config{
 				Daemon: DaemonConfig{},
 				Store: StoreConfig{
-					Path:        "/tmp/mnemosyne.db",
+					Path:        "/tmp/vassago.db",
 					WALMode:     true,
 					BusyTimeout: 5000,
 				},
@@ -56,13 +56,13 @@ func TestConfigValidate(t *testing.T) {
 			name: "invalid TLS config - only cert",
 			config: Config{
 				Daemon: DaemonConfig{
-					Socket: "/tmp/mnemosyne.sock",
+					Socket: "/tmp/vassago.sock",
 					TLS: TLSConfig{
 						Cert: "/path/to/cert",
 					},
 				},
 				Store: StoreConfig{
-					Path:        "/tmp/mnemosyne.db",
+					Path:        "/tmp/vassago.db",
 					WALMode:     true,
 					BusyTimeout: 5000,
 				},
@@ -79,10 +79,10 @@ func TestConfigValidate(t *testing.T) {
 			name: "invalid busy timeout",
 			config: Config{
 				Daemon: DaemonConfig{
-					Socket: "/tmp/mnemosyne.sock",
+					Socket: "/tmp/vassago.sock",
 				},
 				Store: StoreConfig{
-					Path:        "/tmp/mnemosyne.db",
+					Path:        "/tmp/vassago.db",
 					WALMode:     true,
 					BusyTimeout: 50000, // Too high
 				},
@@ -99,10 +99,10 @@ func TestConfigValidate(t *testing.T) {
 			name: "invalid observation TTL",
 			config: Config{
 				Daemon: DaemonConfig{
-					Socket: "/tmp/mnemosyne.sock",
+					Socket: "/tmp/vassago.sock",
 				},
 				Store: StoreConfig{
-					Path:        "/tmp/mnemosyne.db",
+					Path:        "/tmp/vassago.db",
 					WALMode:     true,
 					BusyTimeout: 5000,
 				},

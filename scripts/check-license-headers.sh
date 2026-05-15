@@ -15,7 +15,7 @@ check_file() {
     line1=$(head -1 "$file")
     line2=$(head -2 "$file" | tail -1)
     
-    if [[ "$line1" != "// This file is part of Mnemosyne." ]]; then
+    if [[ "$line1" != "// This file is part of Vassago." ]]; then
         echo "MISSING HEADER: $file"
         return 1
     fi

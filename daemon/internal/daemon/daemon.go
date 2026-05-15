@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package daemon
@@ -122,11 +122,11 @@ func DefaultConfig() *Config {
 	home, _ := os.UserHomeDir()
 	return &Config{
 		Daemon: DaemonConfig{
-			Socket: filepath.Join(home, ".mnemosyne", "mnemosyne.sock"),
+			Socket: filepath.Join(home, ".vassago", "vassago.sock"),
 			TCP:    "localhost:50051",
 		},
 		Store: StoreConfig{
-			Path:        filepath.Join(home, ".mnemosyne", "mnemosyne.db"),
+			Path:        filepath.Join(home, ".vassago", "vassago.db"),
 			WALMode:     true,
 			BusyTimeout: 5000,
 		},
@@ -190,7 +190,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Daemon represents the Mnemosyne memory daemon.
+// Daemon represents the Vassago memory daemon.
 type Daemon struct {
 	config              *Config
 	store               *store.Store
@@ -302,7 +302,7 @@ func New(cfg *Config) (*Daemon, error) {
 	grpcSvc := daemongrpc.NewService(st, hub, messagingService)
 
 	// Register services
-	pb.RegisterMnemosyneServer(server, grpcSvc)
+	pb.RegisterVassagoServer(server, grpcSvc)
 	pb.RegisterMessagingServer(server, messagingService)
 	pb.RegisterCronServiceServer(server, daemongrpc.NewCronService(st))
 
@@ -377,7 +377,7 @@ func New(cfg *Config) (*Daemon, error) {
 					extMsgs[i].ToolCalls = []extraction.ToolCall{{Name: m.ToolName}}
 				}
 			}
-			persisted, err := pipeline.ExtractAndPersist("default", "mnemosyne-daemon", extMsgs)
+			persisted, err := pipeline.ExtractAndPersist("default", "vassago-daemon", extMsgs)
 			if err != nil {
 				slog.Error("extraction: pipeline failed", "session_id", sessionID, "error", err)
 				return
@@ -486,7 +486,7 @@ func (d *Daemon) Run() error {
 		}(l)
 	}
 
-	slog.Info("mnemosyne daemon started", "db", d.config.Store.Path)
+	slog.Info("vassago daemon started", "db", d.config.Store.Path)
 
 	// Startup: expire stale memories
 	if removed, err := d.store.ExpireStaleMemories("default"); err != nil {
@@ -548,7 +548,7 @@ func (d *Daemon) Run() error {
 	}
 	d.store.Close()
 
-	slog.Info("mnemosyne daemon stopped")
+	slog.Info("vassago daemon stopped")
 	return nil
 }
 

@@ -1,4 +1,4 @@
-"""Tests for Mnemosyne Python SDK client and types."""
+"""Tests for Vassago Python SDK client and types."""
 
 import pytest
 import asyncio
@@ -16,10 +16,10 @@ from vassago.types import (
     _from_timestamp, _to_timestamp,
 )
 from vassago.exceptions import (
-    MnemosyneError, NotFoundError, ValidationError,
+    VassagoError, NotFoundError, ValidationError,
     ConnectionError, TimeoutError,
 )
-from vassago.client import MnemosyneClient
+from vassago.client import VassagoClient
 
 
 # ------------------------------------------------------------------ #
@@ -260,10 +260,10 @@ class TestChannel:
 
 class TestExceptions:
     def test_hierarchy(self):
-        assert issubclass(NotFoundError, MnemosyneError)
-        assert issubclass(ValidationError, MnemosyneError)
-        assert issubclass(ConnectionError, MnemosyneError)
-        assert issubclass(TimeoutError, MnemosyneError)
+        assert issubclass(NotFoundError, VassagoError)
+        assert issubclass(ValidationError, VassagoError)
+        assert issubclass(ConnectionError, VassagoError)
+        assert issubclass(TimeoutError, VassagoError)
 
     def test_raise_catch(self):
         with pytest.raises(NotFoundError):
@@ -274,31 +274,31 @@ class TestExceptions:
 # Client tests (structure only, no network)
 # ------------------------------------------------------------------ #
 
-class TestMnemosyneClient:
+class TestVassagoClient:
     """Test client construction and configuration (no network calls)."""
 
     def test_default_address(self):
-        client = MnemosyneClient()
+        client = VassagoClient()
         assert client.address == "localhost:50051"
         assert client.timeout == 30.0
 
     def test_custom_address(self):
-        client = MnemosyneClient("192.168.1.100:50051", timeout=10.0)
+        client = VassagoClient("192.168.1.100:50051", timeout=10.0)
         assert client.address == "192.168.1.100:50051"
         assert client.timeout == 10.0
 
     def test_api_key(self):
-        client = MnemosyneClient(api_key="sk-test-key")
+        client = VassagoClient(api_key="sk-test-key")
         assert client.api_key == "sk-test-key"
         meta = client._metadata()
         assert ("x-api-key", "sk-test-key") in meta
 
     def test_no_api_key_metadata(self):
-        client = MnemosyneClient()
+        client = VassagoClient()
         assert client._metadata() == []
 
     def test_context_manager_protocol(self):
-        client = MnemosyneClient()
+        client = VassagoClient()
         assert hasattr(client, "__aenter__")
         assert hasattr(client, "__aexit__")
 
@@ -310,7 +310,7 @@ class TestMnemosyneClient:
 # To run integration tests against a live daemon:
 #   pytest tests/ --live-daemon localhost:50051
 #
-# These are NOT run by default — they require a running Mnemosyne daemon.
+# These are NOT run by default — they require a running Vassago daemon.
 
 @pytest.fixture
 def live_daemon(request):
@@ -323,5 +323,5 @@ def pytest_addoption(parser):
         "--live-daemon",
         action="store",
         default=None,
-        help="Address of live Mnemosyne daemon for integration tests",
+        help="Address of live Vassago daemon for integration tests",
     )

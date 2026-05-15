@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "vassago-sdk"
 version = "0.1.0"
-description = "Async Python SDK for Mnemosyne — shared memory for AI agents"
+description = "Async Python SDK for Vassago — shared memory for AI agents"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
-    { name = "Mnemosyne Contributors" },
+    { name = "Vassago Contributors" },
 ]
 keywords = ["vassago", "grpc", "ai", "memory", "agent"]
 classifiers = [

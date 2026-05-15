@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -298,10 +298,10 @@ func (rc *ResilientClient) Close() error {
 
 // RawConnection returns a raw gRPC connection for RPCs not in the client wrapper.
 // This is useful for one-off RPCs like Consolidate that aren't in the client package.
-func RawConnection(addr string) (*grpc.ClientConn, pb.MnemosyneClient, error) {
+func RawConnection(addr string) (*grpc.ClientConn, pb.VassagoClient, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("dial: %w", err)
 	}
-	return conn, pb.NewMnemosyneClient(conn), nil
+	return conn, pb.NewVassagoClient(conn), nil
 }

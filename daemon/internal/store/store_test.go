@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package store
@@ -39,7 +39,7 @@ func TestNew(t *testing.T) {
 
 func TestNew_createsDatabase(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "mnemosyne.db")
+	dbPath := filepath.Join(dir, "vassago.db")
 	s, err := New(dbPath)
 	if err != nil {
 		t.Fatalf("create store: %v", err)

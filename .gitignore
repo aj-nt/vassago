@@ -5,11 +5,11 @@ coverage.out
 coverage.html
 
 # Binaries (in case built at project root)
-/mnemosyne
-/mnemosyne-agent
-/mnemosyne-cli
-/mnemosyne-daemon
-/mnemosyne-import
+/vassago
+/vassago-agent
+/vassago-cli
+/vassago-daemon
+/vassago-import
 
 # OS files
 .DS_Store

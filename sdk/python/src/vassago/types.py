@@ -1,4 +1,4 @@
-"""Pythonic data types for the Mnemosyne Python SDK.
+"""Pythonic data types for the Vassago Python SDK.
 
 These dataclasses wrap the raw protobuf messages, providing:
 - Readable field names (snake_case)
@@ -63,7 +63,7 @@ def _to_timestamp(dt: Optional[datetime]) -> int:
 
 @dataclass
 class Memory:
-    """A memory entry in Mnemosyne."""
+    """A memory entry in Vassago."""
     id: str
     target: str
     category: str

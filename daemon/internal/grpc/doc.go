@@ -1,9 +1,9 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
-// Package grpc implements the Mnemosyne gRPC service for the daemon.
+// Package grpc implements the Vassago gRPC service for the daemon.
 //
-// It serves all RPCs defined in the Mnemosyne protocol: memory CRUD, hot block,
+// It serves all RPCs defined in the Vassago protocol: memory CRUD, hot block,
 // session management, agent registration, heartbeat, Telepathy subscriptions,
 // consolidation, cron jobs, messaging, and todo management.
 //

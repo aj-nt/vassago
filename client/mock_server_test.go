@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -17,10 +17,10 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-// mockMnemosyneServer implements pb.MnemosyneServer with controllable responses.
-// It embeds UnimplementedMnemosyneServer and overrides the methods we need for testing.
-type mockMnemosyneServer struct {
-	pb.UnimplementedMnemosyneServer
+// mockVassagoServer implements pb.VassagoServer with controllable responses.
+// It embeds UnimplementedVassagoServer and overrides the methods we need for testing.
+type mockVassagoServer struct {
+	pb.UnimplementedVassagoServer
 
 	mu       sync.Mutex
 	memories map[string]*pb.MemoryEntry
@@ -32,8 +32,8 @@ type mockMnemosyneServer struct {
 	nextID   int
 }
 
-func newMockMnemosyneServer() *mockMnemosyneServer {
-	return &mockMnemosyneServer{
+func newMockVassagoServer() *mockVassagoServer {
+	return &mockVassagoServer{
 		memories: make(map[string]*pb.MemoryEntry),
 		sessions: make(map[string]*pb.Session),
 		agents:   make(map[string]*pb.RegisterAgentResponse),
@@ -44,7 +44,7 @@ func newMockMnemosyneServer() *mockMnemosyneServer {
 	}
 }
 
-func (m *mockMnemosyneServer) genID() string {
+func (m *mockVassagoServer) genID() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	id := fmt.Sprintf("mock-%d", m.nextID)
@@ -52,7 +52,7 @@ func (m *mockMnemosyneServer) genID() string {
 	return id
 }
 
-func (m *mockMnemosyneServer) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.AddMemoryResponse, error) {
+func (m *mockVassagoServer) AddMemory(ctx context.Context, req *pb.AddMemoryRequest) (*pb.AddMemoryResponse, error) {
 	if req.Target == "" || req.Key == "" || req.SourceAgent == "" {
 		return nil, fmt.Errorf("validation: target, key, and source_agent required")
 	}
@@ -74,7 +74,7 @@ func (m *mockMnemosyneServer) AddMemory(ctx context.Context, req *pb.AddMemoryRe
 	return &pb.AddMemoryResponse{Entry: entry}, nil
 }
 
-func (m *mockMnemosyneServer) GetMemory(ctx context.Context, req *pb.GetMemoryRequest) (*pb.MemoryEntry, error) {
+func (m *mockVassagoServer) GetMemory(ctx context.Context, req *pb.GetMemoryRequest) (*pb.MemoryEntry, error) {
 	m.mu.Lock()
 	entry, ok := m.memories[req.Id]
 	m.mu.Unlock()
@@ -84,14 +84,14 @@ func (m *mockMnemosyneServer) GetMemory(ctx context.Context, req *pb.GetMemoryRe
 	return entry, nil
 }
 
-func (m *mockMnemosyneServer) RemoveMemory(ctx context.Context, req *pb.RemoveMemoryRequest) (*pb.RemoveMemoryResponse, error) {
+func (m *mockVassagoServer) RemoveMemory(ctx context.Context, req *pb.RemoveMemoryRequest) (*pb.RemoveMemoryResponse, error) {
 	m.mu.Lock()
 	delete(m.memories, req.Id)
 	m.mu.Unlock()
 	return &pb.RemoveMemoryResponse{}, nil
 }
 
-func (m *mockMnemosyneServer) Search(ctx context.Context, req *pb.SearchRequest) (*pb.SearchResponse, error) {
+func (m *mockVassagoServer) Search(ctx context.Context, req *pb.SearchRequest) (*pb.SearchResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var results []*pb.MemoryEntry
@@ -103,7 +103,7 @@ func (m *mockMnemosyneServer) Search(ctx context.Context, req *pb.SearchRequest)
 	return &pb.SearchResponse{Entries: results}, nil
 }
 
-func (m *mockMnemosyneServer) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest) (*pb.MemoryList, error) {
+func (m *mockVassagoServer) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest) (*pb.MemoryList, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var entries []*pb.MemoryEntry
@@ -115,11 +115,11 @@ func (m *mockMnemosyneServer) ListMemories(ctx context.Context, req *pb.ListMemo
 	return &pb.MemoryList{Entries: entries}, nil
 }
 
-func (m *mockMnemosyneServer) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb.HotBlockResponse, error) {
+func (m *mockVassagoServer) GetHotBlock(ctx context.Context, req *pb.HotBlockRequest) (*pb.HotBlockResponse, error) {
 	return &pb.HotBlockResponse{Content: "mock hot block", CharCount: 15}, nil
 }
 
-func (m *mockMnemosyneServer) CreateSession(ctx context.Context, req *pb.CreateSessionRequest) (*pb.Session, error) {
+func (m *mockVassagoServer) CreateSession(ctx context.Context, req *pb.CreateSessionRequest) (*pb.Session, error) {
 	id := m.genID()
 	session := &pb.Session{
 		Id:           id,
@@ -136,7 +136,7 @@ func (m *mockMnemosyneServer) CreateSession(ctx context.Context, req *pb.CreateS
 	return session, nil
 }
 
-func (m *mockMnemosyneServer) AddMessages(ctx context.Context, req *pb.AddMessagesRequest) (*pb.Session, error) {
+func (m *mockVassagoServer) AddMessages(ctx context.Context, req *pb.AddMessagesRequest) (*pb.Session, error) {
 	m.mu.Lock()
 	session, ok := m.sessions[req.SessionId]
 	m.mu.Unlock()
@@ -147,7 +147,7 @@ func (m *mockMnemosyneServer) AddMessages(ctx context.Context, req *pb.AddMessag
 	return session, nil
 }
 
-func (m *mockMnemosyneServer) EndSession(ctx context.Context, req *pb.EndSessionRequest) (*pb.EndSessionResponse, error) {
+func (m *mockVassagoServer) EndSession(ctx context.Context, req *pb.EndSessionRequest) (*pb.EndSessionResponse, error) {
 	m.mu.Lock()
 	_, ok := m.sessions[req.SessionId]
 	m.mu.Unlock()
@@ -157,7 +157,7 @@ func (m *mockMnemosyneServer) EndSession(ctx context.Context, req *pb.EndSession
 	return &pb.EndSessionResponse{}, nil
 }
 
-func (m *mockMnemosyneServer) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*pb.Session, error) {
+func (m *mockVassagoServer) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*pb.Session, error) {
 	m.mu.Lock()
 	session, ok := m.sessions[req.SessionId]
 	m.mu.Unlock()
@@ -167,7 +167,7 @@ func (m *mockMnemosyneServer) GetSession(ctx context.Context, req *pb.GetSession
 	return session, nil
 }
 
-func (m *mockMnemosyneServer) RegisterAgent(ctx context.Context, req *pb.RegisterAgentRequest) (*pb.RegisterAgentResponse, error) {
+func (m *mockVassagoServer) RegisterAgent(ctx context.Context, req *pb.RegisterAgentRequest) (*pb.RegisterAgentResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if resp, ok := m.agents[req.AgentId]; ok {
@@ -179,15 +179,15 @@ func (m *mockMnemosyneServer) RegisterAgent(ctx context.Context, req *pb.Registe
 	return resp, nil
 }
 
-func (m *mockMnemosyneServer) Heartbeat(ctx context.Context, req *pb.AgentId) (*pb.Empty, error) {
+func (m *mockVassagoServer) Heartbeat(ctx context.Context, req *pb.AgentId) (*pb.Empty, error) {
 	return &pb.Empty{}, nil
 }
 
-func (m *mockMnemosyneServer) Consolidate(ctx context.Context, req *pb.ConsolidateRequest) (*pb.ConsolidateResponse, error) {
+func (m *mockVassagoServer) Consolidate(ctx context.Context, req *pb.ConsolidateRequest) (*pb.ConsolidateResponse, error) {
 	return &pb.ConsolidateResponse{Removed: 0, Merged: 0, Summary: "mock consolidation"}, nil
 }
 
-func (m *mockMnemosyneServer) SearchSessions(ctx context.Context, req *pb.SearchSessionsRequest) (*pb.SearchSessionsResponse, error) {
+func (m *mockVassagoServer) SearchSessions(ctx context.Context, req *pb.SearchSessionsRequest) (*pb.SearchSessionsResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var sessions []*pb.Session
@@ -197,7 +197,7 @@ func (m *mockMnemosyneServer) SearchSessions(ctx context.Context, req *pb.Search
 	return &pb.SearchSessionsResponse{Sessions: sessions}, nil
 }
 
-func (m *mockMnemosyneServer) ListSessions(ctx context.Context, req *pb.ListSessionsRequest) (*pb.ListSessionsResponse, error) {
+func (m *mockVassagoServer) ListSessions(ctx context.Context, req *pb.ListSessionsRequest) (*pb.ListSessionsResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var sessions []*pb.Session
@@ -207,7 +207,7 @@ func (m *mockMnemosyneServer) ListSessions(ctx context.Context, req *pb.ListSess
 	return &pb.ListSessionsResponse{Sessions: sessions}, nil
 }
 
-func (m *mockMnemosyneServer) AddTodo(ctx context.Context, req *pb.AddTodoRequest) (*pb.TodoItem, error) {
+func (m *mockVassagoServer) AddTodo(ctx context.Context, req *pb.AddTodoRequest) (*pb.TodoItem, error) {
 	id := m.genID()
 	todo := &pb.TodoItem{
 		Id:          id,
@@ -224,7 +224,7 @@ func (m *mockMnemosyneServer) AddTodo(ctx context.Context, req *pb.AddTodoReques
 	return todo, nil
 }
 
-func (m *mockMnemosyneServer) ListTodos(req *pb.ListTodosRequest, stream pb.Mnemosyne_ListTodosServer) error {
+func (m *mockVassagoServer) ListTodos(req *pb.ListTodosRequest, stream pb.Vassago_ListTodosServer) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, todo := range m.todos {
@@ -235,7 +235,7 @@ func (m *mockMnemosyneServer) ListTodos(req *pb.ListTodosRequest, stream pb.Mnem
 	return nil
 }
 
-func (m *mockMnemosyneServer) CompleteTodo(ctx context.Context, req *pb.CompleteTodoRequest) (*pb.TodoItem, error) {
+func (m *mockVassagoServer) CompleteTodo(ctx context.Context, req *pb.CompleteTodoRequest) (*pb.TodoItem, error) {
 	m.mu.Lock()
 	todo, ok := m.todos[req.Id]
 	if !ok {
@@ -248,14 +248,14 @@ func (m *mockMnemosyneServer) CompleteTodo(ctx context.Context, req *pb.Complete
 	return todo, nil
 }
 
-func (m *mockMnemosyneServer) RemoveTodo(ctx context.Context, req *pb.RemoveTodoRequest) (*pb.Empty, error) {
+func (m *mockVassagoServer) RemoveTodo(ctx context.Context, req *pb.RemoveTodoRequest) (*pb.Empty, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.todos, req.Id)
 	return &pb.Empty{}, nil
 }
 
-func (m *mockMnemosyneServer) Ping(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
+func (m *mockVassagoServer) Ping(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	return &pb.HealthCheckResponse{Status: "ok"}, nil
 }
 
@@ -264,8 +264,8 @@ type mockMessagingServer struct {
 	pb.UnimplementedMessagingServer
 }
 
-// Add skill methods to mockMnemosyneServer
-func (m *mockMnemosyneServer) AddSkill(ctx context.Context, req *pb.AddSkillRequest) (*pb.SkillEntry, error) {
+// Add skill methods to mockVassagoServer
+func (m *mockVassagoServer) AddSkill(ctx context.Context, req *pb.AddSkillRequest) (*pb.SkillEntry, error) {
 	id := m.genID()
 	priority := int32(3)
 	if req.Priority != nil {
@@ -287,7 +287,7 @@ func (m *mockMnemosyneServer) AddSkill(ctx context.Context, req *pb.AddSkillRequ
 	return skill, nil
 }
 
-func (m *mockMnemosyneServer) GetSkill(ctx context.Context, req *pb.GetSkillRequest) (*pb.SkillEntry, error) {
+func (m *mockVassagoServer) GetSkill(ctx context.Context, req *pb.GetSkillRequest) (*pb.SkillEntry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	skill, ok := m.skills[req.Id]
@@ -297,7 +297,7 @@ func (m *mockMnemosyneServer) GetSkill(ctx context.Context, req *pb.GetSkillRequ
 	return skill, nil
 }
 
-func (m *mockMnemosyneServer) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.SkillList, error) {
+func (m *mockVassagoServer) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.SkillList, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var skills []*pb.SkillEntry
@@ -309,14 +309,14 @@ func (m *mockMnemosyneServer) ListSkills(ctx context.Context, req *pb.ListSkills
 	return &pb.SkillList{Skills: skills}, nil
 }
 
-func (m *mockMnemosyneServer) RemoveSkill(ctx context.Context, req *pb.RemoveSkillRequest) (*pb.RemoveSkillResponse, error) {
+func (m *mockVassagoServer) RemoveSkill(ctx context.Context, req *pb.RemoveSkillRequest) (*pb.RemoveSkillResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.skills, req.Id)
 	return &pb.RemoveSkillResponse{Success: true}, nil
 }
 
-func (m *mockMnemosyneServer) SearchSkills(ctx context.Context, req *pb.SearchSkillsRequest) (*pb.SkillList, error) {
+func (m *mockVassagoServer) SearchSkills(ctx context.Context, req *pb.SearchSkillsRequest) (*pb.SkillList, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var skills []*pb.SkillEntry
@@ -419,16 +419,16 @@ func (m *mockCronServiceServer) DeleteCronJob(ctx context.Context, req *pb.Delet
 
 // setupMockServer creates a bufconn-based gRPC server with mock implementations
 // and returns a connected Client.
-func setupMockServer(t *testing.T) (*Client, *mockMnemosyneServer, *grpc.ClientConn) {
+func setupMockServer(t *testing.T) (*Client, *mockVassagoServer, *grpc.ClientConn) {
 	t.Helper()
 
-	memoSrv := newMockMnemosyneServer()
+	memoSrv := newMockVassagoServer()
 	msgSrv := &mockMessagingServer{}
 	cronSrv := newMockCronServiceServer()
 
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, memoSrv)
+	pb.RegisterVassagoServer(s, memoSrv)
 	pb.RegisterMessagingServer(s, msgSrv)
 	pb.RegisterCronServiceServer(s, cronSrv)
 

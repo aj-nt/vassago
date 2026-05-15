@@ -13,13 +13,13 @@ Vassago is a gRPC-based memory daemon written in Go. It provides shared, durable
 make build
 
 # Run
-./bin/mnemosyne-daemon --config config.yaml
+./bin/vassago-daemon --config config.yaml
 ```
 
 ## Architecture
 
 - **Daemon** — gRPC server with SQLite backing store
-- **CLI** — `mnemosyne` command-line client
+- **CLI** — `vassago` command-line client
 - **SDK** — Go and Python client libraries
 - **Pub/Sub** — real-time event notifications for connected agents
 - **Cron** — scheduled job execution

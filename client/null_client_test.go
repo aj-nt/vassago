@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -53,58 +53,58 @@ func TestNullMnemo_WriteOperationsReturnNotConnected(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := n.AddMemory(ctx, "t", "c", "k", "v", 1, "a")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("AddMemory: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("AddMemory: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.GetMemory(ctx, "id")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("GetMemory: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("GetMemory: expected 'vassago not connected', got %v", err)
 	}
 
 	err = n.RemoveMemory(ctx, "id")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("RemoveMemory: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("RemoveMemory: expected 'vassago not connected', got %v", err)
 	}
 
 	err = n.HealthCheck(ctx)
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("HealthCheck: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("HealthCheck: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.SendMessage(ctx, "telegram", "ch", "msg")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("SendMessage: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("SendMessage: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.AddTodo(ctx, "content", 1, "agent")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("AddTodo: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("AddTodo: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.CompleteTodo(ctx, "id")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("CompleteTodo: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("CompleteTodo: expected 'vassago not connected', got %v", err)
 	}
 
 	err = n.RemoveTodo(ctx, "id")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("RemoveTodo: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("RemoveTodo: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.CreateCronJob(ctx, "name", "* * * * *", "agent", "msg", nil)
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("CreateCronJob: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("CreateCronJob: expected 'vassago not connected', got %v", err)
 	}
 
 	_, err = n.UpdateCronJob(ctx, "id", nil, nil, nil, nil)
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("UpdateCronJob: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("UpdateCronJob: expected 'vassago not connected', got %v", err)
 	}
 
 	err = n.DeleteCronJob(ctx, "id")
-	if err == nil || err.Error() != "mnemo not connected" {
-		t.Errorf("DeleteCronJob: expected 'mnemo not connected', got %v", err)
+	if err == nil || err.Error() != "vassago not connected" {
+		t.Errorf("DeleteCronJob: expected 'vassago not connected', got %v", err)
 	}
 }
 

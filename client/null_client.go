@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// nullSubscribeStream is a no-op implementation of pb.Mnemosyne_SubscribeClient
+// nullSubscribeStream is a no-op implementation of pb.Vassago_SubscribeClient
 // (grpc.ServerStreamingClient[UpdateEvent]). Recv() returns io.EOF immediately,
 // signaling that the stream has ended — which is the correct behavior when
 // there is no daemon to subscribe to.
@@ -30,11 +30,11 @@ func (n *nullSubscribeStream) SendMsg(m interface{}) error  { return nil }
 func (n *nullSubscribeStream) RecvMsg(m interface{}) error  { return io.EOF }
 
 // NullMnemo is a no-op implementation of MnemoClient. It is used when the
-// Mnemosyne daemon is unavailable, eliminating the need for nil checks
+// Vassago daemon is unavailable, eliminating the need for nil checks
 // throughout the codebase. Methods that are "fire-and-forget" (session
 // lifecycle, heartbeat, close) silently succeed. Methods that return data
 // return empty results. Methods that perform writes against the daemon
-// return "mnemo not connected" errors so callers can distinguish success
+// return "vassago not connected" errors so callers can distinguish success
 // from unavailable-daemon.
 type NullMnemo struct{}
 
@@ -49,20 +49,20 @@ func (n *NullMnemo) Heartbeat(ctx context.Context, agentID string) error {
 	return nil
 }
 
-func (n *NullMnemo) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+func (n *NullMnemo) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 	return &nullSubscribeStream{}, nil
 }
 
 func (n *NullMnemo) AddMemory(ctx context.Context, target, category, key, content string, priority int32, sourceAgent string) (*pb.MemoryEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) GetMemory(ctx context.Context, id string) (*pb.MemoryEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) RemoveMemory(ctx context.Context, id string) error {
-	return fmt.Errorf("mnemo not connected")
+	return fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) SearchMemories(ctx context.Context, query string, target string, limit int32) ([]*pb.MemoryEntry, error) {
@@ -94,7 +94,7 @@ func (n *NullMnemo) Consolidate(ctx context.Context, scope pb.ConsolidateScope, 
 }
 
 func (n *NullMnemo) HealthCheck(ctx context.Context) error {
-	return fmt.Errorf("mnemo not connected")
+	return fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) SearchSessions(ctx context.Context, query string, limit int32) ([]SessionInfo, error) {
@@ -110,7 +110,7 @@ func (n *NullMnemo) GetSession(ctx context.Context, sessionID string) (*SessionD
 }
 
 func (n *NullMnemo) SendMessage(ctx context.Context, platform, target, message string) (string, error) {
-	return "", fmt.Errorf("mnemo not connected")
+	return "", fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) ListChannels(ctx context.Context, platform string) ([]*pb.Channel, error) {
@@ -118,7 +118,7 @@ func (n *NullMnemo) ListChannels(ctx context.Context, platform string) ([]*pb.Ch
 }
 
 func (n *NullMnemo) AddTodo(ctx context.Context, content string, priority int32, sourceAgent string) (*TodoItem, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) ListTodos(ctx context.Context, includeCompleted bool, sourceAgent string) ([]TodoItem, error) {
@@ -126,15 +126,15 @@ func (n *NullMnemo) ListTodos(ctx context.Context, includeCompleted bool, source
 }
 
 func (n *NullMnemo) CompleteTodo(ctx context.Context, id string) (*TodoItem, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) RemoveTodo(ctx context.Context, id string) error {
-	return fmt.Errorf("mnemo not connected")
+	return fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) CreateCronJob(ctx context.Context, name, schedule, agentID, message string, enabled *bool) (*CronJobInfo, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error) {
@@ -142,19 +142,19 @@ func (n *NullMnemo) ListCronJobs(ctx context.Context, agentID string, includeDis
 }
 
 func (n *NullMnemo) UpdateCronJob(ctx context.Context, id string, name, schedule, message *string, enabled *bool) (*CronJobInfo, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) DeleteCronJob(ctx context.Context, id string) error {
-	return fmt.Errorf("mnemo not connected")
+	return fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) GetSkill(ctx context.Context, id string) (*pb.SkillEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) ListSkills(ctx context.Context, category, sourceAgent string, limit int32) ([]*pb.SkillEntry, error) {
@@ -162,7 +162,7 @@ func (n *NullMnemo) ListSkills(ctx context.Context, category, sourceAgent string
 }
 
 func (n *NullMnemo) RemoveSkill(ctx context.Context, id string) (bool, error) {
-	return false, fmt.Errorf("mnemo not connected")
+	return false, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error) {
@@ -170,11 +170,11 @@ func (n *NullMnemo) SearchSkills(ctx context.Context, query, category string, li
 }
 
 func (n *NullMnemo) AddSavedTool(ctx context.Context, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int32) (*pb.SavedToolEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) GetSavedTool(ctx context.Context, id string) (*pb.SavedToolEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) ListSavedTools(ctx context.Context, category, author string, limit int32) ([]*pb.SavedToolEntry, error) {
@@ -186,11 +186,11 @@ func (n *NullMnemo) SearchSavedTools(ctx context.Context, query, category string
 }
 
 func (n *NullMnemo) UpdateSavedTool(ctx context.Context, id string, updates map[string]interface{}) (*pb.SavedToolEntry, error) {
-	return nil, fmt.Errorf("mnemo not connected")
+	return nil, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) RemoveSavedTool(ctx context.Context, id string) (bool, error) {
-	return false, fmt.Errorf("mnemo not connected")
+	return false, fmt.Errorf("vassago not connected")
 }
 
 func (n *NullMnemo) Close() error {

@@ -21,25 +21,25 @@ RUN CGO_ENABLED=0 go build \
       -ldflags="-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildDate=${BUILDDATE}" \
       -trimpath \
       -o /go/bin/ \
-      ./cmd/mnemosyne \
-      ./daemon/cmd/mnemosyne-daemon \
-      ./daemon/cmd/mnemosyne-cli \
-      ./daemon/cmd/mnemosyne-import
+      ./cmd/vassago \
+      ./daemon/cmd/vassago-daemon \
+      ./daemon/cmd/vassago-cli \
+      ./daemon/cmd/vassago-import
 
 # Runtime stage
 FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=builder /go/bin/mnemosyne /usr/local/bin/mnemosyne
-COPY --from=builder /go/bin/mnemosyne-daemon /usr/local/bin/mnemosyne-daemon
-COPY --from=builder /go/bin/mnemosyne-cli /usr/local/bin/mnemosyne-cli
-COPY --from=builder /go/bin/mnemosyne-import /usr/local/bin/mnemosyne-import
+COPY --from=builder /go/bin/vassago /usr/local/bin/vassago
+COPY --from=builder /go/bin/vassago-daemon /usr/local/bin/vassago-daemon
+COPY --from=builder /go/bin/vassago-cli /usr/local/bin/vassago-cli
+COPY --from=builder /go/bin/vassago-import /usr/local/bin/vassago-import
 
 EXPOSE 50051
 
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["mnemosyne", "health"]
+  CMD ["vassago", "health"]
 
-ENTRYPOINT ["mnemosyne"]
+ENTRYPOINT ["vassago"]
 CMD ["daemon"]

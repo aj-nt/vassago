@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package migration
@@ -21,11 +21,11 @@ func TestImportHermesDB_Empty(t *testing.T) {
 		t.Fatalf("create hermes db: %v", err)
 	}
 
-	// Create Mnemosyne store
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	// Create Vassago store
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -68,10 +68,10 @@ func TestImportHermesDB_Memories(t *testing.T) {
 	}
 	hDB.Close()
 
-	mnemoPath := filepath.Join(tmpDir, "mnemosyne.db")
+	mnemoPath := filepath.Join(tmpDir, "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -83,7 +83,7 @@ func TestImportHermesDB_Memories(t *testing.T) {
 		t.Errorf("expected 3 memories imported, got %d", result.MemoriesImported)
 	}
 
-	// Verify the memories are in Mnemosyne
+	// Verify the memories are in Vassago
 	entries, err := mnemoStore.ListMemories("default", "memory", "", 0)
 	if err != nil {
 		t.Fatalf("list memories: %v", err)
@@ -108,10 +108,10 @@ func TestImportHermesDB_Idempotent(t *testing.T) {
 	}
 	insertHermesMemory(t, hermesPath, "memory", "environment", "dup-key", "content", 3, 0)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -152,10 +152,10 @@ func TestImportHermesDB_ExpiredMemories(t *testing.T) {
 	insertHermesMemory(t, hermesPath, "memory", "observation", "expired-key", "old content", 2, 1000)           // Expired
 	insertHermesMemory(t, hermesPath, "memory", "environment", "current-key", "current content", 3, 9999999999) // Not expired
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -188,10 +188,10 @@ func TestImportHermesDB_SessionsAndMessages(t *testing.T) {
 	insertHermesMessage(t, hermesPath, "sess-001", "user", "Hello", 1700000001.0)
 	insertHermesMessage(t, hermesPath, "sess-001", "assistant", "Hi there!", 1700000002.0)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -241,10 +241,10 @@ func TestImportHermesDB_SessionIDPreservation(t *testing.T) {
 	// Insert a session with a specific Hermes-format ID
 	insertHermesSession(t, hermesPath, "20260504_193252_f416d7", "cli", "Memory cleanup", 1700000000.0, 1700001000.0, 5)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -274,10 +274,10 @@ func TestImportHermesDB_DefaultAgent(t *testing.T) {
 	}
 	insertHermesMemory(t, hermesPath, "memory", "environment", "default-agent-test", "content", 3, 0)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -326,10 +326,10 @@ func TestImportHermesDB_UTF8Sanitization(t *testing.T) {
 		t.Fatalf("insert invalid utf8 message: %v", err)
 	}
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -382,10 +382,10 @@ func TestImportHermesDB_LargeSessionBatch(t *testing.T) {
 	}
 	hDB.Close()
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -418,10 +418,10 @@ func TestImportHermesDB_SessionIdempotent(t *testing.T) {
 	insertHermesSession(t, hermesPath, "sess-idem", "cli", "Idempotent Test", 1700000000.0, 0, 1)
 	insertHermesMessage(t, hermesPath, "sess-idem", "user", "Hello", 1700000001.0)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 
@@ -468,10 +468,10 @@ func TestImportHermesDB_SchemaV10(t *testing.T) {
 	insertHermesV10Session(t, hermesPath, "sess-v10", "cli", "V10 Session", 1700000000.0, 1700001000.0, 10, "gpt-4")
 	insertHermesMessage(t, hermesPath, "sess-v10", "user", "V10 test message", 1700000001.0)
 
-	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
+	mnemoPath := filepath.Join(t.TempDir(), "vassago.db")
 	mnemoStore, err := store.New(mnemoPath)
 	if err != nil {
-		t.Fatalf("create mnemosyne store: %v", err)
+		t.Fatalf("create vassago store: %v", err)
 	}
 	defer mnemoStore.Close()
 

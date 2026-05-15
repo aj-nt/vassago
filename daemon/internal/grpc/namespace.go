@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const namespaceKey = "x-mnemosyne-namespace"
+const namespaceKey = "x-vassago-namespace"
 
 // ownerFromCtx extracts the namespace (owner) from gRPC metadata.
 // Falls back to "default" if no namespace header is present.

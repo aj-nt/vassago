@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package daemon
@@ -290,9 +290,9 @@ func TestDefaultConfig_UsesUserHomeDir(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, cfg.Daemon.Socket, home)
-	assert.Contains(t, cfg.Daemon.Socket, ".mnemosyne")
+	assert.Contains(t, cfg.Daemon.Socket, ".vassago")
 	assert.Contains(t, cfg.Store.Path, home)
-	assert.Contains(t, cfg.Store.Path, ".mnemosyne")
+	assert.Contains(t, cfg.Store.Path, ".vassago")
 }
 
 // Test that New returns an error when the store path is a directory, not a file.

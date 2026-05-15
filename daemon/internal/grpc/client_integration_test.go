@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package grpc
@@ -27,7 +27,7 @@ func setupBufconnServer(t *testing.T) (*grpc.ClientConn, *store.Store) {
 
 	lis := bufconn.Listen(1024 * 1024)
 	s := grpc.NewServer()
-	pb.RegisterMnemosyneServer(s, svc)
+	pb.RegisterVassagoServer(s, svc)
 
 	// Also register MessagingService and CronService
 	pb.RegisterMessagingServer(s, NewMessagingService())

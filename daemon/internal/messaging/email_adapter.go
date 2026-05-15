@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package messaging
@@ -363,7 +363,7 @@ func (a *EmailAdapter) Send(ctx context.Context, target, message string) (string
 	}
 
 	// Parse subject from message if it starts with "Subject: "
-	subject := "Message from Mnemosyne"
+	subject := "Message from Vassago"
 	body := message
 	if strings.HasPrefix(message, "Subject: ") {
 		endSubject := strings.Index(message, "\n")

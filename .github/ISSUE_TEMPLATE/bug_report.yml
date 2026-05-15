@@ -1,5 +1,5 @@
 name: Bug Report
-about: Report a bug in Mnemosyne
+about: Report a bug in Vassago
 title: "Bug: "
 labels: ["bug"]
 assignees: []
@@ -8,9 +8,9 @@ body:
     attributes:
       value: "Thank you for reporting a bug! Please fill out the form below to help us address the issue."
   - type: input
-    id: mnemosyne-version
+    id: vassago-version
     attributes:
-      label: Mnemosyne Version
+      label: Vassago Version
       placeholder: e.g., 2.9
     validations:
       required: true
@@ -58,7 +58,7 @@ body:
     id: config
     attributes:
       label: Configuration
-      description: If applicable, provide your Mnemosyne configuration or relevant settings.
+      description: If applicable, provide your Vassago configuration or relevant settings.
     validations:
       required: false
   - type: textarea

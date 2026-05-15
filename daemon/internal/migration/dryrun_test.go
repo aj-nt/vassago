@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package migration
@@ -57,7 +57,7 @@ func TestDryRunImport_WithData(t *testing.T) {
 }
 
 func TestDryRunImport_NoWrites(t *testing.T) {
-	// Verify dry run doesn't create a Mnemosyne database
+	// Verify dry run doesn't create a Vassago database
 	hermesPath := filepath.Join(t.TempDir(), "state.db")
 	if err := createHermesTestDB(hermesPath); err != nil {
 		t.Fatalf("create hermes db: %v", err)
@@ -70,6 +70,6 @@ func TestDryRunImport_NoWrites(t *testing.T) {
 		t.Fatalf("DryRunImport: %v", err)
 	}
 
-	// The dry-run function doesn't take a Mnemosyne store — it can't write.
+	// The dry-run function doesn't take a Vassago store — it can't write.
 	// This test verifies the function signature ensures no side effects.
 }

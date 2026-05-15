@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-Apache-2.0 for license information.
 
 package client
@@ -24,7 +24,7 @@ type mockAgentAPI struct {
 	// Customizable behavior
 	registerFunc  func(ctx context.Context, agentID, name, role string) (string, bool, error)
 	heartbeatFunc func(ctx context.Context, agentID string) error
-	subscribeFunc func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error)
+	subscribeFunc func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error)
 }
 
 func (m *mockAgentAPI) RegisterAgent(ctx context.Context, agentID, name, role string) (string, bool, error) {
@@ -47,7 +47,7 @@ func (m *mockAgentAPI) Heartbeat(ctx context.Context, agentID string) error {
 	return nil
 }
 
-func (m *mockAgentAPI) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+func (m *mockAgentAPI) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.subscribeFunc != nil {
@@ -56,7 +56,7 @@ func (m *mockAgentAPI) Subscribe(ctx context.Context, req *pb.SubscribeRequest) 
 	return nil, errors.New("subscribe not implemented in mock")
 }
 
-// mockSubscribeStream is a mock for pb.Mnemosyne_SubscribeClient.
+// mockSubscribeStream is a mock for pb.Vassago_SubscribeClient.
 type mockSubscribeStream struct {
 	grpc.ClientStream
 	events []*pb.UpdateEvent
@@ -158,7 +158,7 @@ func TestAgentSession_SubscribeBeforeRegister(t *testing.T) {
 func TestAgentSession_Subscribe(t *testing.T) {
 	subCtx := context.Background()
 	api := &mockAgentAPI{
-		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 			return &mockSubscribeStream{
 				ctx: subCtx,
 				events: []*pb.UpdateEvent{
@@ -279,7 +279,7 @@ func TestAgentSession_HeartbeatFails(t *testing.T) {
 func TestAgentSession_SubscribeCancel(t *testing.T) {
 	subCtx, subCancel := context.WithCancel(context.Background())
 	api := &mockAgentAPI{
-		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Mnemosyne_SubscribeClient, error) {
+		subscribeFunc: func(ctx context.Context, req *pb.SubscribeRequest) (pb.Vassago_SubscribeClient, error) {
 			// Return a stream that blocks until context is cancelled
 			return &mockSubscribeStream{ctx: subCtx}, nil
 		},

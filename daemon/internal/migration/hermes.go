@@ -1,4 +1,4 @@
-// This file is part of Mnemosyne.
+// This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
 package migration
@@ -98,12 +98,12 @@ type ImportResult struct {
 	Errors           []string
 }
 
-// ImportHermesDB reads a Hermes state.db and imports its data into Mnemosyne.
+// ImportHermesDB reads a Hermes state.db and imports its data into Vassago.
 // It performs idempotent imports — running it twice will not create duplicates.
 //
 // Session IDs are preserved from Hermes so that message references remain intact.
 // Timestamps are converted from Hermes REAL (Unix epoch with fractional seconds)
-// to Mnemosyne INTEGER (Unix seconds, truncated).
+// to Vassago INTEGER (Unix seconds, truncated).
 //
 // The agentID parameter is used as the agent_id for imported sessions and memories.
 // If empty, defaults to "hermes-import".
@@ -165,7 +165,7 @@ func ensureImportAgent(mnemoStore *store.Store, agentID string) (bool, error) {
 	return isNew, nil
 }
 
-// importMemories reads all Hermes memories and imports them into Mnemosyne.
+// importMemories reads all Hermes memories and imports them into Vassago.
 // Uses AddMemory for idempotent upsert (same target+key = update).
 func importMemories(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, result *ImportResult) error {
 	rows, err := hermesDB.Query(`
@@ -256,7 +256,7 @@ func importMemories(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, r
 	return nil
 }
 
-// importSessions reads all Hermes sessions and messages and imports them into Mnemosyne.
+// importSessions reads all Hermes sessions and messages and imports them into Vassago.
 // Session IDs are preserved from Hermes (prefixed with "hermes:") to avoid collisions.
 // Messages are imported directly via SQL to bypass the store API's auto-generated IDs.
 func importSessions(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, result *ImportResult) error {
@@ -292,8 +292,8 @@ func importSessions(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, r
 			title = s.Title.String
 		}
 
-		// Convert Hermes session ID to Mnemosyne format
-		// Prefix with "hermes:" to avoid ID collisions with Mnemosyne-generated UUIDs
+		// Convert Hermes session ID to Vassago format
+		// Prefix with "hermes:" to avoid ID collisions with Vassago-generated UUIDs
 		mnemoSessionID := "hermes:" + s.ID
 
 		// Convert timestamps
@@ -385,7 +385,7 @@ func importSessionMessages(mnemoStore *store.Store, hermesDB *sql.DB, mnemoSessi
 		}
 		timestamp := int64(m.Timestamp)
 
-		// Sanitize content for valid UTF-8 (Mnemosyne requires valid UTF-8 in protobuf)
+		// Sanitize content for valid UTF-8 (Vassago requires valid UTF-8 in protobuf)
 		content = sanitizeContent(content)
 		toolCallID = sanitizeContent(toolCallID)
 		toolName = sanitizeContent(toolName)
