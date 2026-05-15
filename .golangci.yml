@@ -1,0 +1,78 @@
+# golangci-lint configuration for Mnemosyne
+# Strategy: broad exemptions for test files and CLI entry points.
+# Individual suppression only for the handful of pre-existing
+# non-test, non-CLI issues.
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - staticcheck
+    - unused
+    - ineffassign
+
+issues:
+  exclude-rules:
+    # ---- Test files: all linters relaxed ----
+    # Test helpers routinely have unchecked returns, orphaned utilities,
+    # deprecated test patterns, and assertions with empty branches.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosimple
+        - staticcheck
+        - unused
+        - ineffassign
+
+    # ---- CLI entry points: errcheck relaxed ----
+    # fs.Parse in flag setup, cmd.Start/cmd.Run in daemon orchestration,
+    # fmt.Sscanf in arg parsing — these are CLI glue, not library code.
+    - path: cmd/
+      linters:
+        - errcheck
+
+    # ---- Pre-existing non-test, non-CLI issues ----
+
+    # webhook.go + daemon.go: w.Write in HTTP error handlers
+    - path: daemon/internal/github/webhook\.go
+      linters:
+        - errcheck
+    - path: daemon/internal/daemon/daemon\.go
+      linters:
+        - errcheck
+      text: "w.Write"
+
+    # saved_tools_grpc.go:166 — json.Unmarshal error deliberately swallowed
+    - path: daemon/internal/grpc/saved_tools_grpc\.go
+      linters:
+        - errcheck
+
+    # sdk/conversation.go:134 — stream.CloseSend in SDK
+    - path: sdk/conversation\.go
+      linters:
+        - errcheck
+
+    # Unused production functions (kept for API compatibility)
+    - path: client/client\.go
+      linters:
+        - unused
+    - path: daemon/internal/store/todo\.go
+      linters:
+        - unused
+    - path: cmd/vassago/cmd_config\.go
+      linters:
+        - unused
+    - path: cmd/vassago/util\.go
+      linters:
+        - unused
+    - path: cmd/vassago/cmd_init_prompts\.go
+      linters:
+        - unused
+
+    # Ineffectual assignment (dryrun.go) and argument overwrite (cmd_init_prompts.go)
+    - path: daemon/internal/migration/dryrun\.go
+      linters:
+        - ineffassign
+    - path: cmd/vassago/cmd_init_prompts\.go
+      linters:
+        - staticcheck

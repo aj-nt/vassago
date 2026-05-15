@@ -1,0 +1,198 @@
+// This file is part of Mnemosyne.
+// See LICENSE-AGPLv3 for license information.
+
+package store
+
+import (
+	"testing"
+)
+
+const testAgentHotBlock = "hotblock-agent-001"
+
+func TestComputeHotBlock_basic(t *testing.T) {
+	s := testStore(t)
+
+	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0) //nolint:errcheck
+	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)  //nolint:errcheck
+	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                             //nolint:errcheck
+
+	// Memory hot block
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	})
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+	if result.Content == "" {
+		t.Error("hot block content is empty")
+	}
+	if result.EntryCount == 0 {
+		t.Error("hot block has no entries")
+	}
+}
+
+func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
+	s := testStore(t)
+
+	// Add entries that would exceed a small limit
+	addMemory(s, "memory", "environment", "k1", "Short entry", 3, testAgentHotBlock, 0)                            //nolint:errcheck
+	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)                    //nolint:errcheck
+	addMemory(s, "memory", "environment", "k3", "Yet another entry that makes it longer", 2, testAgentHotBlock, 0) //nolint:errcheck
+
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
+		CharLimit:     50, // Very small limit
+		BoostPriority: 2,
+	})
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+	if result.CharCount > 50+200 { // Allow some margin for first entry
+		t.Errorf("char count %d exceeds limit + margin", result.CharCount)
+	}
+}
+
+func TestComputeHotBlock_boostCategories(t *testing.T) {
+	s := testStore(t)
+
+	addMemory(s, "memory", "observation", "obs1", "Some observation", 3, testAgentHotBlock, 0)    //nolint:errcheck
+	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+	// With "project" boosted, it should come first
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
+		CharLimit:       4000,
+		BoostPriority:   2,
+		BoostCategories: []string{"project"},
+	})
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+	// The project entry should appear before the observation
+	projIdx := indexOf(result.Content, "[project]")
+	obsIdx := indexOf(result.Content, "[observation]")
+	if projIdx >= 0 && obsIdx >= 0 && projIdx > obsIdx {
+		t.Error("boosted category should come before non-boosted")
+	}
+}
+
+func TestComputeHotBlock_suppressCategories(t *testing.T) {
+	s := testStore(t)
+
+	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)             //nolint:errcheck
+	addMemory(s, "memory", "observation", "obs1", "Less important observation", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
+		CharLimit:          4000,
+		BoostPriority:      2,
+		SuppressCategories: []string{"observation"},
+	})
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+	// Project should appear before observation
+	projIdx := indexOf(result.Content, "[project]")
+	obsIdx := indexOf(result.Content, "[observation]")
+	if projIdx >= 0 && obsIdx >= 0 && projIdx > obsIdx {
+		t.Error("suppressed category should come after non-suppressed")
+	}
+}
+
+func TestComputeHotBlock_expiredObservations(t *testing.T) {
+	s := testStore(t)
+
+	// Add an already-expired observation (expires_at in the past)
+	addMemory(s, "memory", "observation", "expired", "This is stale", 3, testAgentHotBlock, 1) //nolint:errcheck // expired at epoch 1 //nolint:errcheck
+
+	// Add a non-expired observation
+	addMemory(s, "memory", "observation", "fresh", "This is recent", 3, testAgentHotBlock, 0) //nolint:errcheck // no expiry //nolint:errcheck
+
+	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	})
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+	// The expired entry should not appear
+	if indexOf(result.Content, "expired") >= 0 && indexOf(result.Content, "stale") >= 0 {
+		t.Error("expired observation should not appear in hot block")
+	}
+}
+
+func TestFormatEntry(t *testing.T) {
+	tests := []struct {
+		entry *MemoryEntry
+		want  string
+	}{
+		{
+			&MemoryEntry{Category: "environment", Key: "python", Content: "3.11"},
+			"[environment] python: 3.11",
+		},
+		{
+			&MemoryEntry{Category: "observation", Key: "", Content: "Something happened"},
+			"[observation] Something happened",
+		},
+	}
+	for _, tt := range tests {
+		got := formatEntry(tt.entry)
+		if got != tt.want {
+			t.Errorf("formatEntry(%+v) = %q, want %q", tt.entry, got, tt.want)
+		}
+	}
+}
+
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+func TestComputeHotBlock_withLastSession(t *testing.T) {
+	s := testStore(t)
+
+	addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+	result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	}, "session-abc", "309 messages, 1h 55m")
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+
+	// Should start with session info
+	if indexOf(result.Content, "[session]") < 0 {
+		t.Error("hot block should start with session info")
+	}
+	if indexOf(result.Content, "session-abc") < 0 {
+		t.Error("hot block should contain session ID")
+	}
+	if indexOf(result.Content, "309 messages, 1h 55m") < 0 {
+		t.Error("hot block should contain session summary")
+	}
+	// Memory entry should still be there
+	if indexOf(result.Content, "Python 3.11") < 0 {
+		t.Error("hot block should still contain memories")
+	}
+}
+
+func TestComputeHotBlock_withoutLastSession(t *testing.T) {
+	s := testStore(t)
+
+	addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+
+	result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	}, "", "")
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
+
+	// Should NOT have session section when empty
+	if indexOf(result.Content, "[session]") >= 0 {
+		t.Error("hot block should not have session section when session ID is empty")
+	}
+}

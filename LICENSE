@@ -1,0 +1,14 @@
+Mnemosyne uses a dual-license model:
+
+- Core implementation (daemon, agent, CLI, tools, etc.): GNU Affero General Public License v3.0
+  See LICENSE-AGPLv3
+
+- Protocol and client packages (proto/, client/, messaging/format/): Apache License 2.0
+  See LICENSE-Apache-2.0
+
+The Apache 2.0 packages can be used independently under Apache 2.0 terms,
+enabling anyone to build compatible clients without AGPLv3 obligations.
+All other source files are licensed under AGPLv3, which requires that
+network use (e.g., hosting as a service) distributes the source under AGPLv3.
+
+See the file header in each source file for its applicable license.

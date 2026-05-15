@@ -1,0 +1,44 @@
+# Build output
+bin/
+*.out
+coverage.out
+coverage.html
+
+# Binaries (in case built at project root)
+/mnemosyne
+/mnemosyne-agent
+/mnemosyne-cli
+/mnemosyne-daemon
+/mnemosyne-import
+
+# OS files
+.DS_Store
+
+# Database files (local dev only)
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated proto (re-run protoc to regenerate)
+# proto/ files ARE tracked — generated Go files match the .proto source
+
+# Generated Python gRPC stubs (re-run make proto-python to regenerate)
+proto/*_pb2.py
+proto/*_pb2_grpc.py
+proto/*_pb2.pyi
+
+# Python SDK build artifacts
+sdk/python/build/
+sdk/python/dist/
+sdk/python/*.egg-info/
+sdk/python/.pytest_cache/
+sdk/python/src/*.egg-info/
+__pycache__/
+*.pyc
+
+# Local deploy scripts
+deploy-studio.sh

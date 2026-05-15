@@ -1,0 +1,124 @@
+# .goreleaser.yml
+# https://goreleaser.com/customization/
+
+project_name: vassago
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: vassago
+    main: ./cmd/vassago
+    binary: vassago
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: vassago-daemon
+    main: ./daemon/cmd/vassago-daemon
+    binary: vassago-daemon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: vassago-cli
+    main: ./daemon/cmd/vassago-cli
+    binary: vassago-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: vassago-import
+    main: ./daemon/cmd/vassago-import
+    binary: vassago-import
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_
+      {{- .Arch }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - LICENSE-AGPLv3
+      - LICENSE-Apache-2.0
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^refactor:"
+
+brews:
+  - name: vassago
+    repository:
+      owner: aj-nt
+      name: homebrew-vassago
+    directory: Formula
+    homepage: https://github.com/aj-nt/vassago
+    description: "Shared memory for AI agents. One daemon, many agents, zero echo loops."
+    license: AGPL-3.0
+    install: |
+      bin.install "vassago"
+      bin.install "vassago-daemon"
+      bin.install "vassago-cli"
+      bin.install "vassago-import"
+    test: |
+      assert_match "vassago version", shell_output("#{bin}/vassago version 2>&1", 1)
