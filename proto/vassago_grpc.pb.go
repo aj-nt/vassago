@@ -5,7 +5,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: mnemosyne.proto
+// source: vassago.proto
 
 package proto
 
@@ -1450,7 +1450,7 @@ var Vassago_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mnemosyne.proto",
+	Metadata: "vassago.proto",
 }
 
 const (
@@ -1602,7 +1602,7 @@ var AgentChat_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mnemosyne.proto",
+	Metadata: "vassago.proto",
 }
 
 const (
@@ -1832,5 +1832,5 @@ var CronService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "mnemosyne.proto",
+	Metadata: "vassago.proto",
 }
