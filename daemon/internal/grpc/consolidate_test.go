@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 // newTestService creates a service with a temp store for testing.

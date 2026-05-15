@@ -70,24 +70,24 @@ func cmdInit(args []string) {
 
 // parseInitFlags parses command line flags for init command
 func parseInitFlags(args []string) struct {
-	dir           string
-	force         bool
+	dir            string
+	force          bool
 	nonInteractive bool
-	help          bool
+	help           bool
 } {
 	home, _ := os.UserHomeDir()
 	defaultDir := filepath.Join(home, ".mnemosyne")
 
 	result := struct {
-		dir           string
-		force         bool
+		dir            string
+		force          bool
 		nonInteractive bool
-		help          bool
+		help           bool
 	}{
-		dir:           defaultDir,
-		force:         false,
+		dir:            defaultDir,
+		force:          false,
 		nonInteractive: false,
-		help:          false,
+		help:           false,
 	}
 
 	for i, arg := range args {

@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/daemon"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -28,7 +28,7 @@ func startTestDaemon(t *testing.T) (*daemon.Daemon, pb.MnemosyneClient, func()) 
 
 	cfg := &daemon.Config{
 		Daemon: daemon.DaemonConfig{
-			Socket: "", // No Unix socket
+			Socket: "",            // No Unix socket
 			TCP:    "127.0.0.1:0", // Will be overridden by listener
 		},
 		Store: daemon.StoreConfig{
@@ -314,7 +314,7 @@ func TestIntegration_SessionRoundTrip(t *testing.T) {
 	includeMsgs := true
 	gotSess, err := client.GetSession(ctx, &pb.GetSessionRequest{
 		SessionId:       sess.Id,
-		IncludeMessages:  &includeMsgs,
+		IncludeMessages: &includeMsgs,
 	})
 	if err != nil {
 		t.Fatalf("GetSession: %v", err)

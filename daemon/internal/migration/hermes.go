@@ -21,7 +21,7 @@ type HermesMemory struct {
 	Category      string
 	Key           string
 	Content       string
-	Priority       int32
+	Priority      int32
 	CreatedAt     float64 // Hermes uses REAL timestamps (Unix epoch with fractional seconds)
 	UpdatedAt     float64
 	LastAccessed  float64
@@ -33,50 +33,50 @@ type HermesMemory struct {
 // HermesSession represents a session row in the Hermes state.db.
 // Hermes v10+ schema includes many more columns than v9.
 type HermesSession struct {
-	ID              string
-	Source          string
-	UserID         sql.NullString
-	Model          sql.NullString
-	ModelConfig    sql.NullString
-	SystemPrompt   sql.NullString
-	ParentSessionID sql.NullString
-	StartedAt      float64
-	EndedAt        sql.NullFloat64
-	EndReason      sql.NullString
-	MessageCount   int32
-	ToolCallCount  int32
-	InputTokens    sql.NullInt64
-	OutputTokens   sql.NullInt64
-	CacheReadTokens sql.NullInt64
+	ID               string
+	Source           string
+	UserID           sql.NullString
+	Model            sql.NullString
+	ModelConfig      sql.NullString
+	SystemPrompt     sql.NullString
+	ParentSessionID  sql.NullString
+	StartedAt        float64
+	EndedAt          sql.NullFloat64
+	EndReason        sql.NullString
+	MessageCount     int32
+	ToolCallCount    int32
+	InputTokens      sql.NullInt64
+	OutputTokens     sql.NullInt64
+	CacheReadTokens  sql.NullInt64
 	CacheWriteTokens sql.NullInt64
-	ReasoningTokens sql.NullInt64
-	Title          sql.NullString
-	APICallCount   sql.NullInt64
-	BillingProvider sql.NullString
-	BillingBaseURL sql.NullString
-	BillingMode    sql.NullString
-	EstimatedCost  sql.NullFloat64
-	ActualCost     sql.NullFloat64
-	CostStatus     sql.NullString
-	CostSource     sql.NullString
-	PricingVersion sql.NullString
+	ReasoningTokens  sql.NullInt64
+	Title            sql.NullString
+	APICallCount     sql.NullInt64
+	BillingProvider  sql.NullString
+	BillingBaseURL   sql.NullString
+	BillingMode      sql.NullString
+	EstimatedCost    sql.NullFloat64
+	ActualCost       sql.NullFloat64
+	CostStatus       sql.NullString
+	CostSource       sql.NullString
+	PricingVersion   sql.NullString
 }
 
 // HermesMessage represents a message row in the Hermes state.db.
 type HermesMessage struct {
-	ID               int64
-	SessionID       string
-	Role             string
-	Content          sql.NullString
-	ToolCallID      sql.NullString
-	ToolCalls       sql.NullString // JSON (Hermes v10+)
-	ToolName        sql.NullString
-	Timestamp       float64
-	TokenCount      sql.NullInt64
-	FinishReason    sql.NullString
-	Reasoning       sql.NullString // JSON (Hermes v10+)
-	ReasoningDetails sql.NullString // JSON (Hermes v10+)
-	ReasoningContent sql.NullString // Hermes v10+
+	ID                  int64
+	SessionID           string
+	Role                string
+	Content             sql.NullString
+	ToolCallID          sql.NullString
+	ToolCalls           sql.NullString // JSON (Hermes v10+)
+	ToolName            sql.NullString
+	Timestamp           float64
+	TokenCount          sql.NullInt64
+	FinishReason        sql.NullString
+	Reasoning           sql.NullString // JSON (Hermes v10+)
+	ReasoningDetails    sql.NullString // JSON (Hermes v10+)
+	ReasoningContent    sql.NullString // Hermes v10+
 	CodexReasoningItems sql.NullString // JSON (Hermes v10+)
 	CodexMessageItems   sql.NullString // JSON (Hermes v10+)
 }
@@ -85,7 +85,7 @@ type HermesMessage struct {
 type ImportResult struct {
 	MemoriesRead     int
 	MemoriesImported int
-	MemoriesSkipped int // duplicates or invalid
+	MemoriesSkipped  int // duplicates or invalid
 	MemoriesUpdated  int // existing entries updated with new content
 	SessionsRead     int
 	SessionsImported int
@@ -212,7 +212,7 @@ func importMemories(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, r
 			Key:         m.Key,
 			Content:     m.Content,
 			Priority:    m.Priority,
-			SourceAgent:  sourceAgent,
+			SourceAgent: sourceAgent,
 			ExpiresAt:   expiresAt,
 		})
 		if err != nil {

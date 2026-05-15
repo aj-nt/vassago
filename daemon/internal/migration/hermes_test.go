@@ -149,7 +149,7 @@ func TestImportHermesDB_ExpiredMemories(t *testing.T) {
 	if err := createHermesTestDB(hermesPath); err != nil {
 		t.Fatalf("create hermes db: %v", err)
 	}
-	insertHermesMemory(t, hermesPath, "memory", "observation", "expired-key", "old content", 2, 1000)       // Expired
+	insertHermesMemory(t, hermesPath, "memory", "observation", "expired-key", "old content", 2, 1000)           // Expired
 	insertHermesMemory(t, hermesPath, "memory", "environment", "current-key", "current content", 3, 9999999999) // Not expired
 
 	mnemoPath := filepath.Join(t.TempDir(), "mnemosyne.db")
@@ -730,4 +730,3 @@ func insertHermesMessage(t *testing.T, dbPath, sessionID, role, content string, 
 	}
 	_, _ = db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 }
-

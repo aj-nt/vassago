@@ -434,14 +434,14 @@ func TestClientGRPC_CronCRUD(t *testing.T) {
 
 func TestProtoCronJobToInfo(t *testing.T) {
 	pbJob := &pb.CronJob{
-		Id:        "cron-1",
-		Name:      "test-job",
-		Schedule:  "*/5 * * * *",
-		AgentId:   "agent-1",
-		Message:   "hello",
-		Enabled:   true,
-		CreatedAt: 1700000000,
-		UpdatedAt: 1700001000,
+		Id:         "cron-1",
+		Name:       "test-job",
+		Schedule:   "*/5 * * * *",
+		AgentId:    "agent-1",
+		Message:    "hello",
+		Enabled:    true,
+		CreatedAt:  1700000000,
+		UpdatedAt:  1700001000,
 		LastFireAt: 1700002000,
 		NextFireAt: 1700003000,
 	}

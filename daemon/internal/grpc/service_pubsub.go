@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -39,12 +39,12 @@ func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Mnemosyne_Subscr
 
 	subID := fmt.Sprintf("%s-%d", agentID, time.Now().UnixNano())
 	sub := &pubsub.Subscription{
-		ID:         subID,
-		AgentID:    agentID,
-		Targets:    targets,
-		Categories: categories,
+		ID:          subID,
+		AgentID:     agentID,
+		Targets:     targets,
+		Categories:  categories,
 		KeyPrefixes: req.KeyPrefixes,
-		Ch:         make(chan pubsub.Event, 100),
+		Ch:          make(chan pubsub.Event, 100),
 	}
 
 	s.hub.Subscribe(sub)

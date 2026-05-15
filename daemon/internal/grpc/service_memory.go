@@ -7,9 +7,9 @@ import (
 	"context"
 	"log/slog"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

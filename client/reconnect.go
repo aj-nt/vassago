@@ -41,11 +41,11 @@ func DefaultReconnectPolicy() ReconnectPolicy {
 
 // ResilientClient wraps Client with automatic reconnection on disconnect.
 type ResilientClient struct {
-	cfg     Config
-	policy  ReconnectPolicy
-	mu      sync.Mutex
-	client  *Client
-	closed  bool
+	cfg    Config
+	policy ReconnectPolicy
+	mu     sync.Mutex
+	client *Client
+	closed bool
 }
 
 // NewResilientClient creates a client that automatically reconnects on failure.

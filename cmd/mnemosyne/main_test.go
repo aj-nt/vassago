@@ -166,8 +166,6 @@ func TestAgentConfigVision(t *testing.T) {
 	}
 }
 
-
-
 func TestYAMLOutputComplete(t *testing.T) {
 	dir := "/tmp/test-yaml-output"
 	cfg := generateAgentConfig(dir, "anthropic", "claude-sonnet-4-6")

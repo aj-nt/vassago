@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 // newCronFireCallback creates a FireCallback that publishes a CronFireEvent
@@ -30,12 +30,12 @@ func newCronFireCallback(s *store.Store, hub *pubsub.Hub) cron.FireCallback {
 		// agent doesn't filter out its own scheduled tasks via the Hub's
 		// self-exclusion logic (sub.AgentID == event.AgentID → skip).
 		hub.Publish(pubsub.Event{
-			Type:     pb.UpdateEvent_CRON_FIRE,
-			Target:   "memory",
-			AgentID:  "cron", // System origin, not the owning agent
+			Type:    pb.UpdateEvent_CRON_FIRE,
+			Target:  "memory",
+			AgentID: "cron", // System origin, not the owning agent
 			CronFire: &pb.CronFireEvent{
-				JobId:       job.ID,
-				JobName:     job.Name,
+				JobId:      job.ID,
+				JobName:    job.Name,
 				Schedule:   job.Schedule,
 				AgentId:    job.AgentID,
 				Message:    job.Message,

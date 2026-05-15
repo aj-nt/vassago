@@ -214,7 +214,7 @@ func TestConsolidate_Observations(t *testing.T) {
 	// Add an old observation (created 8 days ago, priority 2)
 	entry := addTestMemory(t, s, "memory", "observation", "old-obs", "old observation", 2, 0)
 	// Set created_at to 8 days ago
-	weekAgo := uint64(8 * 24 * 60 * 60) // 8 days in seconds from epoch 0
+	weekAgo := uint64(8 * 24 * 60 * 60)                                                                // 8 days in seconds from epoch 0
 	_, err := s.DB().Exec("UPDATE memories SET created_at = ? WHERE id = ?", int64(weekAgo), entry.ID) //nolint:errcheck
 	if err != nil {
 		t.Fatalf("update created_at: %v", err)
@@ -237,7 +237,7 @@ func TestConsolidate_Category(t *testing.T) {
 
 	addTestMemory(t, s, "memory", "environment", "env-low", "low env", 2, 0)
 	addTestMemory(t, s, "memory", "environment", "env-high", "high env", 4, 0) // priority > 2, should survive
-	addTestMemory(t, s, "memory", "project", "proj-low", "low proj", 2, 0)    // wrong category, should survive
+	addTestMemory(t, s, "memory", "project", "proj-low", "low proj", 2, 0)     // wrong category, should survive
 
 	result, err := s.Consolidate("default", ConsolidateScopeCategory, "environment", 0)
 	if err != nil {
@@ -326,6 +326,3 @@ func TestConsolidate_EmptyDB(t *testing.T) {
 		}
 	}
 }
-
-
-

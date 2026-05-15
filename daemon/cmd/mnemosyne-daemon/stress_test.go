@@ -37,7 +37,7 @@ func TestStress_RapidMemoryWrites(t *testing.T) {
 			Key:         fmt.Sprintf("rapid_%d", i),
 			Content:     fmt.Sprintf("Rapid write #%d at %v", i, time.Now().UnixNano()),
 			Priority:    3,
-			SourceAgent:  "stress-tester",
+			SourceAgent: "stress-tester",
 		})
 		if err != nil {
 			t.Logf("write %d failed: %v", i, err)
@@ -87,7 +87,7 @@ func TestStress_LargeContent(t *testing.T) {
 		Key:         "large_content",
 		Content:     largeContent,
 		Priority:    3,
-		SourceAgent:  "stress-tester",
+		SourceAgent: "stress-tester",
 	})
 	if err != nil {
 		t.Fatalf("AddMemory with large content: %v", err)
@@ -160,7 +160,7 @@ func TestStress_SessionMessageFlood(t *testing.T) {
 	// Verify session 0 has all messages
 	includeMsgs := true
 	sess, err := client.GetSession(ctx, &pb.GetSessionRequest{
-		SessionId:      sessions[0],
+		SessionId:       sessions[0],
 		IncludeMessages: &includeMsgs,
 	})
 	if err != nil {
@@ -264,7 +264,7 @@ func TestStress_HotBlockWithManyMemories(t *testing.T) {
 			Key:         fmt.Sprintf("hotblock_%d", i),
 			Content:     fmt.Sprintf("Memory %d with priority %d", i, priority),
 			Priority:    priority,
-			SourceAgent:  "stress-tester",
+			SourceAgent: "stress-tester",
 		})
 		if err != nil {
 			t.Fatalf("AddMemory %d: %v", i, err)
@@ -312,7 +312,7 @@ func TestStress_SearchUnderLoad(t *testing.T) {
 			Key:         fmt.Sprintf("search_%d", i),
 			Content:     fmt.Sprintf("This is memory entry number %d about golang testing", i),
 			Priority:    3,
-			SourceAgent:  "stress-tester",
+			SourceAgent: "stress-tester",
 		})
 		if err != nil {
 			t.Fatalf("AddMemory %d: %v", i, err)

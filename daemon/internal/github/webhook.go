@@ -120,12 +120,12 @@ func FormatPROMemory(action, repo, title, body, url, user string, number int) st
 // ParseIssueEvent parses a GitHub issues event payload into a memory string.
 func ParseIssueEvent(payload []byte) (string, error) {
 	var event struct {
-		Action     string `json:"action"`
-		Issue struct {
+		Action string `json:"action"`
+		Issue  struct {
 			Number int    `json:"number"`
 			Title  string `json:"title"`
 			Body   string `json:"body"`
-			User struct {
+			User   struct {
 				Login string `json:"login"`
 			} `json:"user"`
 			HTMLURL string `json:"html_url"`
@@ -155,11 +155,11 @@ func ParseIssueEvent(payload []byte) (string, error) {
 func ParsePREvent(payload []byte) (string, error) {
 	var event struct {
 		Action string `json:"action"`
-		PR struct {
+		PR     struct {
 			Number int    `json:"number"`
 			Title  string `json:"title"`
 			Body   string `json:"body"`
-			User struct {
+			User   struct {
 				Login string `json:"login"`
 			} `json:"user"`
 			HTMLURL string `json:"html_url"`

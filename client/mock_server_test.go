@@ -124,8 +124,8 @@ func (m *mockMnemosyneServer) CreateSession(ctx context.Context, req *pb.CreateS
 	session := &pb.Session{
 		Id:           id,
 		AgentId:      req.AgentId,
-		Source:        req.Source,
-		Title:         req.Title,
+		Source:       req.Source,
+		Title:        req.Title,
 		MessageCount: 0,
 		CreatedAt:    time.Now().Unix(),
 		LastActiveAt: time.Now().Unix(),
@@ -341,9 +341,9 @@ func (m *mockMessagingServer) ListChannels(ctx context.Context, req *pb.ListChan
 // mockCronServiceServer implements pb.CronServiceServer with controllable responses.
 type mockCronServiceServer struct {
 	pb.UnimplementedCronServiceServer
-	mu      sync.Mutex
-	jobs    map[string]*pb.CronJob
-	nextID  int
+	mu     sync.Mutex
+	jobs   map[string]*pb.CronJob
+	nextID int
 }
 
 func newMockCronServiceServer() *mockCronServiceServer {

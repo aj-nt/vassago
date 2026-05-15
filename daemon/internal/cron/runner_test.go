@@ -13,9 +13,9 @@ import (
 
 // mockStore implements CronStore for testing.
 type mockStore struct {
-	jobs     []*CronJob
-	fireTS   map[string][2]int64 // id -> [last_fire_at, next_fire_at]
-	dueErr   error
+	jobs      []*CronJob
+	fireTS    map[string][2]int64 // id -> [last_fire_at, next_fire_at]
+	dueErr    error
 	updateErr error
 }
 
@@ -163,10 +163,10 @@ func TestCronRunner_DisabledJobNotFired(t *testing.T) {
 
 func TestNextFireTime(t *testing.T) {
 	tests := []struct {
-		name   string
-		expr   string
-		from   int64
-		want   int64
+		name string
+		expr string
+		from int64
+		want int64
 	}{
 		{
 			name: "every minute at 00",

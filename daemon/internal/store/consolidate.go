@@ -13,10 +13,10 @@ type ConsolidationScope int
 
 const (
 	ConsolidateScopeAll          ConsolidationScope = iota // All low-priority entries
-	ConsolidateScopeObservations                            // observation category with priority <= 2
-	ConsolidateScopeCategory                                // Specific category with priority <= 2
-	ConsolidateScopeExpired                                 // Entries past their expires_at
-	ConsolidateScopeIdle                                    // Not accessed in 30+ days, priority <= 2
+	ConsolidateScopeObservations                           // observation category with priority <= 2
+	ConsolidateScopeCategory                               // Specific category with priority <= 2
+	ConsolidateScopeExpired                                // Entries past their expires_at
+	ConsolidateScopeIdle                                   // Not accessed in 30+ days, priority <= 2
 )
 
 // ConsolidateResult holds the result of a consolidation operation.
@@ -223,4 +223,3 @@ func consolidationReason(scope ConsolidationScope, entry *MemoryEntry, category 
 		return "unknown scope"
 	}
 }
-

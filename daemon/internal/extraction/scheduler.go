@@ -21,10 +21,10 @@ type Scheduler struct {
 	config    Config
 	onTrigger TriggerFunc
 
-	mu         sync.Mutex
-	sessions   map[string]*sessionState
-	ctx        context.Context
-	cancel     context.CancelFunc
+	mu       sync.Mutex
+	sessions map[string]*sessionState
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 type sessionState struct {

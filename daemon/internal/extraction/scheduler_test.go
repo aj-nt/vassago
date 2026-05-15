@@ -111,8 +111,8 @@ func TestScheduler_NotifyResetsTimer(t *testing.T) {
 func TestScheduler_HardCapFires(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Model = "test-model"
-	cfg.DebounceInterval = 10  // long debounce
-	cfg.HardCapInterval = 1     // 1 second hard cap for testing
+	cfg.DebounceInterval = 10 // long debounce
+	cfg.HardCapInterval = 1   // 1 second hard cap for testing
 
 	triggered := make(chan string, 1)
 	onTrigger := func(sessionID string) {

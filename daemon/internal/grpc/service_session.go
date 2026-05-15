@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -183,11 +183,11 @@ func (s *Service) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*p
 			pbSession.Messages = make([]*pb.Message, len(msgs))
 			for i, m := range msgs {
 				pbSession.Messages[i] = &pb.Message{
-					Role:      m.Role,
-					Content:   m.Content,
+					Role:       m.Role,
+					Content:    m.Content,
 					ToolCallId: m.ToolCallID,
-					ToolName:  m.ToolName,
-					Timestamp: m.Timestamp,
+					ToolName:   m.ToolName,
+					Timestamp:  m.Timestamp,
 				}
 			}
 		}

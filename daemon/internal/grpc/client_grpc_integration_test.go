@@ -122,8 +122,8 @@ func TestClient_Subscribe(t *testing.T) {
 
 	// Subscribe to updates
 	req := &pb.SubscribeRequest{
-		AgentId:   "test-agent",
-		Targets:   []string{"memory"},
+		AgentId:    "test-agent",
+		Targets:    []string{"memory"},
 		Categories: []string{"test-category"},
 	}
 

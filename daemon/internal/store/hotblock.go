@@ -12,10 +12,10 @@ import (
 
 // HotBlockConfig controls how a hot block is computed for a given agent.
 type HotBlockConfig struct {
-	BoostCategories   []string // Categories to boost in priority
+	BoostCategories    []string // Categories to boost in priority
 	SuppressCategories []string // Categories to suppress
-	BoostPriority     int32    // Priority >= this gets boosted
-	CharLimit         int32    // Max characters in the rendered block
+	BoostPriority      int32    // Priority >= this gets boosted
+	CharLimit          int32    // Max characters in the rendered block
 }
 
 // HotBlockResult is the computed hot block output.
@@ -101,7 +101,7 @@ func (s *Store) ComputeHotBlock(owner, target string, config HotBlockConfig) (*H
 	content := strings.Join(lines, "\n")
 	return &HotBlockResult{
 		Content:    content,
-		CharCount: totalChars,
+		CharCount:  totalChars,
 		EntryCount: entryCount,
 	}, nil
 }

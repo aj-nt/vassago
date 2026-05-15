@@ -14,7 +14,7 @@ func TestAddSavedTool(t *testing.T) {
 	s := testStore(t)
 
 	// Test: add a saved tool
-	row, err := s.AddSavedTool("default", 
+	row, err := s.AddSavedTool("default",
 		"calculate_natal_chart",
 		"Calculate a natal chart from birth data",
 		"script",
@@ -38,7 +38,7 @@ func TestAddSavedTool(t *testing.T) {
 	assert.Equal(t, row.CreatedAt, row.UpdatedAt)
 
 	// Test: duplicate name should fail
-	_, err = s.AddSavedTool("default", 
+	_, err = s.AddSavedTool("default",
 		"calculate_natal_chart", "desc", "script", "{}", "echo hi", "test", nil, "agent-2", 3,
 	)
 	assert.Error(t, err, "duplicate name should fail due to UNIQUE constraint")

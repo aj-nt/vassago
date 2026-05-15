@@ -22,12 +22,12 @@ func (n *nullSubscribeStream) Recv() (*pb.UpdateEvent, error) {
 	return nil, io.EOF
 }
 
-func (n *nullSubscribeStream) Header() (metadata.MD, error)    { return nil, nil }
-func (n *nullSubscribeStream) Trailer() metadata.MD            { return nil }
-func (n *nullSubscribeStream) CloseSend() error                { return nil }
-func (n *nullSubscribeStream) Context() context.Context        { return context.Background() }
-func (n *nullSubscribeStream) SendMsg(m interface{}) error    { return nil }
-func (n *nullSubscribeStream) RecvMsg(m interface{}) error     { return io.EOF }
+func (n *nullSubscribeStream) Header() (metadata.MD, error) { return nil, nil }
+func (n *nullSubscribeStream) Trailer() metadata.MD         { return nil }
+func (n *nullSubscribeStream) CloseSend() error             { return nil }
+func (n *nullSubscribeStream) Context() context.Context     { return context.Background() }
+func (n *nullSubscribeStream) SendMsg(m interface{}) error  { return nil }
+func (n *nullSubscribeStream) RecvMsg(m interface{}) error  { return io.EOF }
 
 // NullMnemo is a no-op implementation of MnemoClient. It is used when the
 // Mnemosyne daemon is unavailable, eliminating the need for nil checks

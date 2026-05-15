@@ -12,13 +12,13 @@ import (
 // It holds the latest hot block text and can be updated when
 // telepathy events arrive from the daemon.
 type HotBlockCache struct {
-	mu              sync.RWMutex
-	content         string
-	charCount       int
-	entryCount      int
-	computedAt      int64
-	target          string
-	agentID         string
+	mu         sync.RWMutex
+	content    string
+	charCount  int
+	entryCount int
+	computedAt int64
+	target     string
+	agentID    string
 }
 
 // NewHotBlockCache creates a new cache with the initial hot block content.

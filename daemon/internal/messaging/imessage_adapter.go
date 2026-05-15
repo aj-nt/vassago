@@ -32,34 +32,34 @@ type iMessageQuerier interface {
 
 // iMessageRow represents a message row from the Messages database.
 type iMessageRow struct {
-	ROWID       int64
-	Text        string
-	HandleID    string // phone number or email of sender
-	IsFromMe    bool
-	Date        int64 // Mac absolute time (nanoseconds since 2001-01-01)
-	RoomName    string // chat identifier (group chat name or individual)
-	CacheRoom   string // cache_roomnames field
+	ROWID     int64
+	Text      string
+	HandleID  string // phone number or email of sender
+	IsFromMe  bool
+	Date      int64  // Mac absolute time (nanoseconds since 2001-01-01)
+	RoomName  string // chat identifier (group chat name or individual)
+	CacheRoom string // cache_roomnames field
 }
 
 // IMessageConfig holds iMessage adapter configuration.
 type IMessageConfig struct {
-	Enabled          bool
-	AllowedRecipients []string // phone numbers or emails; empty = all
-	DBPath           string    // path to chat.db; empty = ~/Library/Messages/chat.db
-	PollInterval     time.Duration // default 5s
+	Enabled           bool
+	AllowedRecipients []string      // phone numbers or emails; empty = all
+	DBPath            string        // path to chat.db; empty = ~/Library/Messages/chat.db
+	PollInterval      time.Duration // default 5s
 }
 
 // IMessageAdapter implements MessagingAdapter for iMessage on macOS.
 // It uses AppleScript for sending and polls the Messages database for receiving.
 type IMessageAdapter struct {
 	config      IMessageConfig
-	sender     iMessageSender
-	querier    iMessageQuerier
-	db         *sql.DB
-	lastROWID  int64
-	mu         sync.Mutex
+	sender      iMessageSender
+	querier     iMessageQuerier
+	db          *sql.DB
+	lastROWID   int64
+	mu          sync.Mutex
 	stopPolling chan struct{}
-	connected  bool
+	connected   bool
 }
 
 // commandRunner is a function type for executing osascript commands (mockable).

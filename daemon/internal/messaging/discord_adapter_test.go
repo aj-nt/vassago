@@ -9,18 +9,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/aj-nt/mnemosyne/proto"
+	"github.com/bwmarrin/discordgo"
 )
 
 // mockDiscordSession implements discordSession for testing.
 type mockDiscordSession struct {
-	sendFunc    func(channelID, content string, options ...discordgo.RequestOption) (*discordgo.Message, error)
-	guildFunc   func(guildID string, options ...discordgo.RequestOption) (*discordgo.Guild, error)
-	channelsFunc func(guildID string, options ...discordgo.RequestOption) ([]*discordgo.Channel, error)
-	channelFunc func(channelID string, options ...discordgo.RequestOption) (*discordgo.Channel, error)
-	openFunc    func() error
-	closeFunc   func() error
+	sendFunc         func(channelID, content string, options ...discordgo.RequestOption) (*discordgo.Message, error)
+	guildFunc        func(guildID string, options ...discordgo.RequestOption) (*discordgo.Guild, error)
+	channelsFunc     func(guildID string, options ...discordgo.RequestOption) ([]*discordgo.Channel, error)
+	channelFunc      func(channelID string, options ...discordgo.RequestOption) (*discordgo.Channel, error)
+	openFunc         func() error
+	closeFunc        func() error
 	addHandlerCalled bool
 }
 

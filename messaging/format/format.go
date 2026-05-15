@@ -27,28 +27,28 @@ type PlatformLimits struct {
 // PlatformLimitsMap defines per-platform message limits.
 var PlatformLimitsMap = map[string]PlatformLimits{
 	"discord": {
-		MaxMessageLen:   2000,
+		MaxMessageLen:    2000,
 		SupportsMarkdown: true,
 		SupportsHTML:     false,
-		SplitPrefix:     "(continued) ",
+		SplitPrefix:      "(continued) ",
 	},
 	"telegram": {
-		MaxMessageLen:   4096,
+		MaxMessageLen:    4096,
 		SupportsMarkdown: false, // Telegram uses HTML, not Markdown
 		SupportsHTML:     true,
-		SplitPrefix:     "(continued) ",
+		SplitPrefix:      "(continued) ",
 	},
 	"imessage": {
-		MaxMessageLen:   4000, // AppleScript command-line limit
+		MaxMessageLen:    4000, // AppleScript command-line limit
 		SupportsMarkdown: false,
 		SupportsHTML:     false,
-		SplitPrefix:     "(continued) ",
+		SplitPrefix:      "(continued) ",
 	},
 	"email": {
-		MaxMessageLen:   50000, // Practical SMTP limit (no real hard limit)
+		MaxMessageLen:    50000, // Practical SMTP limit (no real hard limit)
 		SupportsMarkdown: false,
 		SupportsHTML:     false, // Plain text for now
-		SplitPrefix:     "",
+		SplitPrefix:      "",
 	},
 }
 

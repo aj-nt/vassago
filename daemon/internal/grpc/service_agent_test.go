@@ -12,8 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-
-
 func TestRegisterAgent(t *testing.T) {
 	t.Parallel()
 

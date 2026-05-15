@@ -12,9 +12,9 @@ const testAgentHotBlock = "hotblock-agent-001"
 func TestComputeHotBlock_basic(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0)  //nolint:errcheck
-	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)       //nolint:errcheck
-	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                          //nolint:errcheck
+	addMemory(s, "memory", "environment", "python", "Python 3.11 on venv", 3, testAgentHotBlock, 0) //nolint:errcheck
+	addMemory(s, "memory", "project", "mnemosyne", "Memory daemon in Go", 2, testAgentHotBlock, 0)  //nolint:errcheck
+	addMemory(s, "user", "user", "name", "AJ", 4, testAgentHotBlock, 0)                             //nolint:errcheck
 
 	// Memory hot block
 	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
@@ -36,8 +36,8 @@ func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
 	s := testStore(t)
 
 	// Add entries that would exceed a small limit
-	addMemory(s, "memory", "environment", "k1", "Short entry", 3, testAgentHotBlock, 0)                          //nolint:errcheck
-	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)                //nolint:errcheck
+	addMemory(s, "memory", "environment", "k1", "Short entry", 3, testAgentHotBlock, 0)                            //nolint:errcheck
+	addMemory(s, "memory", "environment", "k2", "Another short entry", 2, testAgentHotBlock, 0)                    //nolint:errcheck
 	addMemory(s, "memory", "environment", "k3", "Yet another entry that makes it longer", 2, testAgentHotBlock, 0) //nolint:errcheck
 
 	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
@@ -55,8 +55,8 @@ func TestComputeHotBlock_respectsCharLimit(t *testing.T) {
 func TestComputeHotBlock_boostCategories(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "observation", "obs1", "Some observation", 3, testAgentHotBlock, 0)            //nolint:errcheck
-	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0)       //nolint:errcheck
+	addMemory(s, "memory", "observation", "obs1", "Some observation", 3, testAgentHotBlock, 0)    //nolint:errcheck
+	addMemory(s, "memory", "project", "proj1", "Important project data", 3, testAgentHotBlock, 0) //nolint:errcheck
 
 	// With "project" boosted, it should come first
 	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
@@ -78,7 +78,7 @@ func TestComputeHotBlock_boostCategories(t *testing.T) {
 func TestComputeHotBlock_suppressCategories(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)           //nolint:errcheck
+	addMemory(s, "memory", "project", "proj1", "Important project", 3, testAgentHotBlock, 0)             //nolint:errcheck
 	addMemory(s, "memory", "observation", "obs1", "Less important observation", 3, testAgentHotBlock, 0) //nolint:errcheck
 
 	result, err := s.ComputeHotBlock("default", "memory", HotBlockConfig{
@@ -150,49 +150,49 @@ func indexOf(s, substr string) int {
 	return -1
 }
 func TestComputeHotBlock_withLastSession(t *testing.T) {
-    s := testStore(t)
+	s := testStore(t)
 
-    addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+	addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
 
-    result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
-        CharLimit:     4000,
-        BoostPriority: 2,
-    }, "session-abc", "309 messages, 1h 55m")
-    if err != nil {
-        t.Fatalf("compute hot block: %v", err)
-    }
+	result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	}, "session-abc", "309 messages, 1h 55m")
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
 
-    // Should start with session info
-    if indexOf(result.Content, "[session]") < 0 {
-        t.Error("hot block should start with session info")
-    }
-    if indexOf(result.Content, "session-abc") < 0 {
-        t.Error("hot block should contain session ID")
-    }
-    if indexOf(result.Content, "309 messages, 1h 55m") < 0 {
-        t.Error("hot block should contain session summary")
-    }
-    // Memory entry should still be there
-    if indexOf(result.Content, "Python 3.11") < 0 {
-        t.Error("hot block should still contain memories")
-    }
+	// Should start with session info
+	if indexOf(result.Content, "[session]") < 0 {
+		t.Error("hot block should start with session info")
+	}
+	if indexOf(result.Content, "session-abc") < 0 {
+		t.Error("hot block should contain session ID")
+	}
+	if indexOf(result.Content, "309 messages, 1h 55m") < 0 {
+		t.Error("hot block should contain session summary")
+	}
+	// Memory entry should still be there
+	if indexOf(result.Content, "Python 3.11") < 0 {
+		t.Error("hot block should still contain memories")
+	}
 }
 
 func TestComputeHotBlock_withoutLastSession(t *testing.T) {
-    s := testStore(t)
+	s := testStore(t)
 
-    addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
+	addMemory(s, "memory", "environment", "python", "Python 3.11", 3, testAgentHotBlock, 0) //nolint:errcheck
 
-    result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
-        CharLimit:     4000,
-        BoostPriority: 2,
-    }, "", "")
-    if err != nil {
-        t.Fatalf("compute hot block: %v", err)
-    }
+	result, err := s.ComputeHotBlockWithSession("default", "memory", HotBlockConfig{
+		CharLimit:     4000,
+		BoostPriority: 2,
+	}, "", "")
+	if err != nil {
+		t.Fatalf("compute hot block: %v", err)
+	}
 
-    // Should NOT have session section when empty
-    if indexOf(result.Content, "[session]") >= 0 {
-        t.Error("hot block should not have session section when session ID is empty")
-    }
+	// Should NOT have session section when empty
+	if indexOf(result.Content, "[session]") >= 0 {
+		t.Error("hot block should not have session section when session ID is empty")
+	}
 }

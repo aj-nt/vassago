@@ -61,7 +61,7 @@ func TestChainStreamInterceptor(t *testing.T) {
 	}
 
 	chained := ChainStreamInterceptor(interceptor1, interceptor2)
-	
+
 	// Mock server stream
 	mockStream := &mockServerStream{}
 	err := chained(nil, mockStream, &grpc.StreamServerInfo{FullMethod: "TestStreamMethod"}, handler)
@@ -192,7 +192,7 @@ func TestFormatDuration(t *testing.T) {
 
 	tests := []struct {
 		duration time.Duration
-		want    string
+		want     string
 	}{
 		{0, "0sms"},
 		{time.Millisecond, "1nsms"},
@@ -210,5 +210,3 @@ func TestFormatDuration(t *testing.T) {
 		})
 	}
 }
-
-

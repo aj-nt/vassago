@@ -9,8 +9,8 @@ import (
 	"log"
 	"sync"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	pb "github.com/aj-nt/mnemosyne/proto"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // telegramAPI defines the interface for Telegram Bot API operations.
@@ -48,8 +48,8 @@ type TelegramConfig struct {
 // TelegramAdapter implements MessagingAdapter for Telegram.
 type TelegramAdapter struct {
 	config      TelegramConfig
-	api        telegramAPI
-	botID      int64
+	api         telegramAPI
+	botID       int64
 	messageChan chan *pb.MessageEvent
 	closeChan   chan struct{}
 	mu          sync.Mutex
@@ -131,64 +131,64 @@ func (ta *TelegramAdapter) processUpdates(ctx context.Context, updates tgbotapi.
 				return
 			}
 
-		if update.Message == nil || update.Message.From == nil || update.Message.Chat == nil {
-			continue
-		}
-
-		// Ignore non-text messages (photos, stickers, etc.) — nothing useful for the agent
-		if update.Message.Text == "" {
-			continue
-		}
-
-		// Filter out messages from the bot itself
-		if int64(update.Message.From.ID) == ta.botID {
-			continue
-		}
-
-		// Filter by allowed chats if specified
-		if len(ta.config.AllowedChats) > 0 {
-			allowed := false
-			for _, chatID := range ta.config.AllowedChats {
-				if update.Message.Chat.ID == chatID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
+			if update.Message == nil || update.Message.From == nil || update.Message.Chat == nil {
 				continue
 			}
-		}
 
-		// Convert Telegram message to proto.MessageEvent
-		chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
-		channelName := update.Message.Chat.Title
-		if channelName == "" {
-			channelName = chatIDStr
-		}
+			// Ignore non-text messages (photos, stickers, etc.) — nothing useful for the agent
+			if update.Message.Text == "" {
+				continue
+			}
 
-		senderName := update.Message.From.UserName
-		if senderName == "" {
-			senderName = update.Message.From.FirstName
-		}
+			// Filter out messages from the bot itself
+			if int64(update.Message.From.ID) == ta.botID {
+				continue
+			}
 
-		event := &pb.MessageEvent{
-			Platform:    "telegram",
-			ChannelId:   chatIDStr,
-			ChannelName: channelName,
-			SenderId:    fmt.Sprintf("%d", update.Message.From.ID),
-			SenderName:  senderName,
-			Message:     update.Message.Text,
-			Timestamp:   update.Message.Time().Unix(),
-			MessageId:   fmt.Sprintf("%d", update.Message.MessageID),
-		}
+			// Filter by allowed chats if specified
+			if len(ta.config.AllowedChats) > 0 {
+				allowed := false
+				for _, chatID := range ta.config.AllowedChats {
+					if update.Message.Chat.ID == chatID {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					continue
+				}
+			}
 
-		select {
-		case ta.messageChan <- event:
-		case <-ta.closeChan:
-			return
-		case <-ctx.Done():
-			return
-		}
+			// Convert Telegram message to proto.MessageEvent
+			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
+			channelName := update.Message.Chat.Title
+			if channelName == "" {
+				channelName = chatIDStr
+			}
+
+			senderName := update.Message.From.UserName
+			if senderName == "" {
+				senderName = update.Message.From.FirstName
+			}
+
+			event := &pb.MessageEvent{
+				Platform:    "telegram",
+				ChannelId:   chatIDStr,
+				ChannelName: channelName,
+				SenderId:    fmt.Sprintf("%d", update.Message.From.ID),
+				SenderName:  senderName,
+				Message:     update.Message.Text,
+				Timestamp:   update.Message.Time().Unix(),
+				MessageId:   fmt.Sprintf("%d", update.Message.MessageID),
+			}
+
+			select {
+			case ta.messageChan <- event:
+			case <-ta.closeChan:
+				return
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }

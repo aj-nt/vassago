@@ -334,7 +334,7 @@ func TestEmailAdapter_Poll_AllowedFrom(t *testing.T) {
 			{
 				UID:       1,
 				From:      "boss@example.com",
-				Subject:  "Important",
+				Subject:   "Important",
 				Body:      "Check this out",
 				Date:      time.Now(),
 				MessageID: "<msg1@example.com>",
@@ -342,7 +342,7 @@ func TestEmailAdapter_Poll_AllowedFrom(t *testing.T) {
 			{
 				UID:       2,
 				From:      "stranger@example.com",
-				Subject:  "Spam",
+				Subject:   "Spam",
 				Body:      "Buy this",
 				Date:      time.Now(),
 				MessageID: "<msg2@example.com>",
@@ -374,7 +374,7 @@ func TestEmailAdapter_Poll_AllowedFrom(t *testing.T) {
 func TestIsValidEmail(t *testing.T) {
 	tests := []struct {
 		email string
-		valid  bool
+		valid bool
 	}{
 		{"user@example.com", true},
 		{"user.name@example.com", true},

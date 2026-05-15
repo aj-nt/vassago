@@ -382,4 +382,3 @@ func TestSearchValidation_categorySearch(t *testing.T) {
 }
 
 // --- Mutation Rate Limit Tests ---
-

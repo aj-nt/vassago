@@ -60,7 +60,7 @@ func ClampLimit(limit, fallback, max int) int {
 
 // Store is the SQLite-backed data store for Mnemosyne.
 type Store struct {
-	db    *sql.DB
+	db      *sql.DB
 	writeMu sync.Mutex // Serializes write operations for SQLite BUSY avoidance
 }
 

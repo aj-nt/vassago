@@ -93,8 +93,6 @@ func writeAgentConfig(agentConfigPath, dir, primaryProvider, primaryModel string
 	}
 }
 
-
-
 // handleLaunchdPlists handles launchd plists creation on macOS
 func handleLaunchdPlists(dir string) {
 	if isMacOS() {

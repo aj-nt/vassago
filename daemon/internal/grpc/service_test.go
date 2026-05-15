@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -135,8 +135,8 @@ func TestService_ListMemories(t *testing.T) {
 	ctx := context.Background()
 
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "k1", Content: "env note", Priority: 3, SourceAgent: "a1"})     //nolint:errcheck
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "quirk", Key: "k2", Content: "quirk note", Priority: 2, SourceAgent: "a1"})  //nolint:errcheck
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "user", Category: "user", Key: "name", Content: "AJ", Priority: 4, SourceAgent: "a1"})         //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "quirk", Key: "k2", Content: "quirk note", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "user", Category: "user", Key: "name", Content: "AJ", Priority: 4, SourceAgent: "a1"})          //nolint:errcheck
 
 	resp, err := svc.ListMemories(ctx, &pb.ListMemoriesRequest{Target: "memory"})
 	if err != nil {
@@ -152,7 +152,7 @@ func TestService_Search(t *testing.T) {
 	svc := NewService(s, nil, nil)
 	ctx := context.Background()
 
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "python", Content: "Python 3.11 on venv", Priority: 3, SourceAgent: "a1"})      //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "env", Key: "python", Content: "Python 3.11 on venv", Priority: 3, SourceAgent: "a1"})        //nolint:errcheck
 	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "mnemosyne", Content: "Memory daemon in Go", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
 
 	resp, err := svc.Search(ctx, &pb.SearchRequest{Query: "Python venv"})
@@ -180,8 +180,8 @@ func TestService_GetHotBlock(t *testing.T) {
 	svc := NewService(s, nil, nil)
 	ctx := context.Background()
 
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "environment", Key: "python", Content: "Python 3.11", Priority: 3, SourceAgent: "a1"}) //nolint:errcheck
-	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "mnemosyne", Content: "Memory daemon", Priority: 2, SourceAgent: "a1"})    //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "environment", Key: "python", Content: "Python 3.11", Priority: 3, SourceAgent: "a1"})  //nolint:errcheck
+	svc.AddMemory(ctx, &pb.AddMemoryRequest{Target: "memory", Category: "project", Key: "mnemosyne", Content: "Memory daemon", Priority: 2, SourceAgent: "a1"}) //nolint:errcheck
 
 	resp, err := svc.GetHotBlock(ctx, &pb.HotBlockRequest{
 		Target:    "memory",

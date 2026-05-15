@@ -46,7 +46,7 @@ func cmdMemoryExport(args []string) {
 			ID:          e.Id,
 			Target:      e.Target,
 			Category:    e.Category,
-			Key:          e.Key,
+			Key:         e.Key,
 			Content:     e.Content,
 			Priority:    e.Priority,
 			SourceAgent: e.SourceAgent,

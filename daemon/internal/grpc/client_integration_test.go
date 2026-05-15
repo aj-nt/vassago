@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
-	"github.com/aj-nt/mnemosyne/daemon/internal/store"
 	"github.com/aj-nt/mnemosyne/client"
+	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

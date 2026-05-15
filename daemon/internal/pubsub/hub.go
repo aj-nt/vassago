@@ -24,27 +24,27 @@ type Event struct {
 
 // Subscription represents an agent's subscription to change events.
 type Subscription struct {
-	ID         string
-	AgentID    string
-	Targets    map[string]bool   // "memory", "user"
-	Categories map[string]bool  // empty = all
+	ID          string
+	AgentID     string
+	Targets     map[string]bool // "memory", "user"
+	Categories  map[string]bool // empty = all
 	KeyPrefixes []string
-	Ch         chan Event
-	CreatedAt  int64
+	Ch          chan Event
+	CreatedAt   int64
 }
 
 // Hub is the in-process pub/sub hub for memory change events.
 type Hub struct {
-	mu           sync.RWMutex
+	mu            sync.RWMutex
 	subscriptions map[string]*Subscription
-	agentSubs    map[string][]string // agent_id -> subscription IDs
+	agentSubs     map[string][]string // agent_id -> subscription IDs
 }
 
 // NewHub creates a new pub/sub hub.
 func NewHub() *Hub {
 	return &Hub{
 		subscriptions: make(map[string]*Subscription),
-		agentSubs:    make(map[string][]string),
+		agentSubs:     make(map[string][]string),
 	}
 }
 

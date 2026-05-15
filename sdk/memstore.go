@@ -48,10 +48,10 @@ type MemStore struct {
 }
 
 type testMessage struct {
-	platform  string
-	target    string
-	message   string
-	resultCh  chan sendResult
+	platform string
+	target   string
+	message  string
+	resultCh chan sendResult
 }
 
 type sendResult struct {

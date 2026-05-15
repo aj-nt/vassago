@@ -17,11 +17,11 @@ func fileExists(path string) bool {
 
 // DaemonConfig mirrors the daemon config structure for YAML generation.
 type DaemonConfig struct {
-	Daemon       DaemonDaemonConfig       `yaml:"daemon"`
-	Database     DaemonDBConfig          `yaml:"database"`
-	HotBlock     DaemonHotBlockConfig    `yaml:"hot_block"`
+	Daemon        DaemonDaemonConfig        `yaml:"daemon"`
+	Database      DaemonDBConfig            `yaml:"database"`
+	HotBlock      DaemonHotBlockConfig      `yaml:"hot_block"`
 	Consolidation DaemonConsolidationConfig `yaml:"consolidation"`
-	Logging      DaemonLoggingConfig     `yaml:"logging"`
+	Logging       DaemonLoggingConfig       `yaml:"logging"`
 }
 
 type DaemonDaemonConfig struct {
@@ -42,10 +42,10 @@ type DaemonDBConfig struct {
 }
 
 type DaemonHotBlockConfig struct {
-	MemoryCharLimit   int      `yaml:"memory_char_limit"`
-	UserCharLimit     int      `yaml:"user_char_limit"`
-	MinPriority       int      `yaml:"min_priority"`
-	BoostCategories   []string `yaml:"boost_categories"`
+	MemoryCharLimit    int      `yaml:"memory_char_limit"`
+	UserCharLimit      int      `yaml:"user_char_limit"`
+	MinPriority        int      `yaml:"min_priority"`
+	BoostCategories    []string `yaml:"boost_categories"`
 	SuppressCategories []string `yaml:"suppress_categories"`
 }
 
@@ -73,9 +73,9 @@ func generateDaemonConfig(dir string) *DaemonConfig {
 			BusyTimeout: 5000,
 		},
 		HotBlock: DaemonHotBlockConfig{
-			MemoryCharLimit:   8000,
-			UserCharLimit:     3000,
-			MinPriority:       2,
+			MemoryCharLimit:    8000,
+			UserCharLimit:      3000,
+			MinPriority:        2,
 			BoostCategories:    []string{"project", "environment", "quirk"},
 			SuppressCategories: []string{"observation"},
 		},
@@ -103,15 +103,15 @@ type AgentConfigYAML struct {
 	Vision     VisionSectionYAML     `yaml:"vision"`
 	ImageGen   ImageGenSectionYAML   `yaml:"image_gen"`
 	MultiAgent MultiAgentSectionYAML `yaml:"multi_agent"`
-	Scheduler  SchedulerSectionYAML `yaml:"scheduler"`
+	Scheduler  SchedulerSectionYAML  `yaml:"scheduler"`
 }
 
 type AgentSectionYAML struct {
-	ID             string `yaml:"id"`
-	Name           string `yaml:"name"`
-	Role           string `yaml:"role"`
-	Personality    string `yaml:"personality"`
-	MaxTurns       int    `yaml:"max_turns"`
+	ID          string `yaml:"id"`
+	Name        string `yaml:"name"`
+	Role        string `yaml:"role"`
+	Personality string `yaml:"personality"`
+	MaxTurns    int    `yaml:"max_turns"`
 }
 
 type ProviderSectionYAML struct {
@@ -134,7 +134,7 @@ type MnemosyneSectionYAML struct {
 type HotBlockSectionYAML struct {
 	MemoryCharLimit    int      `yaml:"memory_char_limit"`
 	UserCharLimit      int      `yaml:"user_char_limit"`
-	MinPriority         int      `yaml:"min_priority"`
+	MinPriority        int      `yaml:"min_priority"`
 	BoostCategories    []string `yaml:"boost_categories"`
 	SuppressCategories []string `yaml:"suppress_categories"`
 }
@@ -184,12 +184,12 @@ type SchedulerSectionYAML struct {
 func generateAgentConfig(dir, provider, model string) *AgentConfigYAML {
 	cfg := &AgentConfigYAML{
 		Agent: AgentSectionYAML{
-			ID:             "mnemosyne",
-			Name:           "mnemosyne",
-			Role:           "assistant",
-			Personality:    defaultPersonality,
+			ID:          "mnemosyne",
+			Name:        "mnemosyne",
+			Role:        "assistant",
+			Personality: defaultPersonality,
 
-			MaxTurns:       30,
+			MaxTurns: 30,
 		},
 		Provider: ProviderSectionYAML{
 			Name:               provider,
@@ -207,9 +207,9 @@ func generateAgentConfig(dir, provider, model string) *AgentConfigYAML {
 			ChatListen: "localhost:50052",
 		},
 		HotBlock: HotBlockSectionYAML{
-			MemoryCharLimit: 8000,
-			UserCharLimit:   3000,
-			MinPriority:     2,
+			MemoryCharLimit:    8000,
+			UserCharLimit:      3000,
+			MinPriority:        2,
 			BoostCategories:    []string{"project", "environment", "quirk"},
 			SuppressCategories: []string{"observation"},
 		},

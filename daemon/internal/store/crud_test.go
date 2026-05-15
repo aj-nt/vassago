@@ -128,7 +128,7 @@ func TestGetMemoryByID_updatesAccessedAt(t *testing.T) {
 	s := testStore(t)
 
 	added, _ := addMemory(s, "memory", "environment", "test", "content", 3, testAgent, 0) //nolint:errcheck
-	time.Sleep(10 * time.Millisecond) // ensure time passes
+	time.Sleep(10 * time.Millisecond)                                                     // ensure time passes
 
 	got, _ := s.GetMemoryByID(added.ID)
 	if got.AccessedAt < added.CreatedAt {
@@ -170,8 +170,8 @@ func TestListMemories_filterByTarget(t *testing.T) {
 	s := testStore(t)
 
 	addMemory(s, "memory", "environment", "a1", "env1", 3, testAgent, 0) //nolint:errcheck
-	addMemory(s, "memory", "quirk", "a2", "quirk1", 3, testAgent, 0)      //nolint:errcheck
-	addMemory(s, "user", "user", "a3", "user1", 3, testAgent, 0)          //nolint:errcheck
+	addMemory(s, "memory", "quirk", "a2", "quirk1", 3, testAgent, 0)     //nolint:errcheck
+	addMemory(s, "user", "user", "a3", "user1", 3, testAgent, 0)         //nolint:errcheck
 
 	entries, err := s.ListMemories("default", "memory", "", 0)
 	if err != nil {
@@ -185,9 +185,9 @@ func TestListMemories_filterByTarget(t *testing.T) {
 func TestListMemories_filterByCategory(t *testing.T) {
 	s := testStore(t)
 
-	addMemory(s, "memory", "environment", "b1", "env", 3, testAgent, 0)    //nolint:errcheck
-	addMemory(s, "memory", "quirk", "b2", "quirk", 3, testAgent, 0)        //nolint:errcheck
-	addMemory(s, "memory", "project", "b3", "proj", 3, testAgent, 0)      //nolint:errcheck
+	addMemory(s, "memory", "environment", "b1", "env", 3, testAgent, 0) //nolint:errcheck
+	addMemory(s, "memory", "quirk", "b2", "quirk", 3, testAgent, 0)     //nolint:errcheck
+	addMemory(s, "memory", "project", "b3", "proj", 3, testAgent, 0)    //nolint:errcheck
 
 	entries, err := s.ListMemories("default", "", "quirk", 0)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestListMemories_orderedByPriority(t *testing.T) {
 
 	addMemory(s, "memory", "environment", "low", "low", 1, testAgent, 0)   //nolint:errcheck
 	addMemory(s, "memory", "environment", "high", "high", 5, testAgent, 0) //nolint:errcheck
-	addMemory(s, "memory", "environment", "mid", "mid", 3, testAgent, 0)  //nolint:errcheck
+	addMemory(s, "memory", "environment", "mid", "mid", 3, testAgent, 0)   //nolint:errcheck
 
 	entries, _ := s.ListMemories("default", "", "", 0)
 	if len(entries) < 3 {

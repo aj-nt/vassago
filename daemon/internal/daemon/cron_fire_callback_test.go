@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 func TestCronFireCallbackPublishesEvent(t *testing.T) {
@@ -92,12 +92,12 @@ func TestCronFireCallbackNoSubscription(t *testing.T) {
 	callback := newCronFireCallback(s, hub)
 
 	job := &cron.CronJob{
-		ID:        "job-2",
-		Name:      "No subscribers",
-		Schedule:  "0 9 * * *",
-		AgentID:   "test-agent",
-		Message:   "Nobody listens",
-		Enabled:   true,
+		ID:       "job-2",
+		Name:     "No subscribers",
+		Schedule: "0 9 * * *",
+		AgentID:  "test-agent",
+		Message:  "Nobody listens",
+		Enabled:  true,
 	}
 
 	err := callback(job)

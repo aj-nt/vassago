@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -61,7 +61,7 @@ func TestTelepathy_agentReceivesUpdate(t *testing.T) {
 		Key:         "telepathy-test",
 		Content:     "Agent B discovered something",
 		Priority:    3,
-		SourceAgent:  "agent-b",
+		SourceAgent: "agent-b",
 	})
 	if err != nil {
 		t.Fatalf("AddMemory: %v", err)
@@ -128,7 +128,7 @@ func TestTelepathy_noSelfNotification(t *testing.T) {
 		Key:         "self-write",
 		Content:     "My own write",
 		Priority:    3,
-		SourceAgent:  "agent-a",
+		SourceAgent: "agent-a",
 	})
 	if err != nil {
 		t.Fatalf("AddMemory: %v", err)

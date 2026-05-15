@@ -17,8 +17,8 @@ import (
 
 // EmailConfig holds email adapter configuration.
 type EmailConfig struct {
-	IMAPHost     string        // e.g., "127.0.0.1:1143" (Proton Bridge)
-	SMTPHost     string        // e.g., "127.0.0.1:1025" (Proton Bridge)
+	IMAPHost     string // e.g., "127.0.0.1:1143" (Proton Bridge)
+	SMTPHost     string // e.g., "127.0.0.1:1025" (Proton Bridge)
 	Username     string
 	Password     string
 	FromAddress  string        // e.g., "agent@example.com"
@@ -185,10 +185,10 @@ func NewEmailAdapter(config EmailConfig) *EmailAdapter {
 	fetcher := newIMAPFetcher()
 
 	return &EmailAdapter{
-		config:    config,
-		sender:    sender,
-		fetcher:   fetcher,
-		stopChan:  make(chan struct{}),
+		config:   config,
+		sender:   sender,
+		fetcher:  fetcher,
+		stopChan: make(chan struct{}),
 	}
 }
 

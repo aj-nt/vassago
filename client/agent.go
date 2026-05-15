@@ -36,16 +36,16 @@ type OnEventFunc func(event *pb.UpdateEvent)
 // AgentSession manages an agent's lifecycle with the Mnemosyne daemon:
 // registration, heartbeat, and subscription.
 type AgentSession struct {
-	api              AgentAPI
-	config           AgentConfig
+	api               AgentAPI
+	config            AgentConfig
 	HeartbeatInterval time.Duration
-	OnEvent          OnEventFunc // Optional callback for Telepathy events
+	OnEvent           OnEventFunc // Optional callback for Telepathy events
 
-	mu         sync.Mutex
-	registered bool
-	cancelHB   context.CancelFunc // stops heartbeat goroutine
-	done       chan struct{}       // closed when heartbeat goroutine exits
-	stream     pb.Mnemosyne_SubscribeClient
+	mu           sync.Mutex
+	registered   bool
+	cancelHB     context.CancelFunc // stops heartbeat goroutine
+	done         chan struct{}      // closed when heartbeat goroutine exits
+	stream       pb.Mnemosyne_SubscribeClient
 	streamCancel context.CancelFunc
 }
 

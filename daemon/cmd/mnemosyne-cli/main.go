@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/client"
+	pb "github.com/aj-nt/mnemosyne/proto"
 )
 
 var addr = flag.String("addr", "localhost:50051", "Daemon address (host:port or unix:///path/to/socket)")

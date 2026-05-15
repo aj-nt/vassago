@@ -97,10 +97,10 @@ func TestNewIMessageAdapter_DefaultConfig(t *testing.T) {
 
 func TestNewIMessageAdapter_CustomConfig(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{
-		Enabled:          true,
+		Enabled:           true,
 		AllowedRecipients: []string{"+123****7890"},
-		DBPath:           "/tmp/test_chat.db",
-		PollInterval:     10 * time.Second,
+		DBPath:            "/tmp/test_chat.db",
+		PollInterval:      10 * time.Second,
 	})
 	if !adapter.config.Enabled {
 		t.Error("expected Enabled to be true")
@@ -283,7 +283,7 @@ func TestAppleScriptBuildScript_EscapeBoth(t *testing.T) {
 	script := sender.buildScript("+1234567890", `path\"evil\`)
 	// Backslash first: \ -> \\, then " -> \"
 	// Input:  path\"evil\
-	// After backslash escape: path\\"evil\\  
+	// After backslash escape: path\\"evil\\
 	// After quote escape:     path\\\"evil\\
 	expected := `tell application "Messages" to send "path\\\"evil\\" to buddy "+1234567890"`
 	if script != expected {
@@ -315,7 +315,7 @@ func TestAppleScriptSender_UsesCommandRunner(t *testing.T) {
 
 func TestAppleScriptSender_CommandRunnerError(t *testing.T) {
 	runner := &mockCommandRunner{
-		err: fmt.Errorf("exit status 1"),
+		err:      fmt.Errorf("exit status 1"),
 		response: []byte("execution error: Messages got an error"),
 	}
 	sender := &appleScriptSender{runCmd: runner.run}
@@ -355,10 +355,10 @@ func TestIMessageAdapter_Poll_NewMessages(t *testing.T) {
 		messages: []*iMessageRow{
 			{
 				ROWID:     1,
-				Text:       "hello",
+				Text:      "hello",
 				HandleID:  "+123****7890",
 				IsFromMe:  false,
-				Date:       700000000000000000, // some Mac absolute time
+				Date:      700000000000000000, // some Mac absolute time
 				RoomName:  "",
 				CacheRoom: "",
 			},
@@ -402,18 +402,18 @@ func TestIMessageAdapter_Poll_FilterFromMe(t *testing.T) {
 	mock := &mockIMessageQuerier{
 		messages: []*iMessageRow{
 			{
-				ROWID:     1,
-				Text:       "from me",
-				HandleID:  "me",
-				IsFromMe:  true, // This should be filtered by the SQL query
-				Date:       700000000000000000,
+				ROWID:    1,
+				Text:     "from me",
+				HandleID: "me",
+				IsFromMe: true, // This should be filtered by the SQL query
+				Date:     700000000000000000,
 			},
 			{
-				ROWID:     2,
-				Text:       "from you",
-				HandleID:  "+123****7890",
-				IsFromMe:  false,
-				Date:       700000000000000001,
+				ROWID:    2,
+				Text:     "from you",
+				HandleID: "+123****7890",
+				IsFromMe: false,
+				Date:     700000000000000001,
 			},
 		},
 		lastID: 2,
@@ -443,9 +443,9 @@ func TestIMessageAdapter_Poll_FilterFromMe(t *testing.T) {
 
 func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 	adapter := NewIMessageAdapter(IMessageConfig{
-		DBPath:           "/tmp/test",
+		DBPath:            "/tmp/test",
 		AllowedRecipients: []string{"+123****7890"},
-		PollInterval:     1 * time.Second,
+		PollInterval:      1 * time.Second,
 	})
 	adapter.connected = true
 	adapter.lastROWID = 0
@@ -454,17 +454,17 @@ func TestIMessageAdapter_Poll_AllowedRecipients(t *testing.T) {
 		messages: []*iMessageRow{
 			{
 				ROWID:    1,
-				Text:      "from allowed",
+				Text:     "from allowed",
 				HandleID: "+123****7890",
 				IsFromMe: false,
-				Date:      700000000000000000,
+				Date:     700000000000000000,
 			},
 			{
 				ROWID:    2,
-				Text:      "from disallowed",
+				Text:     "from disallowed",
 				HandleID: "+999****9999",
 				IsFromMe: false,
-				Date:      700000000000000001,
+				Date:     700000000000000001,
 			},
 		},
 		lastID: 2,
@@ -641,17 +641,17 @@ func TestRedTeam_IMessageAdapter_EmptyMessageFiltering(t *testing.T) {
 		messages: []*iMessageRow{
 			{
 				ROWID:    1,
-				Text:      "", // empty text — should be filtered by adapter
+				Text:     "", // empty text — should be filtered by adapter
 				HandleID: "+123****7890",
 				IsFromMe: false,
-				Date:      700000000000000000,
+				Date:     700000000000000000,
 			},
 			{
 				ROWID:    2,
-				Text:      "valid message",
+				Text:     "valid message",
 				HandleID: "+123****7890",
 				IsFromMe: false,
-				Date:      700000000000000001,
+				Date:     700000000000000001,
 			},
 		},
 		lastID: 2,

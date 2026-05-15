@@ -97,7 +97,6 @@ type MnemoClient interface {
 	RemoveSkill(ctx context.Context, id string) (bool, error)
 	SearchSkills(ctx context.Context, query, category string, limit int32) ([]*pb.SkillEntry, error)
 
-
 	// --- Saved Tools ---
 
 	// AddSavedTool adds a new saved tool.

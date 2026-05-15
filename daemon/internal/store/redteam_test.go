@@ -274,10 +274,10 @@ func TestRedTeam_BoundaryTimestamps(t *testing.T) {
 		expiresAt int64
 		wantErr   bool
 	}{
-		{"ZeroExpiry", 0, false},                 // No expiry
-		{"MaxInt64", math.MaxInt64, false},       // Far future
-		{"NegativeExpiry", -1000000, false},      // Negative timestamp (should not panic)
-		{"OneExpiry", 1, false},                   // Very early timestamp (already expired)
+		{"ZeroExpiry", 0, false},            // No expiry
+		{"MaxInt64", math.MaxInt64, false},  // Far future
+		{"NegativeExpiry", -1000000, false}, // Negative timestamp (should not panic)
+		{"OneExpiry", 1, false},             // Very early timestamp (already expired)
 	}
 
 	for _, tc := range tests {
@@ -466,7 +466,7 @@ func TestRedTeam_HotBlockCharLimitOverflow(t *testing.T) {
 	result, err := store.ComputeHotBlock("default", "memory", HotBlockConfig{
 		CharLimit:       500, // Very small limit
 		BoostPriority:   2,
-		BoostCategories:  []string{"project"},
+		BoostCategories: []string{"project"},
 	})
 	if err != nil {
 		t.Errorf("Hot block overflow returned error: %v", err)

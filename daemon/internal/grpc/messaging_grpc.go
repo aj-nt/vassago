@@ -9,8 +9,8 @@ import (
 	"log/slog"
 	"sync"
 
-	pb "github.com/aj-nt/mnemosyne/proto"
 	"github.com/aj-nt/mnemosyne/daemon/internal/messaging"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -22,7 +22,7 @@ type MessagingService struct {
 	pb.UnimplementedMessagingServer
 	mu              sync.Mutex
 	adapters        map[string]messaging.MessagingAdapter
-	adaptersStarted map[string]bool // tracks which adapters have been connected
+	adaptersStarted map[string]bool                  // tracks which adapters have been connected
 	subscribers     map[string]chan *pb.MessageEvent // all active subscriber channels
 	subscriptionID  int64
 }

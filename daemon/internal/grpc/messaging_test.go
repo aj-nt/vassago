@@ -20,12 +20,12 @@ import (
 
 // mockAdapter implements MessagingAdapter for testing
 type mockAdapter struct {
-	sendFunc      func(ctx context.Context, target, message string) (string, error)
-	listFunc      func(ctx context.Context) ([]*pb.Channel, error)
-	listenFunc    func(ctx context.Context) (<-chan *pb.MessageEvent, error)
-	closeFunc     func(ctx context.Context) error
-	connectFunc   func(ctx context.Context) error
-	platformName  string
+	sendFunc     func(ctx context.Context, target, message string) (string, error)
+	listFunc     func(ctx context.Context) ([]*pb.Channel, error)
+	listenFunc   func(ctx context.Context) (<-chan *pb.MessageEvent, error)
+	closeFunc    func(ctx context.Context) error
+	connectFunc  func(ctx context.Context) error
+	platformName string
 }
 
 func (m *mockAdapter) PlatformName() string {
@@ -618,10 +618,10 @@ func TestMessagingService_FanOut(t *testing.T) {
 
 	// Send a message through the adapter channel
 	testEvent := &pb.MessageEvent{
-		Platform:    "mock",
-		ChannelId:   "test-channel",
-		Message:     "hello from adapter",
-		SenderName:  "testbot",
+		Platform:   "mock",
+		ChannelId:  "test-channel",
+		Message:    "hello from adapter",
+		SenderName: "testbot",
 	}
 	msgCh <- testEvent
 
@@ -663,7 +663,7 @@ func TestRedTeam_MessagingService_MultipleAdaptersSamePlatform(t *testing.T) {
 
 	// Add first adapter
 	svc.AddAdapter("mock", mock1)
-	
+
 	// Overwrite with second adapter (should replace the first)
 	svc.AddAdapter("mock", mock2)
 
@@ -710,10 +710,10 @@ func TestRedTeam_MessagingService_FanOutChannelFull(t *testing.T) {
 
 	// Fill the subscriber channel
 	testEvent1 := &pb.MessageEvent{
-		Platform:    "mock",
-		ChannelId:   "test-channel",
-		Message:     "message 1",
-		SenderName:  "testbot",
+		Platform:   "mock",
+		ChannelId:  "test-channel",
+		Message:    "message 1",
+		SenderName: "testbot",
 	}
 	msgCh <- testEvent1
 
@@ -722,10 +722,10 @@ func TestRedTeam_MessagingService_FanOutChannelFull(t *testing.T) {
 
 	// Send another message - should be dropped due to full channel
 	testEvent2 := &pb.MessageEvent{
-		Platform:    "mock",
-		ChannelId:   "test-channel",
-		Message:     "message 2",
-		SenderName:  "testbot",
+		Platform:   "mock",
+		ChannelId:  "test-channel",
+		Message:    "message 2",
+		SenderName: "testbot",
 	}
 	msgCh <- testEvent2
 
@@ -850,10 +850,10 @@ func TestRedTeam_MessagingService_FanOut_RapidMessages(t *testing.T) {
 	// Send multiple rapid messages
 	for i := 0; i < 10; i++ {
 		testEvent := &pb.MessageEvent{
-			Platform:    "mock",
-			ChannelId:   "test-channel",
-			Message:     fmt.Sprintf("message %d", i),
-			SenderName:  "testbot",
+			Platform:   "mock",
+			ChannelId:  "test-channel",
+			Message:    fmt.Sprintf("message %d", i),
+			SenderName: "testbot",
 		}
 		msgCh <- testEvent
 	}
@@ -949,10 +949,10 @@ func TestRedTeam_MessagingService_ConcurrentSubscribers(t *testing.T) {
 	// Send messages while subscribers are being added/removed
 	for i := 0; i < 10; i++ {
 		testEvent := &pb.MessageEvent{
-			Platform:    "mock",
-			ChannelId:   "test-channel",
-			Message:     fmt.Sprintf("message %d", i),
-			SenderName:  "testbot",
+			Platform:   "mock",
+			ChannelId:  "test-channel",
+			Message:    fmt.Sprintf("message %d", i),
+			SenderName: "testbot",
 		}
 		msgCh <- testEvent
 	}

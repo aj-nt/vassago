@@ -259,9 +259,9 @@ func (m *mockTodoListStream) Send(todo *pb.TodoItem) error {
 	return nil
 }
 
-func (m *mockTodoListStream) Context() context.Context                        { return context.Background() }
-func (m *mockTodoListStream) SetHeader(metadata.MD) error                     { return nil }
-func (m *mockTodoListStream) SendHeader(metadata.MD) error                    { return nil }
-func (m *mockTodoListStream) SetTrailer(metadata.MD)                          {}
-func (m *mockTodoListStream) SendMsg(msg interface{}) error                   { return nil }
-func (m *mockTodoListStream) RecvMsg(msg interface{}) error                  { return nil }
+func (m *mockTodoListStream) Context() context.Context      { return context.Background() }
+func (m *mockTodoListStream) SetHeader(metadata.MD) error   { return nil }
+func (m *mockTodoListStream) SendHeader(metadata.MD) error  { return nil }
+func (m *mockTodoListStream) SetTrailer(metadata.MD)        {}
+func (m *mockTodoListStream) SendMsg(msg interface{}) error { return nil }
+func (m *mockTodoListStream) RecvMsg(msg interface{}) error { return nil }

@@ -378,6 +378,7 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (*SessionDeta
 
 	return detail, nil
 }
+
 // SendMessage sends a message via the messaging service.
 func (c *Client) SendMessage(ctx context.Context, platform, target, message string) (string, error) {
 	resp, err := c.messaging.SendMessage(ctx, &pb.SendMessageRequest{
@@ -516,13 +517,13 @@ func protoTodoToItem(pb *pb.TodoItem) *TodoItem {
 // AddSkill creates a new skill entry.
 func (c *Client) AddSkill(ctx context.Context, name, description string, triggers []string, category, content, sourceAgent string, priority int32) (*pb.SkillEntry, error) {
 	resp, err := c.api.AddSkill(ctx, &pb.AddSkillRequest{
-		Name:         name,
-		Description:  description,
-		Triggers:     triggers,
-		Category:     category,
-		Content:      content,
-		SourceAgent:  sourceAgent,
-		Priority:     &priority,
+		Name:        name,
+		Description: description,
+		Triggers:    triggers,
+		Category:    category,
+		Content:     content,
+		SourceAgent: sourceAgent,
+		Priority:    &priority,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("AddSkill: %w", err)
@@ -608,8 +609,8 @@ func (c *Client) CreateCronJob(ctx context.Context, name, schedule, agentID, mes
 // ListCronJobs lists cron jobs for an agent.
 func (c *Client) ListCronJobs(ctx context.Context, agentID string, includeDisabled bool) ([]CronJobInfo, error) {
 	resp, err := c.cron.ListCronJobs(ctx, &pb.ListCronJobsRequest{
-		AgentId:          agentID,
-		IncludeDisabled:  includeDisabled,
+		AgentId:         agentID,
+		IncludeDisabled: includeDisabled,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("ListCronJobs: %w", err)
@@ -648,7 +649,7 @@ func (c *Client) DeleteCronJob(ctx context.Context, id string) error {
 // --- Saved Tool Client Methods ---
 
 func (c *Client) AddSavedTool(ctx context.Context, name, description, toolType, parameters, script, category string, triggers []string, author string, priority int32) (*pb.SavedToolEntry, error) {
-	resp, err :=	c.api.AddSavedTool(ctx, &pb.AddSavedToolRequest{
+	resp, err := c.api.AddSavedTool(ctx, &pb.AddSavedToolRequest{
 		Name:        name,
 		Description: description,
 		Type:        toolType,

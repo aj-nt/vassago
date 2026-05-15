@@ -11,14 +11,14 @@ func TestAddMemory_validation(t *testing.T) {
 	s := testStore(t)
 
 	tests := []struct {
-		name      string
-		target    string
-		category  string
-		key       string
-		content   string
-		priority  int32
-		agent     string
-		wantErr   string // substring of expected error
+		name     string
+		target   string
+		category string
+		key      string
+		content  string
+		priority int32
+		agent    string
+		wantErr  string // substring of expected error
 	}{
 		{"empty target", "", "env", "k", "content", 3, "agent", "invalid target"},
 		{"bad target", "notes", "env", "k", "content", 3, "agent", "invalid target"},

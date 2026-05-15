@@ -221,8 +221,8 @@ func checkDataDirs(home string) []ValidationIssue {
 
 	base := filepath.Join(home, ".mnemosyne")
 	dirs := map[string]string{
-		"Data":        base,
-		"Database":    filepath.Join(base, "mnemosyne.db"),
+		"Data":     base,
+		"Database": filepath.Join(base, "mnemosyne.db"),
 	}
 
 	for name, path := range dirs {

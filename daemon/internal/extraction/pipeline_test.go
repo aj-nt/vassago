@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 )
+
 func TestBuildExtractionPrompt(t *testing.T) {
 	msgs := []SessionMessage{
 		{Role: "user", Content: "I prefer short commit messages"},
@@ -246,9 +247,9 @@ func (m *mockLLMClient) Complete(prompt string) (string, error) {
 // ---- Mock Memory Store ----
 
 type mockMemoryStore struct {
-	keys       []string
-	addErrors  map[string]error // key → error to return when key matches
-	addCalls   []string         // track keys that were persisted
+	keys      []string
+	addErrors map[string]error // key → error to return when key matches
+	addCalls  []string         // track keys that were persisted
 }
 
 func (m *mockMemoryStore) AddMemory(owner, target, category, key, content string, priority int32, sourceAgent string) (string, error) {

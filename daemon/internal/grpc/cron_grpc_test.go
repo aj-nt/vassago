@@ -76,33 +76,33 @@ func TestCronService_CreateCronJobValidation(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "empty name",
-			req:  &pb.CreateCronJobRequest{Schedule: "0 9 * * *", AgentId: "test-agent", Message: "msg"},
+			name:    "empty name",
+			req:     &pb.CreateCronJobRequest{Schedule: "0 9 * * *", AgentId: "test-agent", Message: "msg"},
 			wantErr: "name is required",
 		},
 		{
-			name: "empty schedule",
-			req:  &pb.CreateCronJobRequest{Name: "test", AgentId: "test-agent", Message: "msg"},
+			name:    "empty schedule",
+			req:     &pb.CreateCronJobRequest{Name: "test", AgentId: "test-agent", Message: "msg"},
 			wantErr: "schedule is required",
 		},
 		{
-			name: "empty agent_id",
-			req:  &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 * * *", Message: "msg"},
+			name:    "empty agent_id",
+			req:     &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 * * *", Message: "msg"},
 			wantErr: "agent_id is required",
 		},
 		{
-			name: "empty message",
-			req:  &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 * * *", AgentId: "test-agent"},
+			name:    "empty message",
+			req:     &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 * * *", AgentId: "test-agent"},
 			wantErr: "message is required",
 		},
 		{
-			name: "invalid schedule - too few fields",
-			req:  &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 *", AgentId: "test-agent", Message: "msg"},
+			name:    "invalid schedule - too few fields",
+			req:     &pb.CreateCronJobRequest{Name: "test", Schedule: "0 9 *", AgentId: "test-agent", Message: "msg"},
 			wantErr: "expected 5 fields",
 		},
 		{
-			name: "invalid schedule - out of range",
-			req:  &pb.CreateCronJobRequest{Name: "test", Schedule: "60 9 * * *", AgentId: "test-agent", Message: "msg"},
+			name:    "invalid schedule - out of range",
+			req:     &pb.CreateCronJobRequest{Name: "test", Schedule: "60 9 * * *", AgentId: "test-agent", Message: "msg"},
 			wantErr: "minute value",
 		},
 	}
@@ -268,18 +268,18 @@ func TestValidateCronExpressionViaNextFireTime(t *testing.T) {
 		expr    string
 		wantErr bool
 	}{
-		{"0 9 * * *", false},           // every day at 9:00
-		{"*/5 * * * *", false},          // every 5 minutes
-		{"0 0 1 1 *", false},            // yearly on Jan 1
-		{"0 9 * * 1-5", false},          // weekdays at 9:00
-		{"0,30 * * * *", false},         // every hour at :00 and :30
-		{"0 9 * *", true},               // only 4 fields
-		{"0 9 * * * *", true},           // 6 fields
-		{"60 9 * * *", true},            // minute out of range
-		{"0 25 * * *", true},            // hour out of range
-		{"0 9 0 * *", true},             // day out of range (0)
-		{"0 9 * 13 *", true},            // month out of range (13)
-		{"0 9 * * 7", true},             // weekday out of range (7)
+		{"0 9 * * *", false},    // every day at 9:00
+		{"*/5 * * * *", false},  // every 5 minutes
+		{"0 0 1 1 *", false},    // yearly on Jan 1
+		{"0 9 * * 1-5", false},  // weekdays at 9:00
+		{"0,30 * * * *", false}, // every hour at :00 and :30
+		{"0 9 * *", true},       // only 4 fields
+		{"0 9 * * * *", true},   // 6 fields
+		{"60 9 * * *", true},    // minute out of range
+		{"0 25 * * *", true},    // hour out of range
+		{"0 9 0 * *", true},     // day out of range (0)
+		{"0 9 * 13 *", true},    // month out of range (13)
+		{"0 9 * * 7", true},     // weekday out of range (7)
 	}
 
 	for _, tt := range tests {

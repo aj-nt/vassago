@@ -19,11 +19,11 @@ import (
 	"github.com/aj-nt/mnemosyne/daemon/internal/cron"
 	"github.com/aj-nt/mnemosyne/daemon/internal/extraction"
 	"github.com/aj-nt/mnemosyne/daemon/internal/github"
-	pb "github.com/aj-nt/mnemosyne/proto"
 	daemongrpc "github.com/aj-nt/mnemosyne/daemon/internal/grpc"
 	"github.com/aj-nt/mnemosyne/daemon/internal/messaging"
 	"github.com/aj-nt/mnemosyne/daemon/internal/pubsub"
 	"github.com/aj-nt/mnemosyne/daemon/internal/store"
+	pb "github.com/aj-nt/mnemosyne/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -32,13 +32,13 @@ import (
 // Config holds the daemon configuration.
 // One file. One source of truth. No deep merge. No fallback chains.
 type Config struct {
-	Daemon     DaemonConfig      `yaml:"daemon"`
-	Store      StoreConfig       `yaml:"database"`
-	HotBlock   HotBlockConfig    `yaml:"hot_block"`
-	Messaging  MessagingConfig   `yaml:"messaging"`
-	Cron       CronConfig        `yaml:"cron"`
-	GitHub     GitHubConfig      `yaml:"github"`
-	Extraction ExtractionConfig  `yaml:"extraction"`
+	Daemon     DaemonConfig     `yaml:"daemon"`
+	Store      StoreConfig      `yaml:"database"`
+	HotBlock   HotBlockConfig   `yaml:"hot_block"`
+	Messaging  MessagingConfig  `yaml:"messaging"`
+	Cron       CronConfig       `yaml:"cron"`
+	GitHub     GitHubConfig     `yaml:"github"`
+	Extraction ExtractionConfig `yaml:"extraction"`
 }
 
 type GitHubConfig struct {
@@ -53,10 +53,10 @@ type CronConfig struct {
 }
 
 type MessagingConfig struct {
-    Discord  DiscordMessagingConfig  `yaml:"discord"`
-    Telegram TelegramMessagingConfig `yaml:"telegram"`
-    IMessage IMessageMessagingConfig `yaml:"imessage"`
-    Email    EmailMessagingConfig    `yaml:"email"`
+	Discord  DiscordMessagingConfig  `yaml:"discord"`
+	Telegram TelegramMessagingConfig `yaml:"telegram"`
+	IMessage IMessageMessagingConfig `yaml:"imessage"`
+	Email    EmailMessagingConfig    `yaml:"email"`
 }
 
 type DiscordMessagingConfig struct {
@@ -66,7 +66,7 @@ type DiscordMessagingConfig struct {
 }
 
 type TelegramMessagingConfig struct {
-	Token       string  `yaml:"token"`
+	Token        string  `yaml:"token"`
 	AllowedChats []int64 `yaml:"allowed_chats"`
 }
 
@@ -90,11 +90,11 @@ type EmailMessagingConfig struct {
 }
 
 type DaemonConfig struct {
-	Socket  string    `yaml:"socket"`  // Unix socket path
-	TCP     string    `yaml:"tcp"`     // TCP listen address (host:port)
-	HTTP    string    `yaml:"http"`    // HTTP server address (host:port)
-	TLS     TLSConfig `yaml:"tls"`
-	APIKey  string    `yaml:"api_key"` // Optional API key for authentication
+	Socket string    `yaml:"socket"` // Unix socket path
+	TCP    string    `yaml:"tcp"`    // TCP listen address (host:port)
+	HTTP   string    `yaml:"http"`   // HTTP server address (host:port)
+	TLS    TLSConfig `yaml:"tls"`
+	APIKey string    `yaml:"api_key"` // Optional API key for authentication
 }
 
 type TLSConfig struct {
@@ -192,12 +192,12 @@ func (c *Config) Validate() error {
 
 // Daemon represents the Mnemosyne memory daemon.
 type Daemon struct {
-	config             *Config
-	store              *store.Store
-	hub                *pubsub.Hub
-	server             *grpc.Server
-	httpServer         *http.Server
-	cronRunner         *cron.CronRunner
+	config              *Config
+	store               *store.Store
+	hub                 *pubsub.Hub
+	server              *grpc.Server
+	httpServer          *http.Server
+	cronRunner          *cron.CronRunner
 	extractionScheduler *extraction.Scheduler
 }
 
@@ -287,8 +287,8 @@ func New(cfg *Config) (*Daemon, error) {
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(daemongrpc.RecoveryInterceptor, unaryInt),
 		grpc.StreamInterceptor(streamInt),
-		grpc.MaxRecvMsgSize(10*1024*1024),     // 10MB max message size
-		grpc.MaxConcurrentStreams(uint32(100)),  // Limit concurrent streams
+		grpc.MaxRecvMsgSize(10*1024*1024),      // 10MB max message size
+		grpc.MaxConcurrentStreams(uint32(100)), // Limit concurrent streams
 	)
 
 	// Create pub/sub hub
@@ -346,9 +346,9 @@ func New(cfg *Config) (*Daemon, error) {
 		}
 
 		client := extraction.NewHTTPClient(extraction.HTTPClientConfig{
-			Model:    cfg.Extraction.Model,
-			BaseURL:  cfg.Extraction.BaseURL,
-			APIKey:   cfg.Extraction.APIKey,
+			Model:   cfg.Extraction.Model,
+			BaseURL: cfg.Extraction.BaseURL,
+			APIKey:  cfg.Extraction.APIKey,
 		})
 
 		// Reuse the LLM client for session summaries on EndSession
