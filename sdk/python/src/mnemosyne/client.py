@@ -134,8 +134,7 @@ class MnemosyneClient:
     async def ping(self) -> str:
         """Health check. Returns status string."""
         resp = await self._call(self._stub.Ping, pb.HealthCheckRequest())
-        status_name = pb.HealthCheckResponse.ServingStatus.Name(resp.status)
-        return status_name
+        return resp.status
 
     # ------------------------------------------------------------------ #
     # Memory CRUD

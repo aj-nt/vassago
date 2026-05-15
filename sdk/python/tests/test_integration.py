@@ -43,7 +43,7 @@ class TestHealth:
     @pytest.mark.asyncio
     async def test_ping(self, client):
         status = await client.ping()
-        assert status in ("SERVING", "NOT_SERVING", "UNKNOWN")
+        assert status == "healthy"
         print(f"Daemon status: {status}")
 
 
