@@ -1,5 +1,7 @@
 # Vassago — AI Agent Memory Daemon
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/aj-nt/vassago)](https://goreportcard.com/report/github.com/aj-nt/vassago)
+
 **Named after the Goetic demon Vassago**, who "declares things past, present, and future, and discovers things hidden and lost." A memory daemon for AI agents.
 
 ## What It Is
