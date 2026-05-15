@@ -56,7 +56,8 @@ mkdir -p "$INSTALL_DIR"
 cp bin/"$BINARY" "$INSTALL_DIR/"
 cp bin/mnemosyne-daemon "$INSTALL_DIR/"
 cp bin/mnemosyne-cli "$INSTALL_DIR/"
-echo "✓ Installed mnemosyne, mnemosyne-daemon, mnemosyne-cli to $INSTALL_DIR/"
+cp bin/mnemosyne-import "$INSTALL_DIR/"
+echo "✓ Installed mnemosyne, mnemosyne-daemon, mnemosyne-cli, mnemosyne-import to $INSTALL_DIR/"
 
 # Verify
 if command -v "$INSTALL_DIR/$BINARY" &>/dev/null; then
@@ -76,7 +77,7 @@ fi
 echo "Next steps:"
 echo "  1. mnemosyne init       # interactive setup"
 echo "  2. mnemosyne start      # start the daemon"
-echo "  3. Connect an agent like mnemoagent to the daemon"
+echo "  3. Connect an AI agent to the daemon via gRPC"
 echo ""
 echo "╭─────────────────────────────────────────────╮"
 echo "│  Installation complete!                     │"

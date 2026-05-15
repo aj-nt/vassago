@@ -18,12 +18,3 @@ hot_block:
   user_char_limit: 2000                  # ~570 tokens at 3.5 chars/token
   min_priority: 2                        # Include priority >= 2
   observation_ttl_days: 30               # Auto-expire observations
-
-consolidation:
-  max_idle_days: 60                      # Evict memories not accessed in N days
-  max_idle_priority_1: 365               # P1 entries: generous TTL
-  max_idle_priority_2: 180               # P2 entries: moderate TTL
-
-logging:
-  level: info
-  format: json

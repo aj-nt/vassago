@@ -10,10 +10,7 @@ If you discover a security vulnerability in `mnemosyne`, we appreciate your help
 
 ### How to Report
 
-Please report security vulnerabilities via one of the following methods:
-
-1. **GitHub Security Advisories**: Submit a report through GitHub's [Security Advisory](https://github.com/aj-nt/mnemosyne/security/advisories/new) feature.
-2. **Email**: Send an email to security@mnemosyne.dev.
+Please report security vulnerabilities through GitHub's [Security Advisory](https://github.com/aj-nt/mnemosyne/security/advisories/new) feature. This ensures the report reaches maintainers directly and stays private until resolved.
 
 ### Response Time
 

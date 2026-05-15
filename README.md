@@ -27,7 +27,7 @@ mnemosyne start           # start the daemon
 mnemosyne status          # verify it's healthy
 ```
 
-Now connect an agent. Use [mnemoagent](https://github.com/aj-nt/mnemoagent) (our Go CLI/TUI agent), or the Python SDK:
+Now connect an agent. Use the Python SDK:
 
 ```python
 from mnemosyne import MnemosyneClient
