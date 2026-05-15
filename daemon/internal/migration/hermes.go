@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
 
@@ -423,67 +424,14 @@ func importSessionMessages(mnemoStore *store.Store, hermesDB *sql.DB, mnemoSessi
 	return nil
 }
 
-// sanitizeContent replaces invalid UTF-8 bytes with the Unicode replacement character.
-// This is needed because some Hermes message data may contain invalid UTF-8 sequences
+// sanitizeContent replaces invalid UTF-8 bytes with U+FFFD.
+// Some Hermes message data may contain invalid UTF-8 sequences
 // that would cause errors in gRPC/protobuf serialization.
 func sanitizeContent(s string) string {
-	if len(s) == 0 {
+	if utf8.ValidString(s) {
 		return s
 	}
-	// Fast path: check if valid UTF-8
-	valid := true
-	for i := 0; i < len(s); {
-		if s[i] < 0x80 {
-			// ASCII — always valid
-			i++
-		} else if s[i]&0xE0 == 0xC0 {
-			if i+1 >= len(s) || s[i+1]&0xC0 != 0x80 {
-				valid = false
-				break
-			}
-			i += 2
-		} else if s[i]&0xF0 == 0xE0 {
-			if i+2 >= len(s) || s[i+1]&0xC0 != 0x80 || s[i+2]&0xC0 != 0x80 {
-				valid = false
-				break
-			}
-			i += 3
-		} else if s[i]&0xF8 == 0xF0 {
-			if i+3 >= len(s) || s[i+1]&0xC0 != 0x80 || s[i+2]&0xC0 != 0x80 || s[i+3]&0xC0 != 0x80 {
-				valid = false
-				break
-			}
-			i += 4
-		} else {
-			valid = false
-			break
-		}
-	}
-	if valid {
-		return s
-	}
-
-	// Slow path: replace invalid bytes
-	result := make([]byte, 0, len(s)+len(s)/10)
-	for i := 0; i < len(s); {
-		if s[i] < 0x80 {
-			result = append(result, s[i])
-			i++
-		} else if s[i]&0xE0 == 0xC0 && i+1 < len(s) && s[i+1]&0xC0 == 0x80 {
-			result = append(result, s[i], s[i+1])
-			i += 2
-		} else if s[i]&0xF0 == 0xE0 && i+2 < len(s) && s[i+1]&0xC0 == 0x80 && s[i+2]&0xC0 == 0x80 {
-			result = append(result, s[i], s[i+1], s[i+2])
-			i += 3
-		} else if s[i]&0xF8 == 0xF0 && i+3 < len(s) && s[i+1]&0xC0 == 0x80 && s[i+2]&0xC0 == 0x80 && s[i+3]&0xC0 == 0x80 {
-			result = append(result, s[i], s[i+1], s[i+2], s[i+3])
-			i += 4
-		} else {
-			result = append(result, "\xef\xbf\xbd"...) // U+FFFD
-			i++
-		}
-	}
-	return string(result)
+	return strings.ToValidUTF8(s, "\uFFFD")
 }
 
 // --- Schema detection helpers ---

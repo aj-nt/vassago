@@ -110,97 +110,106 @@ type ValidationIssue struct {
 
 // validateDaemonConfigDeep validates the daemon config structurally.
 func validateDaemonConfigDeep(path string) []ValidationIssue {
-	var issues []ValidationIssue
-
 	data, err := os.ReadFile(path)
 	if err != nil {
-		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("Cannot read: %v", err)})
-		return issues
+		return []ValidationIssue{{"error", fmt.Sprintf("Cannot read: %v", err)}}
 	}
 
 	var cfg map[string]interface{}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("YAML syntax error: %v", err)})
-		return issues
+		return []ValidationIssue{{"error", fmt.Sprintf("YAML syntax error: %v", err)}}
 	}
 
-	// Check required sections
-	daemon, _ := cfg["daemon"].(map[string]interface{})
-	database, _ := cfg["database"].(map[string]interface{})
-	hotBlock, _ := cfg["hot_block"].(map[string]interface{})
+	var issues []ValidationIssue
+	issues = append(issues, validateDaemonSection(cfg)...)
+	issues = append(issues, validateDatabaseSection(cfg)...)
+	issues = append(issues, validateHotBlockSection(cfg)...)
+	issues = append(issues, validateCronSection(cfg)...)
+	issues = append(issues, validateLoggingSection(cfg)...)
+	return issues
+}
 
+func validateDaemonSection(cfg map[string]interface{}) []ValidationIssue {
+	daemon, _ := cfg["daemon"].(map[string]interface{})
 	socket, _ := daemon["socket"].(string)
 	tcp, _ := daemon["tcp"].(string)
 	if socket == "" && tcp == "" {
-		issues = append(issues, ValidationIssue{"error", "daemon.socket or daemon.tcp must be configured"})
+		return []ValidationIssue{{"error", "daemon.socket or daemon.tcp must be configured"}}
 	}
-
-	// TLS check
 	tls, _ := daemon["tls"].(map[string]interface{})
 	cert, _ := tls["cert"].(string)
 	key, _ := tls["key"].(string)
 	if (cert != "") != (key != "") {
-		issues = append(issues, ValidationIssue{"error", "daemon.tls.cert and daemon.tls.key must both be set or both be empty"})
+		return []ValidationIssue{{"error", "daemon.tls.cert and daemon.tls.key must both be set or both be empty"}}
 	}
+	return nil
+}
 
-	// Database
+func validateDatabaseSection(cfg map[string]interface{}) []ValidationIssue {
+	database, _ := cfg["database"].(map[string]interface{})
 	dbPath, _ := database["path"].(string)
 	if dbPath == "" {
-		issues = append(issues, ValidationIssue{"error", "database.path is required"})
-	} else {
-		expanded := expandHome(dbPath)
-		if !fileExists(filepath.Dir(expanded)) {
-			issues = append(issues, ValidationIssue{"warning", fmt.Sprintf("database.path parent directory doesn't exist: %s", filepath.Dir(expanded))})
-		}
+		return []ValidationIssue{{"error", "database.path is required"}}
 	}
-
+	expanded := expandHome(dbPath)
+	if !fileExists(filepath.Dir(expanded)) {
+		return []ValidationIssue{{"warning", fmt.Sprintf("database.path parent directory doesn't exist: %s", filepath.Dir(expanded))}}
+	}
 	busyTimeout := toInt(database["busy_timeout"])
 	if busyTimeout != 0 && (busyTimeout < 1000 || busyTimeout > 30000) {
-		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("database.busy_timeout must be between 1000 and 30000 ms, got %d", busyTimeout)})
+		return []ValidationIssue{{"error", fmt.Sprintf("database.busy_timeout must be between 1000 and 30000 ms, got %d", busyTimeout)}}
 	}
+	return nil
+}
 
-	// Hot block
+func validateHotBlockSection(cfg map[string]interface{}) []ValidationIssue {
+	hotBlock, _ := cfg["hot_block"].(map[string]interface{})
+	var issues []ValidationIssue
+
 	memLimit := toInt(hotBlock["memory_char_limit"])
 	if memLimit != 0 && (memLimit < 1000 || memLimit > 20000) {
 		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("hot_block.memory_char_limit must be between 1000 and 20000, got %d", memLimit)})
 	}
-
 	userLimit := toInt(hotBlock["user_char_limit"])
 	if userLimit != 0 && (userLimit < 500 || userLimit > 10000) {
 		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("hot_block.user_char_limit must be between 500 and 10000, got %d", userLimit)})
 	}
-
 	minPri := toInt(hotBlock["min_priority"])
 	if minPri != 0 && (minPri < 1 || minPri > 5) {
 		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("hot_block.min_priority must be between 1 and 5, got %d", minPri)})
 	}
-
 	obsTTL := toInt(hotBlock["observation_ttl_days"])
 	if obsTTL != 0 && (obsTTL < 7 || obsTTL > 365) {
 		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("hot_block.observation_ttl_days must be between 7 and 365, got %d", obsTTL)})
 	}
+	return issues
+}
 
-	// Cron
+func validateCronSection(cfg map[string]interface{}) []ValidationIssue {
 	cron, _ := cfg["cron"].(map[string]interface{})
 	cronEnabled, _ := cron["enabled"].(bool)
+	if !cronEnabled {
+		return nil
+	}
 	cronInterval := toInt(cron["interval"])
-	if cronEnabled && cronInterval != 0 && (cronInterval < 10 || cronInterval > 3600) {
-		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("cron.interval must be between 10 and 3600 seconds, got %d", cronInterval)})
+	if cronInterval != 0 && (cronInterval < 10 || cronInterval > 3600) {
+		return []ValidationIssue{{"error", fmt.Sprintf("cron.interval must be between 10 and 3600 seconds, got %d", cronInterval)}}
 	}
 	cronMaxJobs := toInt(cron["max_jobs"])
-	if cronEnabled && cronMaxJobs != 0 && (cronMaxJobs < 1 || cronMaxJobs > 1000) {
-		issues = append(issues, ValidationIssue{"error", fmt.Sprintf("cron.max_jobs must be between 1 and 1000, got %d", cronMaxJobs)})
+	if cronMaxJobs != 0 && (cronMaxJobs < 1 || cronMaxJobs > 1000) {
+		return []ValidationIssue{{"error", fmt.Sprintf("cron.max_jobs must be between 1 and 1000, got %d", cronMaxJobs)}}
 	}
+	return nil
+}
 
-	// Logging
+func validateLoggingSection(cfg map[string]interface{}) []ValidationIssue {
 	logging, _ := cfg["logging"].(map[string]interface{})
 	logLevel, _ := logging["level"].(string)
 	validLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
 	if logLevel != "" && !validLevels[logLevel] {
-		issues = append(issues, ValidationIssue{"warning", fmt.Sprintf("logging.level %q is not standard (use: debug, info, warn, error)", logLevel)})
+		return []ValidationIssue{{"warning", fmt.Sprintf("logging.level %q is not standard (use: debug, info, warn, error)", logLevel)}}
 	}
-
-	return issues
+	return nil
 }
 
 // checkEnvironment validates runtime environment (daemon-focused).
