@@ -306,13 +306,14 @@ var Migrations = []string{
 	`ALTER TABLE skills ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
 	`ALTER TABLE saved_tools ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
 
-	// Migration 7: Fix migration 6 — re-add columns that may have failed on some DBs
-	// (Some SQLite versions don't support multiple ALTER TABLE in sequence)
-	`ALTER TABLE sessions ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
-	`ALTER TABLE todos ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
-	`ALTER TABLE cron_jobs ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
-	`ALTER TABLE skills ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
-	`ALTER TABLE saved_tools ADD COLUMN owner TEXT NOT NULL DEFAULT 'default'`,
+	// Migration 7: No-op — safety net for migration 6 partial failures.
+	// Migration 6 added owner columns to 5 tables. If it succeeded (which
+	// is the normal case), re-adding those columns in migration 7 would
+	// fail with "duplicate column name" and halt startup. So migration 7
+	// is a no-op: it advances the schema version without modifying tables.
+	// If your database is stuck at v6 with missing owner columns, you
+	// need to apply migration 6's ALTER TABLE statements manually.
+	`SELECT 1`,
 
 	// Migration 8: Add api_keys table for API key → owner mapping (Phase 28)
 	`CREATE TABLE IF NOT EXISTS api_keys (

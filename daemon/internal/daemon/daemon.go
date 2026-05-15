@@ -438,13 +438,12 @@ func (d *Daemon) Run() error {
 		return err
 	}
 
-	// HTTP server setup
-	// Error channel for all servers
+	// HTTP server: routes that don't fit gRPC (webhooks, health dashboards, etc.)
+	// Chat is served exclusively via gRPC ChatStream.
 	errCh := make(chan error, len(listeners)+1) // +1 for HTTP server
 
 	if d.config.Daemon.HTTP != "" {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/api/chat", d.handleChat)
 
 		// GitHub webhook integration
 		if d.config.GitHub.Enabled {
@@ -555,14 +554,6 @@ func (d *Daemon) Store() *store.Store {
 // Server returns the gRPC server (for testing).
 func (d *Daemon) Server() *grpc.Server {
 	return d.server
-}
-
-// handleChat handles HTTP chat requests.
-// Not yet implemented — the primary chat interface is via gRPC (ChatStream).
-func (d *Daemon) handleChat(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte(`{"error":"chat via HTTP not implemented; use gRPC ChatStream instead"}`))
 }
 
 // processGitHubEvent converts a GitHub webhook event into a memory and persists it.

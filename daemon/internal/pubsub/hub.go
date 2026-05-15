@@ -4,7 +4,7 @@
 package pubsub
 
 import (
-	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -105,7 +105,7 @@ func (h *Hub) Publish(event Event) {
 			case sub.Ch <- event:
 			default:
 				// Drop if subscriber is too slow (non-blocking)
-				fmt.Printf("pubsub: dropping event for slow subscriber %s\n", sub.AgentID)
+				slog.Warn("pubsub: dropping event for slow subscriber", "agent_id", sub.AgentID)
 			}
 		}
 	}
