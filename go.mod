@@ -15,7 +15,7 @@ require (
 require google.golang.org/protobuf v1.36.11 // indirect
 
 require (
-	github.com/aj-nt/vassago-sdk v0.0.1
+	github.com/aj-nt/vassago-sdk v0.0.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
@@ -32,5 +32,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/aj-nt/vassago-sdk v0.0.1 => /Users/aj/Documents/repos/vassago-sdk
