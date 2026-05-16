@@ -6,7 +6,7 @@ package store
 // Schema version for the Vassago database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 35
+const SchemaVersion = 36
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -203,6 +203,16 @@ var SchemaStmts = []string{
 	)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_api_keys_owner ON api_keys(owner)`,
+
+	// --- Replication state tracking (Peer Sync) ---
+	`CREATE TABLE IF NOT EXISTS vassago_replication (
+		peer_id TEXT NOT NULL,
+		namespace TEXT NOT NULL,
+		last_sync_at INTEGER NOT NULL DEFAULT 0,
+		last_sync_memory_id TEXT NOT NULL DEFAULT '',
+		updated_at INTEGER NOT NULL,
+		UNIQUE(peer_id, namespace)
+	)`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -327,4 +337,14 @@ var Migrations = []string{
 	// Migration 9: Add last-session tracking to agents
 	`ALTER TABLE agents ADD COLUMN last_session_id TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE agents ADD COLUMN last_session_summary TEXT NOT NULL DEFAULT ''`,
+
+	// Migration 10: Add vassago_replication table (Peer Sync)
+	`CREATE TABLE IF NOT EXISTS vassago_replication (
+		peer_id TEXT NOT NULL,
+		namespace TEXT NOT NULL,
+		last_sync_at INTEGER NOT NULL DEFAULT 0,
+		last_sync_memory_id TEXT NOT NULL DEFAULT '',
+		updated_at INTEGER NOT NULL,
+		UNIQUE(peer_id, namespace)
+	)`,
 }
