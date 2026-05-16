@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/aj-nt/vassago/daemon/internal/messaging"
+	"github.com/aj-nt/vassago-sdk/messaging"
 	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
