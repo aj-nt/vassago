@@ -1,3 +1,5 @@
+github.com/aj-nt/vassago-sdk v0.0.1 h1:GMT0EINCuG71UOg76W5sEecObfdY6C8brYt2VzZ2q3w=
+github.com/aj-nt/vassago-sdk v0.0.1/go.mod h1:xFnIM/A33oXzcu6ASGmZrTHwDTj8F/9JrYacTbstc8A=
 github.com/bwmarrin/discordgo v0.29.0 h1:FmWeXFaKUwrcL3Cx65c20bTRW+vOb6k8AnaP+EgjDno=
 github.com/bwmarrin/discordgo v0.29.0/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

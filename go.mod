@@ -15,7 +15,7 @@ require (
 require google.golang.org/protobuf v1.36.11 // indirect
 
 require (
-	github.com/aj-nt/vassago-sdk v0.0.0
+	github.com/aj-nt/vassago-sdk v0.0.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
