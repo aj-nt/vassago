@@ -61,12 +61,12 @@ while IFS= read -r file; do
     else
         check_file "$file" "LICENSE-AGPLv3" || ((ERRORS++))
     fi
-done < <(find . -name "*.go" -not -path "./.git/*" -not -path "*/vendor/*" | sort)
+done < <(find . -name "*.go" -not -path "./.git/*" -not -path "*/vendor/*" -not -path "*/.venv/*" -not -path "*/node_modules/*" | sort)
 
 # Check .proto files (all Apache)
 while IFS= read -r file; do
     check_file "$file" "LICENSE-Apache-2.0" || ((ERRORS++))
-done < <(find . -name "*.proto" -not -path "./.git/*" | sort)
+done < <(find . -name "*.proto" -not -path "./.git/*" -not -path "*/.venv/*" -not -path "*/node_modules/*" | sort)
 
 if [ $ERRORS -gt 0 ]; then
     echo ""
