@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/proto"
 )
 
 // TestRedTeamNilHotBlockRequest tests nil HotBlockRequest

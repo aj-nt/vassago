@@ -10,7 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/proto"
 )
 
 // DiscordConfig holds Discord adapter configuration.

@@ -23,7 +23,7 @@ import (
 	"github.com/aj-nt/vassago/daemon/internal/messaging"
 	"github.com/aj-nt/vassago/daemon/internal/pubsub"
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"

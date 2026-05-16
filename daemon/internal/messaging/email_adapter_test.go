@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // mockEmailSender implements emailSender for testing.

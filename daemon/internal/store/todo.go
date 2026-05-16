@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // AddTodo creates a new todo item, scoped to owner (Phase 28).

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 func skillEntryToProto(e *store.SkillEntry) *pb.SkillEntry {

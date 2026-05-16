@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

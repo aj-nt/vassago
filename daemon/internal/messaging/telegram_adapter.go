@@ -9,7 +9,7 @@ import (
 	"log"
 	"sync"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 

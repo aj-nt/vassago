@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	memoclient "github.com/aj-nt/vassago/client"
+	memoclient "github.com/aj-nt/vassago-sdk/client"
 )
 
 func cmdStart(args []string) {

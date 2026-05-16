@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aj-nt/vassago/client"
+	"github.com/aj-nt/vassago-sdk/client"
 	"github.com/aj-nt/vassago/daemon/internal/pubsub"
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

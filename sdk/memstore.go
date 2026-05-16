@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aj-nt/vassago/client"
-	pb "github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/client"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"github.com/google/uuid"
 )
 

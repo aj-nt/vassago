@@ -11,8 +11,8 @@ package messaging
 import (
 	"context"
 
-	"github.com/aj-nt/vassago/messaging/format"
-	pb "github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/messaging/format"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // Re-export format package functions for convenience within this package.

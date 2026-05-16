@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // -- Test 1: Rapid sequential writes (100 memories back-to-back) --

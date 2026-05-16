@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aj-nt/vassago/client"
-	pb "github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/client"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 var addr = flag.String("addr", "localhost:50051", "Daemon address (host:port or unix:///path/to/socket)")

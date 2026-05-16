@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/proto"
 	"github.com/bwmarrin/discordgo"
 )
 

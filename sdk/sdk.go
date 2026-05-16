@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aj-nt/vassago/client"
-	memoformat "github.com/aj-nt/vassago/messaging/format"
-	pb "github.com/aj-nt/vassago/proto"
+	"github.com/aj-nt/vassago-sdk/client"
+	memoformat "github.com/aj-nt/vassago-sdk/messaging/format"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // Config holds everything needed to connect to the daemon and identify

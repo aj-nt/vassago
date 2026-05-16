@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // newTestService creates a service with a temp store for testing.

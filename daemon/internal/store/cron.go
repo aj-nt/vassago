@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // AddCronJob creates a new cron job, scoped to owner (Phase 28).

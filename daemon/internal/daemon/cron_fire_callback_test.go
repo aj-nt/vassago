@@ -10,7 +10,7 @@ import (
 	"github.com/aj-nt/vassago/daemon/internal/cron"
 	"github.com/aj-nt/vassago/daemon/internal/pubsub"
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 func TestCronFireCallbackPublishesEvent(t *testing.T) {

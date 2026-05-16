@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // Red Team: Cross-platform message routing tests

@@ -13,7 +13,7 @@ import (
 	"github.com/aj-nt/vassago/daemon/internal/daemon"
 	daemongrpc "github.com/aj-nt/vassago/daemon/internal/grpc"
 	"github.com/aj-nt/vassago/daemon/internal/store"
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	memoclient "github.com/aj-nt/vassago/client"
-	pb "github.com/aj-nt/vassago/proto"
+	memoclient "github.com/aj-nt/vassago-sdk/client"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // testMnemoClient wraps NullMnemo and provides controlled responses for testing.

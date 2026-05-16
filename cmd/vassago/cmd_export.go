@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	memoclient "github.com/aj-nt/vassago/client"
+	memoclient "github.com/aj-nt/vassago-sdk/client"
 )
 
 // cmdMemoryExport handles "vassago export" — exports all memories to JSON.

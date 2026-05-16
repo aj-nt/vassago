@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc/metadata"
 )
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/aj-nt/vassago/proto"
+	pb "github.com/aj-nt/vassago-sdk/proto"
 )
 
 // Red Team: Cron gRPC validation edge cases
