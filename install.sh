@@ -59,6 +59,13 @@ cp bin/vassago-cli "$INSTALL_DIR/"
 cp bin/vassago-import "$INSTALL_DIR/"
 echo "✓ Installed vassago, vassago-daemon, vassago-cli, vassago-import to $INSTALL_DIR/"
 
+# macOS: codesign binaries (macOS 15+ kills unsigned binaries with SIGKILL)
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v codesign &>/dev/null; then
+        codesign --force --sign - "$INSTALL_DIR/$BINARY" "$INSTALL_DIR/vassago-daemon" "$INSTALL_DIR/vassago-cli" "$INSTALL_DIR/vassago-import" 2>/dev/null && echo "✓ Codesigned binaries for macOS" || echo "⚠ Codesigning failed — binaries may be killed by macOS"
+    fi
+fi
+
 # Verify
 if command -v "$INSTALL_DIR/$BINARY" &>/dev/null; then
     VERSION=$("$INSTALL_DIR/$BINARY" version 2>/dev/null | head -1 || echo "unknown")
