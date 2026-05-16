@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aj-nt/vassago/daemon/internal/cron"
+	"github.com/aj-nt/vassago/daemon/internal/dashboard"
 	"github.com/aj-nt/vassago/daemon/internal/extraction"
 	"github.com/aj-nt/vassago/daemon/internal/github"
 	"github.com/aj-nt/vassago/daemon/internal/replication"
@@ -481,6 +482,11 @@ func (d *Daemon) Run() error {
 			mux.Handle("/github/webhook", webhookHandler)
 			slog.Info("GitHub webhook enabled", "path", "/github/webhook")
 		}
+
+		// Dashboard (always enabled when HTTP is configured)
+		dash := dashboard.New(d.store, d.config.Store.Path)
+		dash.RegisterRoutes(mux)
+		slog.Info("Dashboard enabled", "path", "/dashboard")
 
 		d.httpServer = &http.Server{
 			Addr:    d.config.Daemon.HTTP,
