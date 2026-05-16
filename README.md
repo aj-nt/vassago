@@ -85,6 +85,8 @@ make build
 
 - **Config Merge** — Defaults with YAML overlay. No deep merge, no fallback chains — explicit and auditable.
 
+- **Web Dashboard** — Zero-dependency SPA served by the daemon's HTTP server. Live stats, FTS5 search, memory browser with tabbed target view, hot block preview, category breakdown. Dark theme, auto-refreshing.
+
 ## Internal Packages
 
 | Package | Purpose | Tests |
@@ -98,9 +100,10 @@ make build
 | `messaging` | Platform adapters (Discord, Telegram, iMessage, Email) | ✅ |
 | `extraction` | LLM pipeline, debounced scheduler, memory formatting | ✅ |
 | `github` | Webhook parsing (issues, PRs) | ✅ |
+| `dashboard` | Web dashboard (live stats, search, memory browser, hot block viewer) | ✅ |
 | `migration` | Hermes → Vassago data migration tooling | ✅ |
 
-**Total: ~33K lines of Go, 664 tests, 15 packages, all green.**
+**Total: ~33K lines of Go, 667 tests, 16 packages, all green.**
 
 ## Configuration
 
