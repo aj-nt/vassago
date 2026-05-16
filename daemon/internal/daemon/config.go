@@ -91,4 +91,20 @@ func mergeConfig(dst, src *Config) {
 		dst.Replication.Peers = src.Replication.Peers
 	}
 	dst.Replication.Enabled = src.Replication.Enabled
+
+	// Messaging section — enable adapters from config
+	if src.Messaging.Discord.Token != "" {
+		dst.Messaging.Discord = src.Messaging.Discord
+	}
+	if src.Messaging.Telegram.Token != "" {
+		dst.Messaging.Telegram = src.Messaging.Telegram
+	}
+	dst.Messaging.IMessage.Enabled = src.Messaging.IMessage.Enabled
+	if len(src.Messaging.IMessage.AllowedRecipients) > 0 {
+		dst.Messaging.IMessage.AllowedRecipients = src.Messaging.IMessage.AllowedRecipients
+	}
+	dst.Messaging.Email.Enabled = src.Messaging.Email.Enabled
+	if src.Messaging.Email.IMAPHost != "" {
+		dst.Messaging.Email = src.Messaging.Email
+	}
 }
