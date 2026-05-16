@@ -21,7 +21,7 @@ import (
 	"github.com/aj-nt/vassago/daemon/internal/github"
 	"github.com/aj-nt/vassago/daemon/internal/replication"
 	daemongrpc "github.com/aj-nt/vassago/daemon/internal/grpc"
-	"github.com/aj-nt/vassago/daemon/internal/messaging"
+	"github.com/aj-nt/vassago-sdk/messaging"
 	"github.com/aj-nt/vassago/daemon/internal/pubsub"
 	"github.com/aj-nt/vassago/daemon/internal/store"
 	pb "github.com/aj-nt/vassago-sdk/proto"
