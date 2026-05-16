@@ -33,4 +33,4 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/aj-nt/vassago-sdk v0.0.0 => /Users/aj/Documents/repos/vassago-sdk
+replace github.com/aj-nt/vassago-sdk v0.0.1 => /Users/aj/Documents/repos/vassago-sdk

@@ -19,6 +19,7 @@ import (
 	"github.com/aj-nt/vassago/daemon/internal/cron"
 	"github.com/aj-nt/vassago/daemon/internal/extraction"
 	"github.com/aj-nt/vassago/daemon/internal/github"
+	"github.com/aj-nt/vassago/daemon/internal/replication"
 	daemongrpc "github.com/aj-nt/vassago/daemon/internal/grpc"
 	"github.com/aj-nt/vassago/daemon/internal/messaging"
 	"github.com/aj-nt/vassago/daemon/internal/pubsub"
@@ -37,8 +38,9 @@ type Config struct {
 	HotBlock   HotBlockConfig   `yaml:"hot_block"`
 	Messaging  MessagingConfig  `yaml:"messaging"`
 	Cron       CronConfig       `yaml:"cron"`
-	GitHub     GitHubConfig     `yaml:"github"`
-	Extraction ExtractionConfig `yaml:"extraction"`
+	GitHub      GitHubConfig      `yaml:"github"`
+	Extraction  ExtractionConfig  `yaml:"extraction"`
+	Replication ReplicationConfig `yaml:"replication"`
 }
 
 type GitHubConfig struct {
@@ -199,6 +201,7 @@ type Daemon struct {
 	httpServer          *http.Server
 	cronRunner          *cron.CronRunner
 	extractionScheduler *extraction.Scheduler
+	replicationEngine   *replication.Engine
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
@@ -393,6 +396,18 @@ func New(cfg *Config) (*Daemon, error) {
 		}
 	}
 
+	// Wire replication engine if configured
+	var replicationEngine *replication.Engine
+	if cfg.Replication.Enabled {
+		pollInterval := time.Duration(cfg.Replication.PollIntervalSec) * time.Second
+		if pollInterval <= 0 {
+			pollInterval = 10 * time.Second
+		}
+		replicationEngine = replication.NewEngine(st, hub, replication.EngineConfig{
+			PollInterval: pollInterval,
+		})
+	}
+
 	return &Daemon{
 		config:              cfg,
 		store:               st,
@@ -400,6 +415,7 @@ func New(cfg *Config) (*Daemon, error) {
 		server:              server,
 		cronRunner:          cronRunner,
 		extractionScheduler: extractionScheduler,
+		replicationEngine:   replicationEngine,
 	}, nil
 }
 
@@ -517,6 +533,24 @@ func (d *Daemon) Run() error {
 		slog.Info("memory extraction enabled",
 			"debounce", d.config.Extraction.DebounceInterval,
 			"hard_cap", d.config.Extraction.HardCapInterval)
+	}
+
+	// Start replication engine if configured
+	if d.replicationEngine != nil {
+		peerCfgs := make([]replication.PeerConfig, len(d.config.Replication.Peers))
+		for i, pc := range d.config.Replication.Peers {
+			peerCfgs[i] = replication.PeerConfig{
+				ID:         pc.ID,
+				Addr:       pc.Addr,
+				Namespaces: pc.Namespaces,
+			}
+		}
+		go func() {
+			if err := d.replicationEngine.Start(ctx, peerCfgs); err != nil {
+				slog.Error("replication engine stopped", "error", err)
+			}
+		}()
+		slog.Info("peer replication enabled", "peers", len(peerCfgs), "poll_interval_sec", d.config.Replication.PollIntervalSec)
 	}
 
 	// Wait for shutdown signal

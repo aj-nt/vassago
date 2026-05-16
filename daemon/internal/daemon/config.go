@@ -79,4 +79,13 @@ func mergeConfig(dst, src *Config) {
 	if src.HotBlock.ObservationTTLDays != 0 {
 		dst.HotBlock.ObservationTTLDays = src.HotBlock.ObservationTTLDays
 	}
+
+	// Replication section
+	if src.Replication.PollIntervalSec != 0 {
+		dst.Replication.PollIntervalSec = src.Replication.PollIntervalSec
+	}
+	if len(src.Replication.Peers) > 0 {
+		dst.Replication.Peers = src.Replication.Peers
+	}
+	dst.Replication.Enabled = src.Replication.Enabled
 }
