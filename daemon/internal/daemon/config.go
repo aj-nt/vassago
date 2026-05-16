@@ -53,6 +53,9 @@ func mergeConfig(dst, src *Config) {
 	if src.Daemon.TCP != "" {
 		dst.Daemon.TCP = src.Daemon.TCP
 	}
+	if src.Daemon.HTTP != "" {
+		dst.Daemon.HTTP = src.Daemon.HTTP
+	}
 	if src.Daemon.TLS.Cert != "" {
 		dst.Daemon.TLS.Cert = src.Daemon.TLS.Cert
 	}
