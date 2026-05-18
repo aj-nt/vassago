@@ -15,6 +15,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -77,14 +78,53 @@ func main() {
 	}
 	defer c.Close()
 
-	_ = c // used in Task 4 pipeline
-
 	slog.Info("Connected to daemon", "addr", cfg.DaemonAddr)
 
+	orch := NewOrchestrator(cfg, c)
+
 	if *dryRun {
-		slog.Info("Dry run mode — decomposition only (not yet implemented)")
-		os.Exit(0)
+		if err := orch.DryRun(goal); err != nil {
+			slog.Error("Dry run failed", "error", err)
+			os.Exit(1)
+		}
+		return
 	}
 
-	slog.Info("Pipeline not yet implemented (Task 4)")
+	synthesis, err := orch.Run(goal)
+	if err != nil {
+		slog.Error("Orchestration failed", "error", err)
+		os.Exit(1)
+	}
+
+	// Print summary
+	printSummary(synthesis)
+}
+
+func printSummary(s *SynthesisResult) {
+	fmt.Println()
+	fmt.Printf("=== %s ===\n", s.Title)
+	fmt.Println()
+	fmt.Println(s.ExecutiveSummary)
+	fmt.Println()
+
+	if len(s.HighFindings) > 0 {
+		fmt.Printf("HIGH Findings: %d\n", len(s.HighFindings))
+		for _, f := range s.HighFindings {
+			fmt.Printf("  - %s\n", f.Title)
+		}
+		fmt.Println()
+	}
+
+	if len(s.MediumFindings) > 0 {
+		fmt.Printf("MEDIUM Findings: %d\n", len(s.MediumFindings))
+		fmt.Println()
+	}
+
+	if len(s.Recommendations) > 0 {
+		fmt.Println("Top Recommendations:")
+		for _, r := range s.Recommendations {
+			fmt.Printf("  %d. [%s effort, %s impact] %s\n", r.Priority, r.Effort, r.Impact, r.Action)
+		}
+		fmt.Println()
+	}
 }
