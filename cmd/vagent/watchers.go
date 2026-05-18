@@ -27,9 +27,9 @@ func startWatchers(c client.MnemoClient, agentID string, cfg *Config) []Watcher 
 		watchers = append(watchers, w)
 	}
 
-	if len(watchers) == 0 {
-		slog.Warn("No watchers enabled — vagent has nothing to do")
-		slog.Info("Create a config at ~/.vassago/vagent.yaml and enable github or email watchers")
+	if len(watchers) == 0 && !cfg.Worker.Enabled {
+		slog.Warn("No watchers or worker enabled — vagent has nothing to do")
+		slog.Info("Create a config at ~/.vassago/vagent.yaml and enable github, email, or worker")
 		os.Exit(1)
 	}
 
