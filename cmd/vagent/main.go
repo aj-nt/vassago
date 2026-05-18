@@ -19,6 +19,7 @@ import (
 
 func main() {
 	cfg := loadConfig()
+	applyWorkerDefaults(cfg)
 
 	slog.Info("vagent starting", "daemon", cfg.DaemonAddr)
 
@@ -50,6 +51,19 @@ func main() {
 
 	// Start watchers
 	watchers := startWatchers(c, agentID, cfg)
+
+	// Start worker if enabled (orchestrator task execution)
+	if cfg.Worker.Enabled {
+		slog.Info("Worker enabled — starting orchestrator task execution",
+			"agent_types", cfg.Worker.AgentTypes,
+			"poll_sec", cfg.Worker.PollSec,
+			"max_turns", cfg.Worker.MaxTurns,
+			"model", cfg.Worker.Ollama.Model,
+		)
+		workerCtx, workerCancel := context.WithCancel(ctx)
+		defer workerCancel()
+		go startWorker(workerCtx, c, agentID, cfg.Worker)
+	}
 
 	// Block until signal
 	sigCh := make(chan os.Signal, 1)
