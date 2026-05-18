@@ -4,11 +4,12 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
+        "os"
+        "path/filepath"
+        "strings"
 
-	"gopkg.in/yaml.v3"
+        "github.com/aj-nt/vassago/internal/ollama"
+        "gopkg.in/yaml.v3"
 )
 
 // Config holds the vagent configuration.
@@ -33,14 +34,10 @@ type WorkerConfig struct {
 	Ollama     OllamaConfig `yaml:"ollama"`      // LLM backend
 }
 
-// OllamaConfig holds the LLM backend configuration for task execution.
-type OllamaConfig struct {
-	BaseURL     string  `yaml:"base_url"`
-	Model       string  `yaml:"model"`
-	MaxTokens   int     `yaml:"max_tokens"`
-	Temperature float64 `yaml:"temperature"`
-	TimeoutSec  int     `yaml:"timeout_sec"`
-}
+// OllamaConfig is a type alias for the shared ollama.Config.
+// This preserves backward compatibility within the vagent config while
+// delegating to the shared daemon/internal/ollama package.
+type OllamaConfig = ollama.Config
 
 // WatchConfig configures a watcher for an external source.
 type WatchConfig struct {

@@ -2,10 +2,12 @@ package main
 
 import (
 	"testing"
+
+	"github.com/aj-nt/vassago/internal/ollama"
 )
 
 func TestOllamaClient_Creation(t *testing.T) {
-	cfg := OllamaConfig{
+	cfg := ollama.Config{
 		BaseURL:     "http://localhost:11434/v1",
 		Model:       "test-model",
 		MaxTokens:   512,
@@ -13,18 +15,12 @@ func TestOllamaClient_Creation(t *testing.T) {
 		TimeoutSec:  30,
 	}
 
-	client := newOllamaClient(cfg)
+	client := ollama.NewClient(cfg)
 	if client == nil {
-		t.Fatal("newOllamaClient returned nil")
+		t.Fatal("NewClient returned nil")
 	}
-	if client.model != "test-model" {
-		t.Errorf("expected model 'test-model', got '%s'", client.model)
-	}
-	if client.maxTokens != 512 {
-		t.Errorf("expected maxTokens 512, got %d", client.maxTokens)
-	}
-	if client.temperature != 0.2 {
-		t.Errorf("expected temperature 0.2, got %f", client.temperature)
+	if client.Model() != "test-model" {
+		t.Errorf("expected model 'test-model', got '%s'", client.Model())
 	}
 }
 

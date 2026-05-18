@@ -1,3 +1,6 @@
+// This file is part of Vassago.
+// See LICENSE-AGPLv3 for license information.
+
 package main
 
 import (
@@ -11,6 +14,7 @@ import (
 	"time"
 
 	"github.com/aj-nt/vassago-sdk/client"
+	"github.com/aj-nt/vassago/internal/ollama"
 	"github.com/google/uuid"
 )
 
@@ -26,7 +30,7 @@ func truncate(s string, maxLen int) string {
 // It blocks until ctx is cancelled. Safe to call from main's goroutine.
 func startWorker(ctx context.Context, c client.MnemoClient, agentID string, cfg WorkerConfig) {
 	pollInterval := time.Duration(cfg.PollSec) * time.Second
-	ollama := newOllamaClient(cfg.Ollama)
+	ollamaClient := ollama.NewClient(cfg.Ollama)
 
 	for {
 		select {
@@ -64,7 +68,7 @@ func startWorker(ctx context.Context, c client.MnemoClient, agentID string, cfg 
 			claimed = true
 			slog.Info("Worker executing task", "id", tid, "type", at, "goal", truncate(claimedTask.Goal, 100))
 
-			result := executeTask(ctx, ollama, claimedTask, cfg.MaxTurns)
+			result := executeTask(ctx, ollamaClient, claimedTask, cfg.MaxTurns)
 			key := fmt.Sprintf("result_%s_%s", tid, uuid.New().String()[:8])
 
 			resultJSON, _ := json.Marshal(result)
@@ -101,7 +105,7 @@ func startWorker(ctx context.Context, c client.MnemoClient, agentID string, cfg 
 }
 
 // executeTask runs the LLM execution loop for a single task.
-func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEntry, maxTurns int) *workerTaskResult {
+func executeTask(ctx context.Context, oc *ollama.Client, task *client.TaskEntry, maxTurns int) *workerTaskResult {
 	t0 := time.Now()
 	goal := task.Goal
 	contextStr := task.Context
@@ -112,7 +116,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 	var taskCtx map[string]interface{}
 	_ = json.Unmarshal([]byte(contextStr), &taskCtx)
 
-	messages := []ollamaMessage{{
+	messages := []ollama.Message{{
 		Role:    "user",
 		Content: buildWorkerPrompt(goal, contextStr),
 	}}
@@ -124,7 +128,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 		default:
 		}
 
-		text, err := ollama.Chat(messages)
+		text, err := oc.Chat(messages)
 		if err != nil {
 			return &workerTaskResult{
 				TaskID:     task.Id,
@@ -135,7 +139,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 		}
 
 		text = strings.TrimSpace(text)
-		messages = append(messages, ollamaMessage{Role: "assistant", Content: text})
+		messages = append(messages, ollama.Message{Role: "assistant", Content: text})
 
 		switch {
 		case strings.HasPrefix(text, "CMD:"):
@@ -151,7 +155,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 			if output.ExitCode != 0 {
 				response += fmt.Sprintf("\n[exit: %d]", output.ExitCode)
 			}
-			messages = append(messages, ollamaMessage{Role: "user", Content: response})
+			messages = append(messages, ollama.Message{Role: "user", Content: response})
 
 		case strings.HasPrefix(text, "DONE:"):
 			summary := strings.TrimSpace(text[5:])
@@ -161,7 +165,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 				AgentType:   task.AgentType,
 				Status:      "success",
 				Summary:     summary,
-				Model:       ollama.model,
+				Model:       oc.Model(),
 				LLMTurns:    turn,
 				DurationMs:  time.Since(t0).Milliseconds(),
 				CompletedAt: time.Now().Unix(),
@@ -174,13 +178,13 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 				TaskID:     task.Id,
 				Status:     "failed",
 				Error:      reason,
-				Model:      ollama.model,
+				Model:      oc.Model(),
 				LLMTurns:   turn,
 				DurationMs: time.Since(t0).Milliseconds(),
 			}
 
 		default:
-			messages = append(messages, ollamaMessage{
+			messages = append(messages, ollama.Message{
 				Role:    "user",
 				Content: "Respond with CMD:, DONE:, or FAIL:",
 			})
@@ -191,7 +195,7 @@ func executeTask(ctx context.Context, ollama *OllamaClient, task *client.TaskEnt
 		TaskID:     task.Id,
 		Status:     "failed",
 		Error:      fmt.Sprintf("Exceeded %d turns without DONE/FAIL", maxTurns),
-		Model:      ollama.model,
+		Model:      oc.Model(),
 		LLMTurns:   maxTurns,
 		DurationMs: time.Since(t0).Milliseconds(),
 	}
