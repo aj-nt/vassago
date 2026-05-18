@@ -92,6 +92,14 @@ func mergeConfig(dst, src *Config) {
 	}
 	dst.Replication.Enabled = src.Replication.Enabled
 
+	// Logging section
+	if src.Logging.Path != "" {
+		dst.Logging.Path = src.Logging.Path
+	}
+	if src.Logging.Level != "" {
+		dst.Logging.Level = src.Logging.Level
+	}
+
 	// Messaging section — enable adapters from config
 	if src.Messaging.Discord.Token != "" {
 		dst.Messaging.Discord = src.Messaging.Discord

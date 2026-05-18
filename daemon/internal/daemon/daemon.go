@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -42,6 +43,7 @@ type Config struct {
 	GitHub      GitHubConfig      `yaml:"github"`
 	Extraction  ExtractionConfig  `yaml:"extraction"`
 	Replication ReplicationConfig `yaml:"replication"`
+	Logging     LoggingConfig     `yaml:"logging"`
 }
 
 type GitHubConfig struct {
@@ -142,6 +144,10 @@ func DefaultConfig() *Config {
 		Cron: CronConfig{
 			Interval: 60,
 			MaxJobs:  100,
+		},
+		Logging: LoggingConfig{
+			Path:  filepath.Join(home, ".vassago", "daemon.log"),
+			Level: "info",
 		},
 	}
 }
@@ -494,6 +500,11 @@ func (d *Daemon) Run() error {
 		}
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("HTTP server panic: %v\n%s", r, debug.Stack())
+				}
+			}()
 			slog.Info("starting HTTP server", "address", d.config.Daemon.HTTP)
 			if err := d.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				errCh <- fmt.Errorf("HTTP server: %w", err)
@@ -501,11 +512,11 @@ func (d *Daemon) Run() error {
 		}()
 	}
 	for _, l := range listeners {
-		go func(lis net.Listener) {
-			if err := d.server.Serve(lis); err != nil {
-				errCh <- fmt.Errorf("serve on %s: %w", lis.Addr().String(), err)
+		safeGo("gRPC-"+l.Addr().String(), func() {
+			if err := d.server.Serve(l); err != nil {
+				errCh <- fmt.Errorf("serve on %s: %w", l.Addr().String(), err)
 			}
-		}(l)
+		})
 	}
 
 	slog.Info("vassago daemon started", "db", d.config.Store.Path)
@@ -520,7 +531,7 @@ func (d *Daemon) Run() error {
 	// Background: periodic consolidation (expired + idle sweep every hour)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go d.runAutoConsolidation(ctx)
+	safeGo("auto-consolidation", func() { d.runAutoConsolidation(ctx) })
 
 	// Start cron runner if configured
 	if d.cronRunner != nil {
@@ -551,11 +562,11 @@ func (d *Daemon) Run() error {
 				Namespaces: pc.Namespaces,
 			}
 		}
-		go func() {
+		safeGo("replication", func() {
 			if err := d.replicationEngine.Start(ctx, peerCfgs); err != nil {
 				slog.Error("replication engine stopped", "error", err)
 			}
-		}()
+		})
 		slog.Info("peer replication enabled", "peers", len(peerCfgs), "poll_interval_sec", d.config.Replication.PollIntervalSec)
 	}
 

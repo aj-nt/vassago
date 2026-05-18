@@ -96,7 +96,14 @@ func (r *CronRunner) Start(ctx context.Context) {
 	ctx, r.cancel = context.WithCancel(ctx)
 	r.mu.Unlock()
 
-	go r.run(ctx)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("cron runner panicked", "panic", r)
+			}
+		}()
+		r.run(ctx)
+	}()
 	slog.Info("Cron runner started", "interval", r.interval, "max_jobs", r.maxJobs)
 }
 
