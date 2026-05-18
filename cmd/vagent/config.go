@@ -19,6 +19,27 @@ type Config struct {
 	GitHub     WatchConfig  `yaml:"github"`
 	Email      WatchConfig  `yaml:"email"`
 	Notify     NotifyConfig `yaml:"notify"`
+	Worker     WorkerConfig `yaml:"worker"` // Orchestrator task execution
+}
+
+// WorkerConfig configures the orchestrator task executor.
+// When enabled, vagent polls the daemon for ready tasks assigned to its
+// agent types, claims them atomically, executes via LLM, and publishes results.
+type WorkerConfig struct {
+	Enabled    bool         `yaml:"enabled"`
+	AgentTypes []string     `yaml:"agent_types"` // Which task types this agent handles
+	PollSec    int          `yaml:"poll_sec"`    // Poll interval in seconds
+	MaxTurns   int          `yaml:"max_turns"`   // Max LLM turns per task
+	Ollama     OllamaConfig `yaml:"ollama"`      // LLM backend
+}
+
+// OllamaConfig holds the LLM backend configuration for task execution.
+type OllamaConfig struct {
+	BaseURL     string  `yaml:"base_url"`
+	Model       string  `yaml:"model"`
+	MaxTokens   int     `yaml:"max_tokens"`
+	Temperature float64 `yaml:"temperature"`
+	TimeoutSec  int     `yaml:"timeout_sec"`
 }
 
 // WatchConfig configures a watcher for an external source.
@@ -81,6 +102,34 @@ func loadConfig() *Config {
 	return &cfg
 }
 
+// applyWorkerDefaults fills zero-value worker config fields with sensible defaults.
+func applyWorkerDefaults(cfg *Config) {
+	if cfg.Worker.PollSec == 0 {
+		cfg.Worker.PollSec = 5
+	}
+	if cfg.Worker.MaxTurns == 0 {
+		cfg.Worker.MaxTurns = 15
+	}
+	if len(cfg.Worker.AgentTypes) == 0 {
+		cfg.Worker.AgentTypes = []string{"general"}
+	}
+	if cfg.Worker.Ollama.BaseURL == "" {
+		cfg.Worker.Ollama.BaseURL = "http://localhost:11434/v1"
+	}
+	if cfg.Worker.Ollama.Model == "" {
+		cfg.Worker.Ollama.Model = "glm-5.1:cloud"
+	}
+	if cfg.Worker.Ollama.MaxTokens == 0 {
+		cfg.Worker.Ollama.MaxTokens = 2048
+	}
+	if cfg.Worker.Ollama.Temperature == 0 {
+		cfg.Worker.Ollama.Temperature = 0.1
+	}
+	if cfg.Worker.Ollama.TimeoutSec == 0 {
+		cfg.Worker.Ollama.TimeoutSec = 120
+	}
+}
+
 func defaultCfg(path string) {
 	os.MkdirAll(filepath.Dir(path), 0700)
 	cfg := `# vagent configuration — monitoring agent for Vassago daemon
@@ -107,6 +156,19 @@ email:
 notify:
   platform: "imessage"
   target: "+13608880110"
+
+worker:
+  enabled: false       # Set to true to enable orchestrator task execution
+  agent_types:
+    - general
+  poll_sec: 5          # How often to check for new tasks
+  max_turns: 15        # Max LLM turns per task
+  ollama:
+    base_url: "http://localhost:11434/v1"
+    model: "glm-5.1:cloud"
+    max_tokens: 2048
+    temperature: 0.1
+    timeout_sec: 120
 `
 	os.WriteFile(path, []byte(cfg), 0600)
 	slogInfo("Created default config", "path", path)
