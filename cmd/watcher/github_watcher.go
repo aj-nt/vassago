@@ -89,7 +89,7 @@ func (w *githubWatcher) pollRepo(ctx context.Context, repo string) {
 		return
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "vagent/1.0")
+	req.Header.Set("User-Agent", "watcher/1.0")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -1,9 +1,10 @@
 // This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
-// vagent is a lightweight monitoring agent for Vassago daemon.
+// watcher is a lightweight monitoring agent for Vassago daemon.
 // It watches external sources (GitHub, email) and stores observations
 // as memories in the daemon, with optional notification delivery.
+// It also supports orchestrator task execution when the worker is enabled.
 package main
 
 import (
@@ -21,7 +22,7 @@ func main() {
 	cfg := loadConfig()
 	applyWorkerDefaults(cfg)
 
-	slog.Info("vagent starting", "daemon", cfg.DaemonAddr)
+	slog.Info("watcher starting", "daemon", cfg.DaemonAddr)
 
 	// Connect to daemon
 	ctx := context.Background()
@@ -68,14 +69,14 @@ func main() {
 	// Block until signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	slog.Info("vagent running. Press Ctrl+C to stop.")
+	slog.Info("watcher running. Press Ctrl+C to stop.")
 	<-sigCh
 
 	slog.Info("Shutting down...")
 	for _, w := range watchers {
 		w.stop()
 	}
-	slog.Info("vagent stopped.")
+	slog.Info("watcher stopped.")
 }
 
 func heartbeatLoop(ctx context.Context, c client.MnemoClient, agentID string, interval time.Duration) {

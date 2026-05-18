@@ -10,7 +10,10 @@ coverage.html
 /vassago-cli
 /vassago-daemon
 /vassago-import
-/vagent-worker
+/vagent
+/watcher
+/worker
+/orchestrator
 
 # OS files
 .DS_Store

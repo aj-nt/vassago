@@ -2,7 +2,7 @@
 // See LICENSE-AGPLv3 for license information.
 
 // Package ollama provides a minimal OpenAI-compatible client for Ollama LLM backends.
-// Used by vagent workers and the orchestrator for LLM-powered task execution and
+// Used by workers and the orchestrator for LLM-powered task execution and
 // goal decomposition.
 package ollama
 

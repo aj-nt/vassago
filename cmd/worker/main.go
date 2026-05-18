@@ -1,7 +1,7 @@
 // This file is part of Vassago.
 // See LICENSE-AGPLv3 for license information.
 
-// vagent-worker is a lightweight task executor for Vassago daemon.
+// worker is a lightweight task executor for Vassago daemon.
 // It polls for ready tasks matching its configured agent types,
 // claims them atomically, executes using an LLM (via Ollama's
 // OpenAI-compatible API), and reports results back to the daemon.
@@ -21,7 +21,7 @@ import (
 func main() {
 	cfg := loadConfig()
 
-	slog.Info("vagent-worker starting",
+	slog.Info("worker starting",
 		"daemon", cfg.DaemonAddr,
 		"types", cfg.AgentTypes,
 		"model", cfg.Ollama.Model,
@@ -57,10 +57,10 @@ func main() {
 	// Block until signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	slog.Info("vagent-worker running. Press Ctrl+C to stop.")
+	slog.Info("worker running. Press Ctrl+C to stop.")
 	<-sigCh
 
 	slog.Info("Shutting down...")
 	cancel()
-	slog.Info("vagent-worker stopped.")
+	slog.Info("worker stopped.")
 }

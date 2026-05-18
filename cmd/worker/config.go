@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds the vagent-worker configuration.
+// Config holds the worker configuration.
 type Config struct {
 	DaemonAddr string      `yaml:"daemon_addr"`
 	AgentID    string      `yaml:"agent_id"`
@@ -34,10 +34,10 @@ type OllamaConfig struct {
 
 // loadConfig loads configuration from file.
 func loadConfig() *Config {
-	path := os.Getenv("VAGENT_WORKER_CONFIG")
+	path := os.Getenv("WORKER_CONFIG")
 	if path == "" {
 		home, _ := os.UserHomeDir()
-		path = filepath.Join(home, ".vassago", "vagent-worker.yaml")
+		path = filepath.Join(home, ".vassago", "worker.yaml")
 	}
 
 	data, err := os.ReadFile(path)
@@ -61,7 +61,7 @@ func loadConfig() *Config {
 		cfg.AgentID = "worker-" + strings.ReplaceAll(host, ".local", "")
 	}
 	if cfg.AgentName == "" {
-		cfg.AgentName = "vagent-worker"
+		cfg.AgentName = "worker"
 	}
 	if len(cfg.AgentTypes) == 0 {
 		cfg.AgentTypes = []string{"general"}
@@ -93,11 +93,11 @@ func loadConfig() *Config {
 
 func defaultConfig(path string) {
 	os.MkdirAll(filepath.Dir(path), 0700)
-	cfg := `# vagent-worker configuration — autonomous task executor for Vassago daemon
+	cfg := `# worker configuration — autonomous task executor for Vassago daemon
 
 daemon_addr: "localhost:50051"
 agent_id: "worker-hera"
-agent_name: "vagent-worker"
+agent_name: "worker"
 agent_types:
   - general
   - static_analysis

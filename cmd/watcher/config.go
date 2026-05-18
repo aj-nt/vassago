@@ -12,7 +12,7 @@ import (
         "gopkg.in/yaml.v3"
 )
 
-// Config holds the vagent configuration.
+// Config holds the watcher configuration.
 type Config struct {
 	DaemonAddr string       `yaml:"daemon_addr"` // gRPC address of the Vassago daemon
 	AgentID    string       `yaml:"agent_id"`    // Unique identifier for this agent
@@ -24,7 +24,7 @@ type Config struct {
 }
 
 // WorkerConfig configures the orchestrator task executor.
-// When enabled, vagent polls the daemon for ready tasks assigned to its
+// When enabled, watcher polls the daemon for ready tasks assigned to its
 // agent types, claims them atomically, executes via LLM, and publishes results.
 type WorkerConfig struct {
 	Enabled    bool         `yaml:"enabled"`
@@ -35,7 +35,7 @@ type WorkerConfig struct {
 }
 
 // OllamaConfig is a type alias for the shared ollama.Config.
-// This preserves backward compatibility within the vagent config while
+// This preserves backward compatibility within the watcher config while
 // delegating to the shared daemon/internal/ollama package.
 type OllamaConfig = ollama.Config
 
@@ -58,10 +58,10 @@ type NotifyConfig struct {
 
 // loadConfig loads configuration from file.
 func loadConfig() *Config {
-	path := os.Getenv("VAGENT_CONFIG")
+	path := os.Getenv("WATCHER_CONFIG")
 	if path == "" {
 		home, _ := os.UserHomeDir()
-		path = filepath.Join(home, ".vassago", "vagent.yaml")
+		path = filepath.Join(home, ".vassago", "watcher.yaml")
 	}
 
 	data, err := os.ReadFile(path)
@@ -81,10 +81,10 @@ func loadConfig() *Config {
 	}
 	if cfg.AgentID == "" {
 		host, _ := os.Hostname()
-		cfg.AgentID = "vagent-" + strings.ReplaceAll(host, ".local", "")
+		cfg.AgentID = "watcher-" + strings.ReplaceAll(host, ".local", "")
 	}
 	if cfg.AgentName == "" {
-		cfg.AgentName = "vagent-monitor"
+		cfg.AgentName = "watcher-monitor"
 	}
 	if cfg.GitHub.IntervalSec == 0 {
 		cfg.GitHub.IntervalSec = 300 // 5 minutes
@@ -129,11 +129,11 @@ func applyWorkerDefaults(cfg *Config) {
 
 func defaultCfg(path string) {
 	os.MkdirAll(filepath.Dir(path), 0700)
-	cfg := `# vagent configuration — monitoring agent for Vassago daemon
+	cfg := `# watcher configuration — monitoring agent for Vassago daemon
 
 daemon_addr: "localhost:50051"
-agent_id: "vagent-macbook"
-agent_name: "vagent-monitor"
+agent_id: "watcher-macbook"
+agent_name: "watcher-monitor"
 
 github:
   enabled: false

@@ -41,8 +41,8 @@ func (w *emailWatcher) start() {
 	slog.Info("Email watcher started (IMAP polling placeholder)", "interval", w.interval)
 
 	// TODO: Wire up vassago-sdk/messaging EmailAdapter for IMAP polling.
-	// The adapter already exists and is tested. vagent just needs to import
-	// and instantiate it with the config from vagent.yaml.
+	// The adapter already exists and is tested. watcher just needs to import
+	// and instantiate it with the config from watcher.yaml.
 	//
 	// Implementation sketch:
 	//   adapter := messaging.NewEmailAdapter(messaging.EmailConfig{
