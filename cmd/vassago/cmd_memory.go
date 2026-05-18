@@ -5,8 +5,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -34,12 +36,12 @@ Use "vassago memory <subcommand> --help" for more information.`)
 	subcmd := args[0]
 	subArgs := args[1:]
 
-	fs := flag.NewFlagSet("memory", flag.ExitOnError)
-	addr := fs.String("addr", "localhost:50051", "Daemon address (host:port)")
-	fs.Parse(subArgs)
-
-	// Remaining args after flags
-	remaining := fs.Args()
+	// Only extract -addr from parent; pass the rest through to subcommand.
+	// Subcommands have their own flags (--json, etc.) that the parent must not consume.
+	parentFS := flag.NewFlagSet("memory", flag.ContinueOnError)
+	addr := parentFS.String("addr", "localhost:50051", "Daemon address (host:port)")
+	parentFS.SetOutput(io.Discard) // suppress error messages for subcommand flags
+	_ = parentFS.Parse(subArgs)    // ignore errors; subcommand handles its own flags
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -53,17 +55,17 @@ Use "vassago memory <subcommand> --help" for more information.`)
 
 	switch subcmd {
 	case "add":
-		memAdd(ctx, c, remaining)
+		memAdd(ctx, c, subArgs)
 	case "get":
-		memGet(ctx, c, remaining)
+		memGet(ctx, c, subArgs)
 	case "search":
-		memSearch(ctx, c, remaining)
+		memSearch(ctx, c, subArgs)
 	case "list":
-		memList(ctx, c, remaining)
+		memList(ctx, c, subArgs)
 	case "remove":
-		memRemove(ctx, c, remaining)
+		memRemove(ctx, c, subArgs)
 	case "consolidate":
-		memConsolidate(ctx, c, remaining)
+		memConsolidate(ctx, c, subArgs)
 	case "stats":
 		memStats(ctx, c)
 	default:
@@ -93,14 +95,34 @@ func memAdd(ctx context.Context, c memoclient.MnemoClient, args []string) {
 }
 
 func memGet(ctx context.Context, c memoclient.MnemoClient, args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: vassago memory get <id>")
+	fs := flag.NewFlagSet("get", flag.ExitOnError)
+	jsonOut := fs.Bool("json", false, "Output as JSON")
+	fs.Parse(args)
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: vassago memory get [--json] <id>")
 		os.Exit(1)
 	}
-	entry, err := c.GetMemory(ctx, args[0])
+	entry, err := c.GetMemory(ctx, fs.Arg(0))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+	if *jsonOut {
+		out := map[string]interface{}{
+			"id":          entry.Id,
+			"target":      entry.Target,
+			"category":    entry.Category,
+			"key":         entry.Key,
+			"content":     entry.Content,
+			"priority":    entry.Priority,
+			"source":      entry.SourceAgent,
+			"created_at":  entry.CreatedAt,
+			"updated_at":  entry.UpdatedAt,
+			"expires_at":  entry.ExpiresAt,
+		}
+		b, _ := json.Marshal(out)
+		fmt.Println(string(b))
+		return
 	}
 	fmt.Printf("ID:          %s\n", entry.Id)
 	fmt.Printf("Target:      %s\n", entry.Target)
@@ -115,14 +137,17 @@ func memGet(ctx context.Context, c memoclient.MnemoClient, args []string) {
 }
 
 func memSearch(ctx context.Context, c memoclient.MnemoClient, args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: vassago memory search <query> [target]")
+	fs := flag.NewFlagSet("search", flag.ExitOnError)
+	jsonOut := fs.Bool("json", false, "Output as JSON array")
+	fs.Parse(args)
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: vassago memory search [--json] <query> [target]")
 		os.Exit(1)
 	}
-	query := args[0]
+	query := fs.Arg(0)
 	target := "memory"
-	if len(args) > 1 {
-		target = args[1]
+	if fs.NArg() > 1 {
+		target = fs.Arg(1)
 	}
 	limit := int32(20)
 
@@ -132,13 +157,37 @@ func memSearch(ctx context.Context, c memoclient.MnemoClient, args []string) {
 		os.Exit(1)
 	}
 	if len(entries) == 0 {
-		fmt.Println("No results found.")
+		if *jsonOut {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No results found.")
+		}
+		return
+	}
+	if *jsonOut {
+		type jsonEntry struct {
+			ID        string `json:"id"`
+			Category  string `json:"category"`
+			Key       string `json:"key"`
+			Content   string `json:"content"`
+			Priority  int32  `json:"priority"`
+			CreatedAt int64  `json:"created_at"`
+		}
+		list := make([]jsonEntry, len(entries))
+		for i, e := range entries {
+			list[i] = jsonEntry{
+				ID: e.Id, Category: e.Category, Key: e.Key,
+				Content: e.Content, Priority: e.Priority, CreatedAt: e.CreatedAt,
+			}
+		}
+		b, _ := json.Marshal(list)
+		fmt.Println(string(b))
 		return
 	}
 	fmt.Printf("Found %d result(s):\n\n", len(entries))
 	for _, e := range entries {
 		fmt.Printf("  [%s] %s/%s: %s (priority=%d, created=%s)\n",
-			e.Id[:8], e.Category, e.Key, truncateStr(e.Content, 80), e.Priority,
+			e.Id, e.Category, e.Key, truncateStr(e.Content, 80), e.Priority,
 			time.Unix(e.CreatedAt, 0).Format("2006-01-02"))
 	}
 }
@@ -160,7 +209,7 @@ func memList(ctx context.Context, c memoclient.MnemoClient, args []string) {
 	fmt.Printf("%d %s memories:\n\n", len(entries), target)
 	for _, e := range entries {
 		fmt.Printf("  [%s] %s/%s: %s (p%d, %s)\n",
-			e.Id[:8], e.Category, e.Key, truncateStr(e.Content, 60), e.Priority,
+			e.Id, e.Category, e.Key, truncateStr(e.Content, 60), e.Priority,
 			time.Unix(e.CreatedAt, 0).Format("2006-01-02"))
 	}
 }

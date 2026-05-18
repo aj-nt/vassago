@@ -4,8 +4,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"os"
+	"strings"
 	"testing"
 
 	memoclient "github.com/aj-nt/vassago-sdk/client"
@@ -166,4 +170,226 @@ func TestNullMnemo_Close(t *testing.T) {
 	if err != nil {
 		t.Errorf("NullMnemo.Close should return nil, got %v", err)
 	}
+}
+
+// ── UUID non-truncation tests ──────────────────────────────────────────────
+
+func TestMemSearchShowsFullUUID(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "orchestrator_tasks", "task-1", `{"status":"ready"}`, 3)
+
+	// Capture stdout from memSearch
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memSearch(context.Background(), client, []string{"test-query", "memory"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	fullID := "test-id-task-1"
+	if !strings.Contains(output, fullID) {
+		t.Errorf("search output should contain full UUID %q, got:\n%s", fullID, output)
+	}
+	if strings.Contains(output, "test-id-") {
+		// Verify it's not just the prefix — the full ID should appear in brackets
+		if !strings.Contains(output, "["+fullID+"]") {
+			t.Errorf("search output should show full UUID in brackets [%s], got:\n%s", fullID, output)
+		}
+	}
+}
+
+func TestMemListShowsFullUUID(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "orchestrator_tasks", "task-x", `{"status":"ready"}`, 4)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memList(context.Background(), client, []string{"memory"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	fullID := "test-id-task-x"
+	if !strings.Contains(output, fullID) {
+		t.Errorf("list output should contain full UUID %q, got:\n%s", fullID, output)
+	}
+}
+
+// ── --json output tests ────────────────────────────────────────────────────
+
+func TestMemGetJSON(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "environment", "test-key", "json content", 5)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memGet(context.Background(), client, []string{"--json", "test-id-test-key"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := strings.TrimSpace(buf.String())
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("get --json output should be valid JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result["id"] != "test-id-test-key" {
+		t.Errorf("expected id=%q, got %v", "test-id-test-key", result["id"])
+	}
+	if result["content"] != "json content" {
+		t.Errorf("expected content=%q, got %v", "json content", result["content"])
+	}
+	if result["priority"] != float64(5) {
+		t.Errorf("expected priority=5, got %v", result["priority"])
+	}
+}
+
+func TestMemGetJSONIncludesAllFields(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "project", "full-key", "full content", 4)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memGet(context.Background(), client, []string{"--json", "test-id-full-key"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := strings.TrimSpace(buf.String())
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("JSON parse failed: %v", err)
+	}
+
+	required := []string{"id", "target", "category", "key", "content", "priority", "source", "created_at", "updated_at"}
+	for _, field := range required {
+		if _, ok := result[field]; !ok {
+			t.Errorf("JSON output missing required field: %q", field)
+		}
+	}
+}
+
+func TestMemSearchJSON(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "orchestrator_tasks", "search-1", `{"status":"ready"}`, 3)
+	_ = addTestMemory(client, "memory", "orchestrator_tasks", "search-2", `{"status":"claimed"}`, 4)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memSearch(context.Background(), client, []string{"--json", "orchestrator", "memory"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := strings.TrimSpace(buf.String())
+
+	var results []map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &results); err != nil {
+		t.Fatalf("search --json should output valid JSON array: %v\nOutput: %s", err, output)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+
+	// Check full UUIDs are present
+	for i, r := range results {
+		id, ok := r["id"].(string)
+		if !ok || id == "" {
+			t.Errorf("result[%d]: missing or empty 'id' field", i)
+		}
+	}
+}
+
+func TestMemSearchJSONEmpty(t *testing.T) {
+	client := &testMnemoClient{}
+	// No memories added
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memSearch(context.Background(), client, []string{"--json", "nothing-here", "memory"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := strings.TrimSpace(buf.String())
+
+	if output != "[]" {
+		t.Errorf("empty search --json should output '[]', got: %s", output)
+	}
+}
+
+func TestMemGetDefaultStillWorks(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "environment", "default-test", "default content", 3)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memGet(context.Background(), client, []string{"test-id-default-test"}) // no --json
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "ID:") {
+		t.Error("default get output should contain 'ID:' field label")
+	}
+	if !strings.Contains(output, "Content:") {
+		t.Error("default get output should contain 'Content:' field label")
+	}
+	if !strings.Contains(output, "default content") {
+		t.Error("default get output should contain the content value")
+	}
+}
+
+func TestMemSearchDefaultStillWorks(t *testing.T) {
+	client := &testMnemoClient{}
+	_ = addTestMemory(client, "memory", "orchestrator_tasks", "def-search", `{"status":"ready"}`, 3)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	memSearch(context.Background(), client, []string{"def-search", "memory"})
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Found") {
+		t.Error("default search output should contain 'Found' prefix")
+	}
+	if !strings.Contains(output, "test-id-def-search") {
+		t.Error("default search output should contain full UUID")
+	}
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+func addTestMemory(client *testMnemoClient, target, category, key, content string, priority int32) *pb.MemoryEntry {
+	entry, _ := client.AddMemory(context.Background(), target, category, key, content, priority, "test-agent")
+	return entry
 }

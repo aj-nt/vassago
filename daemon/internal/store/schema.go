@@ -6,7 +6,7 @@ package store
 // Schema version for the Vassago database.
 // Increment on any schema change. The daemon applies migrations
 // sequentially on startup.
-const SchemaVersion = 36
+const SchemaVersion = 37
 
 // SchemaStmts are executed sequentially to create a fresh database.
 // Each entry is a complete SQL statement (no semicolons inside —
@@ -213,6 +213,32 @@ var SchemaStmts = []string{
 		updated_at INTEGER NOT NULL,
 		UNIQUE(peer_id, namespace)
 	)`,
+
+	// --- Orchestration tasks (multi-agent blackboard) ---
+	`CREATE TABLE IF NOT EXISTS tasks (
+		id TEXT PRIMARY KEY,
+		owner TEXT NOT NULL DEFAULT 'default',
+		parent_ids TEXT NOT NULL DEFAULT '[]',
+		status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'claimed', 'done', 'failed', 'dead_letter')),
+		agent_type TEXT NOT NULL,
+		assigned_agent TEXT NOT NULL DEFAULT '',
+		goal TEXT NOT NULL,
+		context TEXT NOT NULL DEFAULT '{}',
+		result_key TEXT NOT NULL DEFAULT '',
+		priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+		created_at INTEGER NOT NULL,
+		claimed_at INTEGER NOT NULL DEFAULT 0,
+		completed_at INTEGER NOT NULL DEFAULT 0,
+		ttl_seconds INTEGER NOT NULL DEFAULT 300,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		max_retries INTEGER NOT NULL DEFAULT 2
+	)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_agent_type ON tasks(agent_type)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent ON tasks(assigned_agent)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -347,4 +373,30 @@ var Migrations = []string{
 		updated_at INTEGER NOT NULL,
 		UNIQUE(peer_id, namespace)
 	)`,
+
+	// Migration 11: Add tasks table (multi-agent orchestration)
+	`CREATE TABLE IF NOT EXISTS tasks (
+		id TEXT PRIMARY KEY,
+		owner TEXT NOT NULL DEFAULT 'default',
+		parent_ids TEXT NOT NULL DEFAULT '[]',
+		status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'claimed', 'done', 'failed', 'dead_letter')),
+		agent_type TEXT NOT NULL,
+		assigned_agent TEXT NOT NULL DEFAULT '',
+		goal TEXT NOT NULL,
+		context TEXT NOT NULL DEFAULT '{}',
+		result_key TEXT NOT NULL DEFAULT '',
+		priority INTEGER NOT NULL DEFAULT 3 CHECK(priority BETWEEN 1 AND 5),
+		created_at INTEGER NOT NULL,
+		claimed_at INTEGER NOT NULL DEFAULT 0,
+		completed_at INTEGER NOT NULL DEFAULT 0,
+		ttl_seconds INTEGER NOT NULL DEFAULT 300,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		max_retries INTEGER NOT NULL DEFAULT 2
+	)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_agent_type ON tasks(agent_type)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent ON tasks(assigned_agent)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)`,
+	`CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)`,
 }

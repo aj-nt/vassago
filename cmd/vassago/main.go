@@ -35,6 +35,8 @@ func main() {
 		cmdConfig(args)
 	case "memory":
 		cmdMemory(args)
+	case "task":
+		cmdTask(args)
 	case "export":
 		cmdMemoryExport(args)
 	case "import":
@@ -69,6 +71,7 @@ Commands:
   status          Show daemon status
   daemon          Run the Vassago daemon (foreground)
   memory          Memory management (add, get, search, list, remove, stats)
+  task            Task management (add, get, list, claim, complete)
   export          Export all memories to JSON file
   import          Import memories from JSON file (with backup)
   hot-block       Show the computed hot block
