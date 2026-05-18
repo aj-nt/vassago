@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,9 +14,10 @@ import (
 	"github.com/aj-nt/vassago/internal/ollama"
 )
 
-// Orchestrator coordinates the full pipeline: decompose → dispatch → poll → synthesize → publish.
+// Orchestrator coordinates the full pipeline: decompose -> dispatch -> poll -> synthesize -> publish.
 type Orchestrator struct {
 	cfg        *Config
+	ctx        context.Context
 	daemon     client.MnemoClient
 	decomposer *Decomposer
 	synthesis  *SynthesisEngine
@@ -23,7 +25,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates an orchestrator with the given config and daemon connection.
-func NewOrchestrator(cfg *Config, daemon client.MnemoClient) *Orchestrator {
+func NewOrchestrator(ctx context.Context, cfg *Config, daemon client.MnemoClient) *Orchestrator {
 	repoPath := cfg.RepoPath
 	if repoPath == "" {
 		repoPath = "."
@@ -52,6 +54,7 @@ func NewOrchestrator(cfg *Config, daemon client.MnemoClient) *Orchestrator {
 
 	return &Orchestrator{
 		cfg:        cfg,
+		ctx:        ctx,
 		daemon:     daemon,
 		decomposer: NewDecomposer(llmDecomp),
 		synthesis: &SynthesisEngine{
@@ -93,69 +96,69 @@ func (o *Orchestrator) Run(goal string) (*SynthesisResult, error) {
 	}
 	slog.Info("Decomposed into tasks", "count", len(tasks))
 
-	// Phase 2: Dispatch tasks to daemon
-	slog.Info("Phase 2: Dispatching tasks")
-	taskMap := make(map[string]TaskSpec)
+	// Separate leaf tasks from synthesis (synthesis runs in-process, not on workers)
+	var leafTasks []TaskSpec
 	var synthesisTask *TaskSpec
-
 	for _, t := range tasks {
-		tid := t.TaskID
-		at := t.AgentType
-		goalText := t.Goal
-		ctxJSON, _ := json.Marshal(t.Context)
-		priority := int32(3)
-		if at == "synthesis" {
-			priority = 4
+		if t.AgentType == "synthesis" {
+			st := t
+			synthesisTask = &st
+		} else {
+			leafTasks = append(leafTasks, t)
 		}
+	}
+	slog.Info("Leaf tasks to dispatch", "count", len(leafTasks))
 
-		_, err := o.daemon.AddTask(nil, tid, at, goalText, string(ctxJSON), priority, 300, 2)
+	// Phase 2: Dispatch leaf tasks to daemon for worker execution
+	slog.Info("Phase 2: Dispatching leaf tasks")
+	dispatched := make(map[string]bool)
+	for _, t := range leafTasks {
+		tid := t.TaskID
+		ctxJSON, _ := json.Marshal(t.Context)
+
+		_, err := o.daemon.AddTask(o.ctx, tid, t.AgentType, t.Goal, string(ctxJSON), 3, 300, 2)
 		if err != nil {
 			return nil, fmt.Errorf("dispatch task %s: %w", tid, err)
 		}
 
-		taskMap[tid] = t
-		slog.Info("Dispatched task", "id", tid, "type", at)
-
-		if at == "synthesis" {
-			st := t
-			synthesisTask = &st
-		}
-	}
-
-	if synthesisTask == nil {
-		return nil, fmt.Errorf("no synthesis task in DAG")
+		dispatched[tid] = true
+		slog.Info("Dispatched task", "id", tid, "type", t.AgentType)
 	}
 
 	// Phase 3: Poll for worker completions
 	slog.Info("Phase 3: Polling for results", "max_wait_sec", o.cfg.MaxWaitSec)
-	synthTid := synthesisTask.TaskID
 	start := time.Now()
 	pollInterval := time.Duration(o.cfg.PollIntervalSec) * time.Second
 
-	synthesisReady := false
+	allDone := false
 	for time.Since(start) < time.Duration(o.cfg.MaxWaitSec)*time.Second {
 		time.Sleep(pollInterval)
 
-		synthesisReady = o.pollAndCheckDAG(taskMap, synthTid)
-		if synthesisReady {
+		allDone = true
+		for tid := range dispatched {
+			entry, err := o.daemon.GetTask(o.ctx, tid)
+			if err != nil {
+				slog.Warn("Failed to get task", "id", tid, "error", err)
+				continue
+			}
+			if entry == nil || entry.Status != "done" {
+				allDone = false
+			}
+		}
+		if allDone {
 			break
 		}
 	}
 
-	if !synthesisReady {
+	if !allDone {
 		slog.Warn("Timeout waiting for workers", "elapsed_sec", int(time.Since(start).Seconds()))
-		// Check one more time — maybe the DAG advanced but we missed the window
-		st, _ := o.daemon.GetTask(nil, synthTid)
-		if st != nil && st.Status == "ready" {
-			synthesisReady = true
-		}
 	}
 
-	// Phase 4: Collect results and synthesize
+	// Phase 4: Collect results and synthesize (runs in-process, not on workers)
 	slog.Info("Phase 4: Synthesizing results")
 	taskResults := o.collectResults(synthesisTask)
 	if len(taskResults) == 0 {
-		slog.Warn("No results to synthesize")
+		slog.Warn("No results to synthesize — producing fallback report")
 	}
 
 	synthesis, err := o.synthesis.Synthesize(taskResults)
@@ -164,66 +167,19 @@ func (o *Orchestrator) Run(goal string) (*SynthesisResult, error) {
 	}
 	slog.Info("Synthesis complete", "title", synthesis.Title)
 
-	// Phase 5: Publish final report
+	// Phase 5: Publish final report to blackboard
 	slog.Info("Phase 5: Publishing final report")
-	resultKey := fmt.Sprintf("%s_report", synthTid)
-	if ok, ok2 := synthesisTask.Context["output_key"]; ok2 {
-		if k, ok3 := ok.(string); ok3 {
-			resultKey = k
-		}
-	}
+	reportKey := fmt.Sprintf("orchestrator_report_%d", time.Now().Unix())
 
 	reportJSON, _ := json.Marshal(synthesis)
-	_, err = o.daemon.AddMemory(nil, "memory", "orchestrator_results", resultKey, string(reportJSON), 5, "")
+	_, err = o.daemon.AddMemory(o.ctx, "memory", "orchestrator_results", reportKey, string(reportJSON), 5, "orchestrator")
 	if err != nil {
-		slog.Warn("Failed to store report", "key", resultKey, "error", err)
+		slog.Warn("Failed to store report", "key", reportKey, "error", err)
 	} else {
-		slog.Info("Final report published", "key", resultKey)
-		o.daemon.CompleteTask(nil, synthTid, resultKey)
+		slog.Info("Final report published", "key", reportKey)
 	}
 
 	return synthesis, nil
-}
-
-// pollAndCheckDAG checks if the synthesis task's parents are all done.
-// Returns true when synthesis is ready.
-func (o *Orchestrator) pollAndCheckDAG(taskMap map[string]TaskSpec, synthTid string) bool {
-	// Collect all leaf tasks (non-synthesis)
-	allDone := true
-	for tid, t := range taskMap {
-		if t.AgentType == "synthesis" {
-			continue
-		}
-		entry, err := o.daemon.GetTask(nil, tid)
-		if err != nil {
-			slog.Warn("Failed to get task", "id", tid, "error", err)
-			continue
-		}
-		if entry == nil {
-			continue
-		}
-		if entry.Status != "done" {
-			allDone = false
-		}
-	}
-
-	if !allDone {
-		return false
-	}
-
-	// All parents done — check if synthesis is still blocked
-	st, err := o.daemon.GetTask(nil, synthTid)
-	if err != nil || st == nil {
-		return false
-	}
-
-	if st.Status == "blocked" {
-		// Synthesis task isn't auto-promoted by daemon — orchestrator does it.
-		// For now, synthesis just reads from blackboard directly (doesn't need promotion).
-		return true
-	}
-
-	return st.Status == "ready" || st.Status == "done"
 }
 
 // collectResults reads result memory entries for the synthesis task's dependents.
@@ -234,7 +190,6 @@ func (o *Orchestrator) collectResults(synth *TaskSpec) map[string]*TaskResult {
 	}
 
 	dependents, _ := synth.Context["dependents"].([]string)
-	// Also check if it's []interface{} from JSON roundtrip
 	if depsRaw, ok := synth.Context["dependents"].([]interface{}); ok {
 		for _, d := range depsRaw {
 			if s, ok := d.(string); ok {
@@ -244,13 +199,14 @@ func (o *Orchestrator) collectResults(synth *TaskSpec) map[string]*TaskResult {
 	}
 
 	for _, tid := range dependents {
-		task, err := o.daemon.GetTask(nil, tid)
+		task, err := o.daemon.GetTask(o.ctx, tid)
 		if err != nil || task == nil || task.Status != "done" {
 			continue
 		}
 
-		// Search for the result in the blackboard
-		entries, err := o.daemon.SearchMemories(nil, fmt.Sprintf("result_%s", tid), "memory", 5)
+		// FTS5 indexes content + key + category; the key has result_<tid>_<random>
+		// so this OR disjunction catches both the key prefix and the task_id in content
+		entries, err := o.daemon.SearchMemories(o.ctx, fmt.Sprintf("result_%s*", tid), "memory", 5)
 		if err != nil {
 			slog.Warn("Failed to search for result", "task_id", tid, "error", err)
 			continue

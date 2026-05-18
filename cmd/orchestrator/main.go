@@ -80,7 +80,7 @@ func main() {
 
 	slog.Info("Connected to daemon", "addr", cfg.DaemonAddr)
 
-	orch := NewOrchestrator(cfg, c)
+	orch := NewOrchestrator(ctx, cfg, c)
 
 	if *dryRun {
 		if err := orch.DryRun(goal); err != nil {

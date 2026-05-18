@@ -4,6 +4,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -155,6 +157,42 @@ func (d *LLMDecomposer) Decompose(goal, repoPath string, codebase map[string]int
 		}
 	}
 
+	// Prefix all task IDs with run-specific prefix to avoid cross-run collisions
+	idMap := make(map[string]string) // old -> new
+	for i := range tasks {
+		newID := d.prefix + "_" + tasks[i].TaskID
+		idMap[tasks[i].TaskID] = newID
+		tasks[i].TaskID = newID
+	}
+	// Remap parent_ids
+	for i := range tasks {
+		var newParents []string
+		for _, pid := range tasks[i].ParentIDs {
+			if newPID, ok := idMap[pid]; ok {
+				newParents = append(newParents, newPID)
+			}
+		}
+		tasks[i].ParentIDs = newParents
+	}
+	// Remap dependents in synthesis context
+	for i := range tasks {
+		if tasks[i].Context != nil {
+			if deps, ok := tasks[i].Context["dependents"].([]interface{}); ok {
+				var newDeps []string
+				for _, d := range deps {
+					if s, ok := d.(string); ok {
+						if newS, ok2 := idMap[s]; ok2 {
+							newDeps = append(newDeps, newS)
+						}
+					}
+				}
+				if len(newDeps) > 0 {
+					tasks[i].Context["dependents"] = newDeps
+				}
+			}
+		}
+	}
+
 	return tasks, nil
 }
 
@@ -214,12 +252,11 @@ func cleanJSONResponse(raw string) string {
 	return strings.TrimSpace(s)
 }
 
-// shortUUID returns 6 hex characters for task ID prefixing.
+// shortUUID returns 8 random hex characters for task ID prefixing.
 func shortUUID() string {
-	// Use the first 6 chars of a simple hash of the current nanosecond.
-	// Avoids collisions within a process; not cryptographic.
-	n := uint64(1) // placeholder — caller passes explicit prefix in practice
-	return fmt.Sprintf("%06x", n)
+	b := make([]byte, 4)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // scanCodebase collects basic metadata about a codebase for LLM context.
