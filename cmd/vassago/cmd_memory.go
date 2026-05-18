@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
+	"strings"
 	"time"
 
 	memoclient "github.com/aj-nt/vassago-sdk/client"
@@ -17,18 +17,25 @@ import (
 
 // cmdMemory handles "vassago memory" — memory management commands.
 func cmdMemory(args []string) {
+	// Extract --addr from anywhere in args before determining subcommand.
+	addr := "localhost:50051"
+	filtered := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--addr" && i+1 < len(args):
+			addr = args[i+1]; i++
+		case strings.HasPrefix(arg, "--addr="):
+			addr = strings.TrimPrefix(arg, "--addr=")
+		default:
+			filtered = append(filtered, arg)
+		}
+	}
+	args = filtered
+
 	if len(args) < 1 {
 		fmt.Println(`Usage: vassago memory <subcommand> [args]
-
-Subcommands:
-  add <target> <category> <key> <content>  Add or update a memory
-  get <id>                                  Get a memory by ID
-  search <query>                            FTS5 search
-  list [target]                              List memories (default: memory)
-  remove <id>                                Remove a memory
-  consolidate <scope>                        Run consolidation (expired|idle|observations|all)
-  stats                                       Memory statistics
-
+...
 Use "vassago memory <subcommand> --help" for more information.`)
 		return
 	}
@@ -36,19 +43,12 @@ Use "vassago memory <subcommand> --help" for more information.`)
 	subcmd := args[0]
 	subArgs := args[1:]
 
-	// Only extract -addr from parent; pass the rest through to subcommand.
-	// Subcommands have their own flags (--json, etc.) that the parent must not consume.
-	parentFS := flag.NewFlagSet("memory", flag.ContinueOnError)
-	addr := parentFS.String("addr", "localhost:50051", "Daemon address (host:port)")
-	parentFS.SetOutput(io.Discard) // suppress error messages for subcommand flags
-	_ = parentFS.Parse(subArgs)    // ignore errors; subcommand handles its own flags
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	c, err := memoclient.Connect(ctx, memoclient.Config{Address: *addr})
+	c, err := memoclient.Connect(ctx, memoclient.Config{Address: addr})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting to %s: %v\n", *addr, err)
+		fmt.Fprintf(os.Stderr, "Error connecting to %s: %v\n", addr, err)
 		os.Exit(1)
 	}
 	defer c.Close()
