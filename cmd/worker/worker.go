@@ -23,7 +23,7 @@ type Worker struct {
 	cfg         *Config
 	mnemo       client.MnemoClient
 	ollama      *OllamaClient
-	agentID     string
+	agentID     string // nolint:unused
 	completed   int
 	failed      int
 }

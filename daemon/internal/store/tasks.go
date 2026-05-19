@@ -127,7 +127,7 @@ func (s *Store) GetTask(id string) (*TaskEntry, error) {
 		return nil, fmt.Errorf("get task: %w", err)
 	}
 	if parentJSON != "" && parentJSON != "[]" {
-		json.Unmarshal([]byte(parentJSON), &t.ParentIDs)
+		_ = json.Unmarshal([]byte(parentJSON), &t.ParentIDs)
 	}
 	return t, nil
 }
@@ -316,7 +316,7 @@ func (s *Store) queryTasks(query string, args ...any) ([]*TaskEntry, error) {
 			return nil, fmt.Errorf("scan task: %w", err)
 		}
 		if parentJSON != "" && parentJSON != "[]" {
-			json.Unmarshal([]byte(parentJSON), &t.ParentIDs)
+			_ = json.Unmarshal([]byte(parentJSON), &t.ParentIDs)
 		}
 		tasks = append(tasks, t)
 	}

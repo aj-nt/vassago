@@ -41,6 +41,7 @@ func NewPeer(cfg PeerConfig) *Peer {
 
 // Connect establishes a gRPC connection to the peer.
 func (p *Peer) Connect(ctx context.Context) error {
+	// nolint:staticcheck // SA1019: DialContext remains supported throughout 1.x
 	conn, err := grpc.DialContext(ctx, p.Addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),

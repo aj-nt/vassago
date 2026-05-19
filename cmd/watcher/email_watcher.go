@@ -75,6 +75,7 @@ func (w *emailWatcher) stop() {
 }
 
 // storeObservation saves a watcher observation as a daemon memory.
+// nolint:unused
 func storeObservation(ctx context.Context, c client.MnemoClient, agentID, category, key, content string, priority int32) {
 	_, err := c.AddMemory(ctx, "memory", category, key, content, priority, agentID)
 	if err != nil {
