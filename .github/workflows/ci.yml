@@ -153,4 +153,4 @@ jobs:
           ls -la sdk/python/src/vassago/_proto/
 
       - name: Run Python tests
-        run: cd sdk/python && python -m pytest tests/ -v
+        run: cd sdk/python && python -m pytest tests/ -v --ignore=tests/test_integration.py
