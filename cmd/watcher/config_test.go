@@ -1,3 +1,6 @@
+// This file is part of Vassago.
+// See LICENSE-AGPLv3 for license information.
+
 package main
 
 import (
