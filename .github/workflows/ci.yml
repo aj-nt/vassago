@@ -128,7 +128,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: aj-nt/vassago-sdk
-          path: /tmp/vassago-sdk
+          path: vassago-sdk
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -142,11 +142,11 @@ jobs:
         run: |
           mkdir -p sdk/python/src/vassago/_proto
           python -m grpc_tools.protoc \
-            -I /tmp/vassago-sdk/proto \
+            -I vassago-sdk/proto \
             --python_out=sdk/python/src/vassago/_proto \
             --grpc_python_out=sdk/python/src/vassago/_proto \
-            /tmp/vassago-sdk/proto/vassago.proto \
-            /tmp/vassago-sdk/proto/messaging.proto
+            vassago-sdk/proto/vassago.proto \
+            vassago-sdk/proto/messaging.proto
           ls -la sdk/python/src/vassago/_proto/
 
       - name: Run Python tests
