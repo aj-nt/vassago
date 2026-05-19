@@ -18,7 +18,7 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, List, Optional
 
 import grpc
 from grpc import aio
@@ -329,6 +329,7 @@ class VassagoClient:
         target: str = "memory",
         agent_id: str = "",
         char_limit: int = 8000,
+        suppress_categories: Optional[List[str]] = None,
     ) -> HotBlock:
         """Get the computed hot block — priority-sorted context for prompt injection.
 
@@ -336,14 +337,22 @@ class VassagoClient:
             target: "memory" or "user".
             agent_id: Agent ID for self-exclusion in Telepathy.
             char_limit: Maximum characters in the hot block.
+            suppress_categories: Categories to suppress from the hot block
+                (e.g. ["orchestrator_results", "orchestrator_tasks"]).
 
         Returns:
             The HotBlock with formatted content.
         """
+        config = None
+        if suppress_categories:
+            config = pb.HotBlockConfig(
+                suppress_categories=suppress_categories,
+            )
         req = pb.HotBlockRequest(
             target=target,
             agent_id=agent_id,
             char_limit=char_limit,
+            config=config,
         )
         resp = await self._call(self._stub.GetHotBlock, req)
         return HotBlock.from_proto(resp)
