@@ -44,6 +44,13 @@ sdk/python/src/*.egg-info/
 __pycache__/
 *.pyc
 
+# Research / spike code (not part of the build)
+spike/
+
+# Generated Python gRPC stubs (sdk subdirectory)
+sdk/python/src/vassago/_proto/*_pb2.py
+sdk/python/src/vassago/_proto/*_pb2_grpc.py
+
 # Local deploy scripts
 deploy-studio.sh
 go.mod.bak

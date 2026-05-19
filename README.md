@@ -103,7 +103,7 @@ make build
 | `dashboard` | Web dashboard (live stats, search, memory browser, hot block viewer) | ✅ |
 | `migration` | Hermes → Vassago data migration tooling | ✅ |
 
-**Total: ~33K lines of Go, 667 tests, 16 packages, all green.**
+**Total: ~33K lines of Go, 632 tests, 17 packages, all green.**
 
 ## Configuration
 
