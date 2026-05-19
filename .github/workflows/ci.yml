@@ -147,6 +147,9 @@ jobs:
             --grpc_python_out=sdk/python/src/vassago/_proto \
             vassago-sdk/proto/vassago.proto \
             vassago-sdk/proto/messaging.proto
+          # grpc_tools generates absolute imports; fix to relative for package use
+          sed -i.bak 's/^import vassago_pb2 as /from . import vassago_pb2 as /' sdk/python/src/vassago/_proto/vassago_pb2_grpc.py
+          sed -i.bak 's/^import messaging_pb2 as /from . import messaging_pb2 as /' sdk/python/src/vassago/_proto/messaging_pb2_grpc.py
           ls -la sdk/python/src/vassago/_proto/
 
       - name: Run Python tests
