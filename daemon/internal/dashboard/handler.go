@@ -201,7 +201,7 @@ func (h *Handler) handleHotBlock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(hbJSON{
+	_ = json.NewEncoder(w).Encode(hbJSON{
 		Content:    result.Content,
 		CharCount:  int(result.CharCount),
 		EntryCount: int(result.EntryCount),
