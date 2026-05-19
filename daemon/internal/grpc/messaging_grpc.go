@@ -37,8 +37,8 @@ func NewMessagingService() *MessagingService {
 }
 
 // AddAdapter adds a messaging adapter for a specific platform.
-// It verifies that the platform key matches the adapter's PlatformName(),
-// then connects the adapter immediately so SendMessage works without a subscriber.
+// It verifies that the platform key matches the adapter's PlatformName().
+// Connection is deferred to startAdapters to avoid races.
 func (s *MessagingService) AddAdapter(platform string, adapter messaging.MessagingAdapter) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -51,16 +51,6 @@ func (s *MessagingService) AddAdapter(platform string, adapter messaging.Messagi
 	}
 
 	s.adapters[platform] = adapter
-
-	// Connect eagerly so SendMessage works without a SubscribeToMessages call
-	go func() {
-		if err := adapter.Connect(context.Background()); err != nil {
-			slog.Error("Failed to connect messaging adapter", "platform", platform, "error", err)
-			return
-		}
-		s.adaptersStarted[platform] = true
-		slog.Info("Messaging adapter connected", "platform", platform)
-	}()
 }
 
 // Status returns the connection status of all adapters.
