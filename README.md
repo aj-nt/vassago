@@ -133,7 +133,7 @@ cron:
 extraction:
   enabled: false
   model: "claude-sonnet-4-5"
-  base_url: "https://api.anthropic.com/v1"
+  base_url: "https://api.anthropic.com"
   api_key: ""
   debounce_interval: 30
   hard_cap_interval: 900
