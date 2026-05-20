@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
+	"github.com/aj-nt/vassago/daemon/internal/pubsub"
 	"github.com/aj-nt/vassago/daemon/internal/store"
 	pb "github.com/aj-nt/vassago-sdk/proto"
 	"google.golang.org/grpc/codes"
@@ -109,6 +110,9 @@ func (s *Service) CompleteTask(ctx context.Context, req *pb.CompleteTaskRequest)
 		return nil, status.Errorf(codes.NotFound, "task not found: %s", req.TaskId)
 	}
 
+	// Publish to subscribers (nil-safe)
+	s.publishTaskEvent(entry)
+
 	return taskEntryToProto(entry), nil
 }
 
@@ -126,6 +130,9 @@ func (s *Service) FailTask(ctx context.Context, req *pb.FailTaskRequest) (*pb.Ta
 	if entry == nil {
 		return nil, status.Errorf(codes.NotFound, "task not found: %s", req.TaskId)
 	}
+
+	// Publish to subscribers (nil-safe)
+	s.publishTaskEvent(entry)
 
 	return taskEntryToProto(entry), nil
 }
@@ -202,6 +209,22 @@ func (s *Service) DeleteTask(ctx context.Context, req *pb.DeleteTaskRequest) (*p
 	}
 
 	return &pb.DeleteTaskResponse{Deleted: deleted}, nil
+}
+
+// publishTaskEvent publishes a TASK_STATUS_CHANGED event to the pub/sub hub.
+// Nil-safe: if the daemon was started without a hub, this is a no-op.
+func (s *Service) publishTaskEvent(entry *store.TaskEntry) {
+	if s.hub == nil {
+		return
+	}
+	s.hub.Publish(pubsub.Event{
+		Type:     pb.UpdateEvent_TASK_STATUS_CHANGED,
+		Target:   "task",
+		Category: string(entry.Status),
+		Key:      entry.ID,
+		AgentID:  entry.AssignedAgent,
+		Task:     taskEntryToProto(entry),
+	})
 }
 
 // taskEntryToProto converts a store task to a proto TaskEntry.

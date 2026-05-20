@@ -73,6 +73,9 @@ func (s *Service) Subscribe(req *pb.SubscribeRequest, stream pb.Vassago_Subscrib
 			if event.CronFire != nil {
 				updateEvent.CronFire = event.CronFire
 			}
+			if event.Task != nil {
+				updateEvent.Task = event.Task
+			}
 			if err := stream.Send(updateEvent); err != nil {
 				slog.Error("failed to send update", "agent_id", agentID, "error", err)
 				return err

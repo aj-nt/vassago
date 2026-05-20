@@ -20,6 +20,7 @@ type Event struct {
 	AgentID  string
 	Entry    *pb.MemoryEntry
 	CronFire *pb.CronFireEvent
+	Task     *pb.TaskEntry
 }
 
 // Subscription represents an agent's subscription to change events.
