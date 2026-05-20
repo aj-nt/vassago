@@ -239,6 +239,22 @@ var SchemaStmts = []string{
 	`CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent ON tasks(assigned_agent)`,
 	`CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)`,
 	`CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)`,
+
+	// FTS5 index for fuzzy capability matching.
+	`CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(agent_type, goal, content=tasks, content_rowid=rowid, tokenize='unicode61')`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_insert AFTER INSERT ON tasks BEGIN
+		INSERT INTO tasks_fts(rowid, agent_type, goal) VALUES (new.rowid, new.agent_type, new.goal);
+	END`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_update AFTER UPDATE ON tasks BEGIN
+		INSERT INTO tasks_fts(tasks_fts, rowid, agent_type, goal) VALUES ('delete', old.rowid, old.agent_type, old.goal);
+		INSERT INTO tasks_fts(rowid, agent_type, goal) VALUES (new.rowid, new.agent_type, new.goal);
+	END`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_delete AFTER DELETE ON tasks BEGIN
+		INSERT INTO tasks_fts(tasks_fts, rowid, agent_type, goal) VALUES ('delete', old.rowid, old.agent_type, old.goal);
+	END`,
 }
 
 // Migrations is a list of SQL statements to apply sequentially.
@@ -399,4 +415,22 @@ var Migrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent ON tasks(assigned_agent)`,
 	`CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)`,
 	`CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)`,
+
+	// Migration 12: Add FTS5 index on tasks for fuzzy capability matching.
+	// Enables FindReadyTasks to use MATCH queries for partial agent_type lookup
+	// (e.g., "static" matching "static_analysis") instead of exact equality.
+	`CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(agent_type, goal, content=tasks, content_rowid=rowid, tokenize='unicode61')`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_insert AFTER INSERT ON tasks BEGIN
+		INSERT INTO tasks_fts(rowid, agent_type, goal) VALUES (new.rowid, new.agent_type, new.goal);
+	END`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_update AFTER UPDATE ON tasks BEGIN
+		INSERT INTO tasks_fts(tasks_fts, rowid, agent_type, goal) VALUES ('delete', old.rowid, old.agent_type, old.goal);
+		INSERT INTO tasks_fts(rowid, agent_type, goal) VALUES (new.rowid, new.agent_type, new.goal);
+	END`,
+
+	`CREATE TRIGGER IF NOT EXISTS tasks_fts_delete AFTER DELETE ON tasks BEGIN
+		INSERT INTO tasks_fts(tasks_fts, rowid, agent_type, goal) VALUES ('delete', old.rowid, old.agent_type, old.goal);
+	END`,
 }

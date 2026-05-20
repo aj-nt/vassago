@@ -17,7 +17,7 @@ require (
 )
 
 require (
-	github.com/aj-nt/vassago-sdk v0.3.0
+	github.com/aj-nt/vassago-sdk v0.4.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
