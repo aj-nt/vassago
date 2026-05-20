@@ -212,14 +212,13 @@ type Daemon struct {
 }
 
 // transportCredentials returns TLS credentials if configured, otherwise nil.
-// nolint:unused // This function is kept for potential future use
-func (d *Daemon) transportCredentials() (credentials.TransportCredentials, error) {
-	if d.config.Daemon.TLS.Cert == "" || d.config.Daemon.TLS.Key == "" {
+func transportCredentials(cfg *Config) (credentials.TransportCredentials, error) {
+	if cfg.Daemon.TLS.Cert == "" || cfg.Daemon.TLS.Key == "" {
 		return nil, nil
 	}
 
 	// Load TLS certificate and key
-	cert, err := tls.LoadX509KeyPair(d.config.Daemon.TLS.Cert, d.config.Daemon.TLS.Key)
+	cert, err := tls.LoadX509KeyPair(cfg.Daemon.TLS.Cert, cfg.Daemon.TLS.Key)
 	if err != nil {
 		return nil, fmt.Errorf("load TLS key pair: %w", err)
 	}
@@ -292,14 +291,22 @@ func New(cfg *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
-	// Create gRPC server with interceptors and hardening options
+	// Create gRPC server with interceptors, TLS, and hardening options
 	unaryInt, streamInt := daemongrpc.Interceptors(cfg.Daemon.APIKey)
-	server := grpc.NewServer(
+	tlsCreds, err := transportCredentials(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS credentials: %w", err)
+	}
+	opts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(daemongrpc.RecoveryInterceptor, unaryInt),
 		grpc.StreamInterceptor(streamInt),
-		grpc.MaxRecvMsgSize(10*1024*1024),      // 10MB max message size
+		grpc.MaxRecvMsgSize(10 * 1024 * 1024), // 10MB max message size
 		grpc.MaxConcurrentStreams(uint32(100)), // Limit concurrent streams
-	)
+	}
+	if tlsCreds != nil {
+		opts = append(opts, grpc.Creds(tlsCreds))
+	}
+	server := grpc.NewServer(opts...)
 
 	// Create pub/sub hub
 	hub := pubsub.NewHub()
