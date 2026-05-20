@@ -34,6 +34,12 @@ func TestAPIKeyInterceptor(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "valid API key bearer",
+			apiKey:      "test-key",
+			metadata:    metadata.MD{"authorization": []string{"Bearer test-key"}},
+			expectError: false,
+		},
+		{
 			name:        "missing API key",
 			apiKey:      "test-key",
 			metadata:    metadata.MD{},
@@ -100,6 +106,12 @@ func TestStreamAPIKeyInterceptor(t *testing.T) {
 			name:        "valid API key",
 			apiKey:      "test-key",
 			metadata:    metadata.MD{"x-api-key": []string{"test-key"}},
+			expectError: false,
+		},
+		{
+			name:        "valid API key bearer",
+			apiKey:      "test-key",
+			metadata:    metadata.MD{"authorization": []string{"Bearer test-key"}},
 			expectError: false,
 		},
 		{

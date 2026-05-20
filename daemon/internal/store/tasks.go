@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -200,6 +201,7 @@ func (s *Store) FailTask(taskID string) (*TaskEntry, error) {
 }
 
 // FindReadyTasks returns tasks with status=ready, filtered by agent_type if non-empty.
+// Falls back to FTS5 prefix matching when exact agent_type match returns nothing.
 func (s *Store) FindReadyTasks(agentType string, limit int) ([]*TaskEntry, error) {
 	if limit <= 0 {
 		limit = 20
@@ -219,7 +221,29 @@ func (s *Store) FindReadyTasks(agentType string, limit int) ([]*TaskEntry, error
 	query += " ORDER BY priority DESC, created_at ASC LIMIT ?"
 	args = append(args, limit)
 
-	return s.queryTasks(query, args...)
+	tasks, err := s.queryTasks(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// FTS5 fuzzy fallback — if exact match returned nothing, try prefix search
+	if len(tasks) == 0 && agentType != "" {
+		ftsQuery := `SELECT id, owner, parent_ids, status, agent_type, assigned_agent,
+			goal, context, result_key, priority, created_at, claimed_at, completed_at,
+			ttl_seconds, retry_count, max_retries
+			FROM tasks WHERE status = ? AND rowid IN (
+				SELECT rowid FROM tasks_fts WHERE tasks_fts MATCH ?
+			)
+			ORDER BY priority DESC, created_at ASC LIMIT ?`
+		ftsArgs := []any{string(TaskReady), fmt.Sprintf(`agent_type:"%s"*`, agentType), limit}
+		tasks, err = s.queryTasks(ftsQuery, ftsArgs...)
+		if err != nil {
+			slog.Debug("FTS5 fuzzy fallback failed, returning empty", "agent_type", agentType, "error", err)
+			return nil, nil // original exact query already returned empty; propagate gracefully
+		}
+	}
+
+	return tasks, nil
 }
 
 // ListTasksByStatus returns tasks filtered by status (or all if empty).

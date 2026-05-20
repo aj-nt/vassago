@@ -5,6 +5,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,6 +14,7 @@ import (
 )
 
 // APIKeyInterceptor checks for a valid API key in the request metadata.
+// Accepts both x-api-key and Authorization: Bearer <key> headers.
 func APIKeyInterceptor(apiKey string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// Skip authentication for health check endpoints
@@ -31,23 +33,20 @@ func APIKeyInterceptor(apiKey string) grpc.UnaryServerInterceptor {
 			return nil, status.Errorf(codes.Unauthenticated, "metadata not provided")
 		}
 
-		// Check for API key in headers
-		values := md.Get("x-api-key")
-		if len(values) == 0 {
+		key := extractKey(md)
+		if key == "" {
 			return nil, status.Errorf(codes.Unauthenticated, "API key not provided")
 		}
-
-		// Validate API key
-		if values[0] != apiKey {
+		if key != apiKey {
 			return nil, status.Errorf(codes.Unauthenticated, "invalid API key")
 		}
 
-		// Proceed with the handler
 		return handler(ctx, req)
 	}
 }
 
 // StreamAPIKeyInterceptor checks for a valid API key in stream request metadata.
+// Accepts both x-api-key and Authorization: Bearer <key> headers.
 func StreamAPIKeyInterceptor(apiKey string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		// Skip authentication for health check endpoints
@@ -66,18 +65,30 @@ func StreamAPIKeyInterceptor(apiKey string) grpc.StreamServerInterceptor {
 			return status.Errorf(codes.Unauthenticated, "metadata not provided")
 		}
 
-		// Check for API key in headers
-		values := md.Get("x-api-key")
-		if len(values) == 0 {
+		key := extractKey(md)
+		if key == "" {
 			return status.Errorf(codes.Unauthenticated, "API key not provided")
 		}
-
-		// Validate API key
-		if values[0] != apiKey {
+		if key != apiKey {
 			return status.Errorf(codes.Unauthenticated, "invalid API key")
 		}
 
-		// Proceed with the handler
 		return handler(srv, ss)
 	}
+}
+
+// extractKey extracts the API key from gRPC metadata.
+// Tries x-api-key first, then Authorization: Bearer <key>.
+func extractKey(md metadata.MD) string {
+	if values := md.Get("x-api-key"); len(values) > 0 {
+		return values[0]
+	}
+	if values := md.Get("authorization"); len(values) > 0 {
+		v := values[0]
+		if after, ok := strings.CutPrefix(v, "Bearer "); ok {
+			return after
+		}
+		return v
+	}
+	return ""
 }
