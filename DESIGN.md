@@ -524,8 +524,9 @@ rewrite it as production code using TDD.
 ### 10.2 TDD for Production Code
 
 Every production feature starts with a test. Write the test, watch it fail,
-write the minimum code to pass, refactor. The Hermes memory system had 0 tests
-when the bugs were found. Never again.
+write the minimum code to pass, refactor. We learned this the hard way: an
+earlier memory system we built lacked tests, and when bugs surfaced there
+was no safety net. Every fix risked new breakage. Never again.
 
 ### 10.3 QA Gates
 
