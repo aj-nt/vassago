@@ -8,7 +8,7 @@ import (
 // --- Cron Jobs ---
 
 func TestMemStoreScheduleJob(t *testing.T) {
-	store := NewMemStore("hermes")
+	store := NewMemStore("test-agent")
 	ctx := context.Background()
 
 	job, err := store.ScheduleJob(ctx, "memory-backup", "0 3 * * *", "Backup memory", true)
@@ -27,8 +27,8 @@ func TestMemStoreScheduleJob(t *testing.T) {
 	if job.Message != "Backup memory" {
 		t.Errorf("ScheduleJob: message = %q", job.Message)
 	}
-	if job.AgentID != "hermes" {
-		t.Errorf("ScheduleJob: AgentID = %q, want %q", job.AgentID, "hermes")
+	if job.AgentID != "test-agent" {
+		t.Errorf("ScheduleJob: AgentID = %q, want %q", job.AgentID, "test-agent")
 	}
 	if !job.Enabled {
 		t.Error("ScheduleJob: enabled should be true")

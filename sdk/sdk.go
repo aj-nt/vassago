@@ -10,7 +10,7 @@
 //
 //	store, err := sdk.Connect(ctx, sdk.Config{
 //	    Address:   "localhost:50051",
-//	    AgentName: "hermes",
+//	    AgentName: "my-agent",
 //	})
 //	if err != nil { ... }
 //	defer store.Close()
@@ -39,7 +39,7 @@ type Config struct {
 	// Address is the daemon's gRPC address (e.g., "localhost:50051").
 	Address string
 
-	// AgentName identifies this agent to the daemon (e.g., "hermes").
+	// AgentName identifies this agent to the daemon (e.g., "my-agent").
 	// Must be non-empty.
 	AgentName string
 

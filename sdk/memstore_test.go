@@ -253,9 +253,9 @@ func TestMemStoreHotBlock(t *testing.T) {
 }
 
 func TestMemStoreAgentName(t *testing.T) {
-	store := NewMemStore("hermes")
-	if store.AgentName() != "hermes" {
-		t.Errorf("AgentName: got %q, want %q", store.AgentName(), "hermes")
+	store := NewMemStore("test-agent")
+	if store.AgentName() != "test-agent" {
+		t.Errorf("AgentName: got %q, want %q", store.AgentName(), "test-agent")
 	}
 }
 

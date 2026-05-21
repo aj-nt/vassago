@@ -3,7 +3,7 @@
 
 // Package sdk demonstrates integrating with the Vassago memory daemon.
 //
-// # Quick start — Hermes as a memory-backed agent
+// # Quick start — use the Vassago SDK in your own agent
 //
 //	import "github.com/aj-nt/vassago/sdk"
 //
@@ -13,7 +13,7 @@
 //	    // One-liner: connect, register, heartbeat, subscribe.
 //	    store, err := sdk.Connect(ctx, sdk.Config{
 //	        Address:   "localhost:50051",
-//	        AgentName: "hermes",
+//	        AgentName: "my-agent",
 //	    })
 //	    if err != nil {
 //	        log.Fatal(err)
@@ -42,13 +42,13 @@
 //
 // # Responding to platform messages (Discord, Telegram, etc.)
 //
-//	store, _ := sdk.Connect(ctx, sdk.Config{Address: "...", AgentName: "hermes"})
+//	store, _ := sdk.Connect(ctx, sdk.Config{Address: "...", AgentName: "my-agent"})
 //	cm := sdk.NewConversationManager(store, myHandler, sdk.ConversationManagerConfig{})
 //	cm.Run(ctx)
 //
 //	func myHandler(ctx context.Context, event *pb.MessageEvent, conv *sdk.Conversation) (string, error) {
 //	    // event.Platform = "discord", event.SenderName = "@user"
 //	    // conv.SessionID is persistent across turns for this channel.
-//	    return "Hello from Hermes!", nil
+//	    return "Hello from my-agent!", nil
 //	}
 package sdk

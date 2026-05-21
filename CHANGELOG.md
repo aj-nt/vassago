@@ -4,7 +4,9 @@ All notable changes to Vassago.
 
 ## [Unreleased]
 
-Vassago is a shared memory daemon for AI agents — one daemon, many agents, zero echo loops. Not yet released.
+## [0.1.0] - 2026-05-21
+
+First public release. Vassago is a shared memory daemon for AI agents — one daemon, many agents, zero echo loops.
 
 ### Core — Daemon
 
@@ -47,7 +49,7 @@ Vassago is a shared memory daemon for AI agents — one daemon, many agents, zer
 
 ### Development
 
-- **632 tests** — all passing with `-race` (race detector)
+- **918 tests** — all passing with `-race` (race detector)
 - **3 CI workflows** — test+vet+lint+vulncheck, QA gate (adds proto diff), release (goreleaser)
 - **GoReleaser** — 4 binaries (darwin+linux, arm64+amd64), Homebrew formula
 - **Docker** — single Dockerfile + docker-compose, starts daemon by default

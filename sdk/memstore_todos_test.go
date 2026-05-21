@@ -8,7 +8,7 @@ import (
 // --- Todos ---
 
 func TestMemStoreAddTodo(t *testing.T) {
-	store := NewMemStore("hermes")
+	store := NewMemStore("test-agent")
 	ctx := context.Background()
 
 	todo, err := store.AddTodo(ctx, "Write SDK tests", 5)
@@ -24,8 +24,8 @@ func TestMemStoreAddTodo(t *testing.T) {
 	if todo.Priority != 5 {
 		t.Errorf("AddTodo: priority = %d, want 5", todo.Priority)
 	}
-	if todo.SourceAgent != "hermes" {
-		t.Errorf("AddTodo: SourceAgent = %q, want %q", todo.SourceAgent, "hermes")
+	if todo.SourceAgent != "test-agent" {
+		t.Errorf("AddTodo: SourceAgent = %q, want %q", todo.SourceAgent, "test-agent")
 	}
 	if todo.Completed {
 		t.Error("AddTodo: new todo should not be completed")
