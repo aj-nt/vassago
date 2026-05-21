@@ -486,3 +486,10 @@ func (m *MemStore) AgentName() string { return m.agentName }
 
 // IsConnected always returns true for MemStore.
 func (m *MemStore) IsConnected() bool { return true }
+
+// SubscribeToMessages is a stub that returns an error since MemStore
+// has no daemon connection. It satisfies the messageStore interface
+// so ConversationManager can use MemStore in tests.
+func (m *MemStore) SubscribeToMessages(ctx context.Context) (pb.Messaging_SubscribeToMessagesClient, error) {
+	return nil, fmt.Errorf("MemStore: SubscribeToMessages not supported (no daemon connection)")
+}

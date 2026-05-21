@@ -50,7 +50,7 @@ func platformKey(platform, channelID string) string {
 //	cm := sdk.NewConversationManager(store, myHandler)
 //	cm.Run(ctx) // blocks until ctx cancelled
 type ConversationManager struct {
-	store   *MemoryStore
+	store   messageStore
 	handler MessageHandler
 
 	// Per-channel session state
@@ -62,6 +62,17 @@ type ConversationManager struct {
 	// Config
 	responseTimeout time.Duration
 	maxMsgChars     int
+}
+
+// messageStore is the subset of MemoryStore needed by handleMessage and helpers,
+// plus the streaming subscription used by Run().
+// Both *MemoryStore (gRPC-backed) and *MemStore (in-memory/test) satisfy this interface.
+type messageStore interface {
+	CreateSession(ctx context.Context, source, title string) (string, error)
+	AppendMessages(ctx context.Context, sessionID string, messages []client.Message) error
+	SendMessage(ctx context.Context, platform, target, message string) (string, error)
+	AgentName() string
+	SubscribeToMessages(ctx context.Context) (pb.Messaging_SubscribeToMessagesClient, error)
 }
 
 // ConversationManagerConfig holds optional settings.
@@ -77,7 +88,7 @@ type ConversationManagerConfig struct {
 
 // NewConversationManager creates a ConversationManager that routes incoming
 // platform messages through the provided handler.
-func NewConversationManager(store *MemoryStore, handler MessageHandler, cfg ConversationManagerConfig) *ConversationManager {
+func NewConversationManager(store messageStore, handler MessageHandler, cfg ConversationManagerConfig) *ConversationManager {
 	if cfg.ResponseTimeout <= 0 {
 		cfg.ResponseTimeout = 120 * time.Second
 	}
