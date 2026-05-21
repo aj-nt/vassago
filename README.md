@@ -14,8 +14,11 @@ Vassago is a gRPC memory daemon written in Go. It gives AI agents durable shared
 # Build
 make build
 
-# Run (defaults: unix socket + localhost:50051)
-./bin/vassago-daemon
+# Or build just the daemon
+go build -o vassago-daemon ./daemon/cmd/vassago-daemon/
+
+# Run (defaults: localhost:50051)
+./vassago-daemon
 
 # Or with a config file
 ./bin/vassago-daemon --config config.yaml

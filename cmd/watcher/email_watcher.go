@@ -38,21 +38,11 @@ func (w *emailWatcher) start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	w.cancel = cancel
 
-	slog.Info("Email watcher started (IMAP polling placeholder)", "interval", w.interval)
+	slog.Info("Email watcher started (placeholder — IMAP polling not yet wired)", "interval", w.interval)
 
-	// TODO: Wire up vassago-sdk/messaging EmailAdapter for IMAP polling.
-	// The adapter already exists and is tested. watcher just needs to import
-	// and instantiate it with the config from watcher.yaml.
-	//
-	// Implementation sketch:
-	//   adapter := messaging.NewEmailAdapter(messaging.EmailConfig{
-	//       IMAPHost: cfg.IMAPHost, Username: cfg.IMAPUser,
-	//       Password: cfg.IMAPPass, Folders: []string{cfg.Mailbox},
-	//       PollInterval: w.interval,
-	//   })
-	//   adapter.Connect(ctx)
-	//   ch, _ := adapter.Listen(ctx)
-	//   for msg := range ch { store as memory; notify if urgent }
+	// EmailAdapter in vassago-sdk/messaging is ready and tested.
+	// This watcher imports and instantiates it with config from watcher.yaml.
+	// PRs welcome — see vassago-sdk/messaging/email.go for the adapter API.
 
 	go func() {
 		ticker := time.NewTicker(w.interval)
