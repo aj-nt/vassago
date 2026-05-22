@@ -247,9 +247,9 @@ func (s *Store) RemoveMemory(id, owner string) (bool, error) {
 
 // ListMemories returns memories matching the given filters.
 // Results are ordered by priority DESC, updated_at DESC.
-// Uses a default limit of 1000.
+// Uses the configured default result limit.
 func (s *Store) ListMemories(owner, target string, category string, minPriority int32) ([]*MemoryEntry, error) {
-	return s.listMemories(owner, target, category, minPriority, 1000, 0, false)
+	return s.listMemories(owner, target, category, minPriority, defaultResultLimit, 0, false)
 }
 
 // ListMemoriesPaginated returns memories with explicit pagination.

@@ -87,6 +87,14 @@ func memoryEntryToProto(e *store.MemoryEntry) *pb.MemoryEntry {
 	}
 }
 
+func memoryEntriesToProto(entries []*store.MemoryEntry) []*pb.MemoryEntry {
+	pbEntries := make([]*pb.MemoryEntry, len(entries))
+	for i, e := range entries {
+		pbEntries[i] = memoryEntryToProto(e)
+	}
+	return pbEntries
+}
+
 func sessionToProto(sess *store.Session) *pb.Session {
 	return &pb.Session{
 		Id:           sess.ID,

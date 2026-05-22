@@ -124,10 +124,7 @@ func (s *Service) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest)
 		return nil, status.Errorf(codes.Internal, "list memories: %v", err)
 	}
 
-	pbEntries := make([]*pb.MemoryEntry, len(entries))
-	for i, e := range entries {
-		pbEntries[i] = memoryEntryToProto(e)
-	}
+	pbEntries := memoryEntriesToProto(entries)
 
 	return &pb.MemoryList{Entries: pbEntries}, nil
 }

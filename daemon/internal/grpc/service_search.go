@@ -30,10 +30,7 @@ func (s *Service) Search(ctx context.Context, req *pb.SearchRequest) (*pb.Search
 		return nil, status.Errorf(codes.Internal, "search: %v", err)
 	}
 
-	pbEntries := make([]*pb.MemoryEntry, len(entries))
-	for i, e := range entries {
-		pbEntries[i] = memoryEntryToProto(e)
-	}
+	pbEntries := memoryEntriesToProto(entries)
 
 	return &pb.SearchResponse{Entries: pbEntries}, nil
 }
