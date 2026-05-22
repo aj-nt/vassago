@@ -26,10 +26,7 @@ func (s *Service) SyncChanges(ctx context.Context, req *pb.SyncChangesRequest) (
 		return nil, status.Errorf(codes.Internal, "get changes: %v", err)
 	}
 
-	pbEntries := make([]*pb.MemoryEntry, len(entries))
-	for i, e := range entries {
-		pbEntries[i] = memoryEntryToProto(e)
-	}
+	pbEntries := memoryEntriesToProto(entries)
 
 	slog.Debug("SyncChanges: served delta", "namespace", req.Namespace, "count", len(pbEntries), "peer", req.PeerId)
 
