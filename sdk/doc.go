@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // Package sdk demonstrates integrating with the Vassago memory daemon.
 //

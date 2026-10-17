@@ -184,6 +184,4 @@ results = client.search("python", target="memory")
 
 ## License
 
-AGPLv3 — see [LICENSE-AGPLv3](LICENSE-AGPLv3).
-
-The `vassago-sdk` (shared proto, client, and messaging packages) is dual-licensed under Apache 2.0.
+Apache-2.0 — see [LICENSE](LICENSE).

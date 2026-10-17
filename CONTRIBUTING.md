@@ -123,7 +123,7 @@ vassago/
 ```
 
 Key principles:
-- **`client/` and `proto/`** are Apache 2.0 — keep them independent of AGPLv3 code
+- **`client/` and `proto/`** are Apache 2.0 — same license as the core
 - **`daemon/internal/`** is private — never import from outside the daemon
 - **Interfaces over structs** — every external dependency has a mock interface
 - **Test externally** — integration tests use real gRPC or bufconn, never mock private internals
@@ -163,6 +163,4 @@ See the [README](README.md) feature table and [DESIGN.md](DESIGN.md) for the ful
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same dual-license model:
-- Core code: GNU AGPLv3
-- Protocol/Client SDK: Apache 2.0
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.

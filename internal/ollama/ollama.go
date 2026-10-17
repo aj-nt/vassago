@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // Package ollama provides a minimal OpenAI-compatible client for Ollama LLM backends.
 // Used by workers and the orchestrator for LLM-powered task execution and

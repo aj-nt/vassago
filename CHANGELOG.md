@@ -4,6 +4,8 @@ All notable changes to Vassago.
 
 ## [Unreleased]
 
+- **Relicensed to Apache-2.0** — dropped the AGPLv3-core / Apache-2.0-protocol split in favor of a single Apache-2.0 license, matching the gaap and vassago-sdk ecosystem.
+
 ## [0.1.0] - 2026-05-21
 
 First public release. Vassago is a shared memory daemon for AI agents — one daemon, many agents, zero echo loops.

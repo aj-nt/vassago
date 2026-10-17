@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // worker is a lightweight task executor for Vassago daemon.
 // It polls for ready tasks matching its configured agent types,

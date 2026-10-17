@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // Package grpc implements the Vassago gRPC service for the daemon.
 //

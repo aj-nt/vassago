@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // watcher is a lightweight monitoring agent for Vassago daemon.
 // It watches external sources (GitHub, email) and stores observations

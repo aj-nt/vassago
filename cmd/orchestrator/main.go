@@ -1,5 +1,5 @@
 // This file is part of Vassago.
-// See LICENSE-AGPLv3 for license information.
+// See LICENSE for license information.
 
 // Orchestrator decomposes high-level goals into task DAGs via LLM, dispatches
 // them to the Vassago daemon for worker execution, polls for completion,
