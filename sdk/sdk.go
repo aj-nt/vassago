@@ -109,7 +109,7 @@ func Connect(ctx context.Context, cfg Config) (*MemoryStore, error) {
 	agent.OnEvent = cfg.OnEvent
 
 	if err := agent.Register(ctx); err != nil {
-		c.Close()
+		_ = c.Close()
 		return nil, fmt.Errorf("sdk: register agent %q: %w", cfg.AgentName, err)
 	}
 

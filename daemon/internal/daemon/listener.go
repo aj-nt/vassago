@@ -15,7 +15,7 @@ import (
 // It removes any stale socket file first and sets permissions to owner-only.
 func ListenUnix(socketPath string) (net.Listener, error) {
 	// Remove stale socket
-	os.Remove(socketPath)
+	_ = os.Remove(socketPath)
 
 	// Ensure directory exists
 	sockDir := dirOfFile(socketPath)
@@ -30,7 +30,7 @@ func ListenUnix(socketPath string) (net.Listener, error) {
 
 	// Set socket permissions — owner only
 	if err := os.Chmod(socketPath, 0600); err != nil {
-		l.Close()
+		_ = l.Close()
 		return nil, fmt.Errorf("chmod socket %s: %w", socketPath, err)
 	}
 

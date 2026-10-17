@@ -285,7 +285,7 @@ func (s *Store) ResetTimedOutTasks() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find timed-out tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var ids []string
 	for rows.Next() {
@@ -327,7 +327,7 @@ func (s *Store) queryTasks(query string, args ...any) ([]*TaskEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tasks []*TaskEntry
 	for rows.Next() {

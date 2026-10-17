@@ -28,7 +28,7 @@ func (s *Store) SearchSessions(query string, limit int) ([]*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("search sessions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []*Session
 	for rows.Next() {
@@ -66,7 +66,7 @@ func (s *Store) ListRecentSessions(limit int) ([]*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list recent sessions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []*Session
 	for rows.Next() {

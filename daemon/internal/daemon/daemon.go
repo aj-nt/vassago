@@ -452,7 +452,7 @@ func setupListeners(cfg DaemonConfig) ([]net.Listener, error) {
 		if err != nil {
 			// Clean up already-opened listeners on error
 			for _, ul := range listeners {
-				ul.Close()
+				_ = ul.Close()
 			}
 			return nil, fmt.Errorf("TCP: %w", err)
 		}
@@ -602,9 +602,9 @@ func (d *Daemon) Run() error {
 
 	// Cleanup
 	if d.config.Daemon.Socket != "" {
-		os.Remove(d.config.Daemon.Socket)
+		_ = os.Remove(d.config.Daemon.Socket)
 	}
-	d.store.Close()
+	_ = d.store.Close()
 
 	slog.Info("vassago daemon stopped")
 	return nil

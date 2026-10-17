@@ -119,7 +119,7 @@ func ImportHermesDB(mnemoStore *store.Store, hermesDBPath string, agentID string
 	if err != nil {
 		return nil, fmt.Errorf("open hermes db: %w", err)
 	}
-	defer hermesDB.Close()
+	defer func() { _ = hermesDB.Close() }()
 
 	// Enable WAL mode for read visibility
 	if _, err := hermesDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
@@ -176,7 +176,7 @@ func importMemories(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, r
 	if err != nil {
 		return fmt.Errorf("query hermes memories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var hasRows bool
 
@@ -273,7 +273,7 @@ func importSessions(mnemoStore *store.Store, hermesDB *sql.DB, agentID string, r
 	if err != nil {
 		return fmt.Errorf("query hermes sessions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var s HermesSession
@@ -353,7 +353,7 @@ func importSessionMessages(mnemoStore *store.Store, hermesDB *sql.DB, mnemoSessi
 	if err != nil {
 		return fmt.Errorf("query messages: %w", err)
 	}
-	defer msgRows.Close()
+	defer func() { _ = msgRows.Close() }()
 
 	batchSize := 0
 	tx, err := mnemoStore.DB().Begin()
@@ -442,7 +442,7 @@ func getHermesSessionColumns(db *sql.DB) (map[string]bool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get session columns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cols := make(map[string]bool)
 	for rows.Next() {
@@ -502,7 +502,7 @@ func getHermesMessageColumns(db *sql.DB) (map[string]bool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get message columns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cols := make(map[string]bool)
 	for rows.Next() {

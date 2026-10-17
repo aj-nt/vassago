@@ -120,7 +120,7 @@ func (s *Store) ListSavedTools(owner, category, author string, limit int) ([]Sav
 	if err != nil {
 		return nil, fmt.Errorf("list saved_tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var result []SavedToolRow
 	for rows.Next() {
@@ -161,7 +161,7 @@ func (s *Store) SearchSavedTools(owner, query, category string, limit int) ([]Sa
 	if err != nil {
 		return nil, fmt.Errorf("search saved_tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var result []SavedToolRow
 	for rows.Next() {

@@ -68,7 +68,7 @@ func (c *HTTPClient) Complete(prompt string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("LLM request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("LLM request returned status %d", resp.StatusCode)

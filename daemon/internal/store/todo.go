@@ -63,7 +63,7 @@ func (s *Store) ListTodos(owner string, includeCompleted bool, sourceAgent strin
 	if err != nil {
 		return nil, fmt.Errorf("ListTodos: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var todos []*pb.TodoItem
 	for rows.Next() {

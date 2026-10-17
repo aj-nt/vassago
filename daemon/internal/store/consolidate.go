@@ -76,7 +76,7 @@ func (s *Store) GetConsolidationCandidates(owner string, scope ConsolidationScop
 	if err != nil {
 		return nil, fmt.Errorf("get consolidation candidates: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	entries, err := scanMemories(rows)
 	if err != nil {

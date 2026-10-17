@@ -99,7 +99,7 @@ func (s *Store) ListCronJobs(owner, agentID string, includeDisabled bool) ([]*pb
 	if err != nil {
 		return nil, fmt.Errorf("ListCronJobs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var jobs []*pb.CronJob
 	for rows.Next() {
@@ -204,7 +204,7 @@ func (s *Store) GetDueCronJobs(now int64) ([]*pb.CronJob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GetDueCronJobs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var jobs []*pb.CronJob
 	for rows.Next() {

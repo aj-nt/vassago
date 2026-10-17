@@ -75,23 +75,23 @@ func New(dbPath string) (*Store, error) {
 
 	// Enable WAL mode for concurrent reads
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
 	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 	// Set busy timeout
 	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("set busy timeout: %w", err)
 	}
 
 	s := &Store{db: db}
 	if err := s.initDB(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 
@@ -292,7 +292,7 @@ func (s *Store) listMemories(owner, target string, category string, minPriority 
 	if err != nil {
 		return nil, fmt.Errorf("list memories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanMemories(rows)
 }

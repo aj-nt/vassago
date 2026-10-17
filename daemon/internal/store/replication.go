@@ -23,7 +23,7 @@ func (s *Store) GetChangesSince(namespace string, since int64) ([]*MemoryEntry, 
 	if err != nil {
 		return nil, fmt.Errorf("query changes since %d: %w", since, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entries []*MemoryEntry
 	for rows.Next() {

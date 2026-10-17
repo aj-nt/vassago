@@ -71,7 +71,7 @@ func (e *Engine) Start(ctx context.Context, peers []PeerConfig) error {
 		case <-ctx.Done():
 			slog.Info("replication: shutting down")
 			for _, p := range e.peers {
-				p.Close()
+				_ = p.Close()
 			}
 			return ctx.Err()
 		case <-ticker.C:

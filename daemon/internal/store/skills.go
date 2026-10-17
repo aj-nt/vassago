@@ -141,7 +141,7 @@ func (s *Store) ListSkills(owner, category, sourceAgent string, limit int) ([]*S
 	if err != nil {
 		return nil, fmt.Errorf("list skills: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanSkills(rows)
 }
@@ -200,7 +200,7 @@ func (s *Store) SearchSkills(owner, query, category string, limit int) ([]*Skill
 	if err != nil {
 		return nil, fmt.Errorf("search skills: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanSkills(rows)
 }

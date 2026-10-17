@@ -257,7 +257,7 @@ func (s *Store) GetSessionMessages(sessionID string) ([]Message, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get session messages: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var messages []Message
 	for rows.Next() {

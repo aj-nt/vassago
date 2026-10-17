@@ -17,16 +17,6 @@ linters:
         - all
         - -ST*
         - -QF*
-    errcheck:
-      exclude-functions:
-        - "(*database/sql.DB).Close"
-        - "(*database/sql.Rows).Close"
-        - "(net.Listener).Close"
-        - "(io.ReadCloser).Close"
-        - "os.Remove"
-        - "(*github.com/aj-nt/vassago/daemon/internal/store.Store).Close"
-        - "(*github.com/aj-nt/vassago/daemon/internal/replication.Peer).Close"
-        - "(*github.com/aj-nt/vassago-sdk/client.Client).Close"
   exclusions:
     rules:
       # ---- Test files: all linters relaxed ----

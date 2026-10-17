@@ -37,7 +37,7 @@ func (s *Store) Search(owner, query string, target string, limit int) ([]*Memory
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanMemories(rows)
 }

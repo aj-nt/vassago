@@ -23,7 +23,7 @@ func DryRunImport(hermesDBPath string, agentID string) (*ImportResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open hermes db: %w", err)
 	}
-	defer hermesDB.Close()
+	defer func() { _ = hermesDB.Close() }()
 
 	if _, err := hermesDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		return nil, fmt.Errorf("set hermes WAL mode: %w", err)
@@ -34,7 +34,7 @@ func DryRunImport(hermesDBPath string, agentID string) (*ImportResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query hermes memories: %w", err)
 	}
-	defer memRows.Close()
+	defer func() { _ = memRows.Close() }()
 
 	for memRows.Next() {
 		var id int64
@@ -60,7 +60,7 @@ func DryRunImport(hermesDBPath string, agentID string) (*ImportResult, error) {
 		log.Printf("WARNING: could not query sessions: %v", err)
 		return result, nil
 	}
-	defer sessRows.Close()
+	defer func() { _ = sessRows.Close() }()
 
 	var sessionIDs []string
 	for sessRows.Next() {
