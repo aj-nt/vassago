@@ -42,7 +42,7 @@ go build -o vassago-daemon ./daemon/cmd/vassago-daemon/
                             └──────────────────────────────┘
 ```
 
-## API Surface (42 RPCs)
+## API Surface (52 RPCs)
 
 | Category | RPCs |
 |----------|------|
@@ -53,12 +53,15 @@ go build -o vassago-daemon ./daemon/cmd/vassago-daemon/
 | **Consolidation** | Consolidate, GetConsolidationCandidates |
 | **Pub/Sub** | Subscribe (streaming — real-time memory change events) |
 | **Agent Mgmt** | RegisterAgent, Heartbeat |
+| **Tasks** | AddTask, GetTask, ClaimTask, CompleteTask, FailTask, FindReadyTasks, ListTasksByStatus, ResetTimedOutTasks, DeleteTask |
 | **Chat** | ChatStream (bidirectional streaming for agent conversations) |
+| **Messaging** | SendMessage, ListChannels, SubscribeToMessages |
 | **Todos** | AddTodo, ListTodos, CompleteTodo, RemoveTodo |
 | **Skills** | AddSkill, GetSkill, ListSkills, RemoveSkill, SearchSkills |
 | **Saved Tools** | AddSavedTool, GetSavedTool, ListSavedTools, SearchSavedTools, UpdateSavedTool, RemoveSavedTool |
 | **Cron** | CreateCronJob, ListCronJobs, UpdateCronJob, DeleteCronJob |
 | **Replication** | SyncChanges (peer delta sync) |
+| **Health** | Ping |
 
 ## Features
 
