@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/aj-nt/vassago/internal/ollama"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -20,12 +21,12 @@ import (
 // Worker polls the daemon for ready tasks, claims them, executes via LLM,
 // and reports results.
 type Worker struct {
-	cfg         *Config
-	mnemo       client.MnemoClient
-	ollama      *OllamaClient
-	agentID     string // nolint:unused
-	completed   int
-	failed      int
+	cfg       *Config
+	mnemo     client.MnemoClient
+	llm       *ollama.Client
+	agentID   string // nolint:unused
+	completed int
+	failed    int
 }
 
 func NewWorker(cfg *Config) (*Worker, error) {
@@ -38,9 +39,9 @@ func NewWorker(cfg *Config) (*Worker, error) {
 	}
 
 	return &Worker{
-		cfg:    cfg,
-		mnemo:  c,
-		ollama: NewOllamaClient(cfg.Ollama),
+		cfg:   cfg,
+		mnemo: c,
+		llm:   ollama.NewClient(cfg.Ollama),
 	}, nil
 }
 
@@ -161,7 +162,7 @@ func (w *Worker) executeTask(ctx context.Context, task *client.TaskEntry) *TaskR
 	var taskCtx map[string]interface{}
 	_ = json.Unmarshal([]byte(contextStr), &taskCtx)
 
-	messages := []message{{
+	messages := []ollama.Message{{
 		Role:    "user",
 		Content: buildExecutionPrompt(goal, contextStr),
 	}}
@@ -177,7 +178,7 @@ func (w *Worker) executeTask(ctx context.Context, task *client.TaskEntry) *TaskR
 		default:
 		}
 
-		text, err := w.ollama.Chat(messages)
+		text, err := w.llm.Chat(messages)
 		if err != nil {
 			return &TaskResult{
 				TaskID:     task.Id,
@@ -189,7 +190,7 @@ func (w *Worker) executeTask(ctx context.Context, task *client.TaskEntry) *TaskR
 		}
 
 		text = strings.TrimSpace(text)
-		messages = append(messages, message{Role: "assistant", Content: text})
+		messages = append(messages, ollama.Message{Role: "assistant", Content: text})
 
 		switch {
 		case strings.HasPrefix(text, "CMD:"):
@@ -209,20 +210,20 @@ func (w *Worker) executeTask(ctx context.Context, task *client.TaskEntry) *TaskR
 			if output.ExitCode != 0 {
 				response += fmt.Sprintf("\n[exit: %d]", output.ExitCode)
 			}
-			messages = append(messages, message{Role: "user", Content: response})
+			messages = append(messages, ollama.Message{Role: "user", Content: response})
 
 		case strings.HasPrefix(text, "DONE:"):
 			summary := strings.TrimSpace(text[5:])
 			slog.Info("Task DONE", "id", task.Id, "summary", truncate(summary, 100), "turns", turn)
 			return &TaskResult{
-				TaskID:     task.Id,
-				AgentType:  task.AgentType,
-				Status:     "success",
-				Summary:    summary,
-				Findings:   findings,
-				Model:      w.cfg.Ollama.Model,
-				LLMTurns:   turn,
-				DurationMs: time.Since(t0).Milliseconds(),
+				TaskID:      task.Id,
+				AgentType:   task.AgentType,
+				Status:      "success",
+				Summary:     summary,
+				Findings:    findings,
+				Model:       w.cfg.Ollama.Model,
+				LLMTurns:    turn,
+				DurationMs:  time.Since(t0).Milliseconds(),
 				CompletedAt: time.Now().Unix(),
 			}
 
@@ -241,7 +242,7 @@ func (w *Worker) executeTask(ctx context.Context, task *client.TaskEntry) *TaskR
 
 		default:
 			// Unstructured — nudge toward protocol
-			messages = append(messages, message{
+			messages = append(messages, ollama.Message{
 				Role:    "user",
 				Content: "Respond with CMD:, DONE:, or FAIL:",
 			})

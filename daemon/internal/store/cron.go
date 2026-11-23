@@ -101,26 +101,7 @@ func (s *Store) ListCronJobs(owner, agentID string, includeDisabled bool) ([]*pb
 	}
 	defer func() { _ = rows.Close() }()
 
-	var jobs []*pb.CronJob
-	for rows.Next() {
-		var job pb.CronJob
-		var enabled bool
-		var lastFireAt sql.NullInt64
-		var nextFireAt sql.NullInt64
-		if err := rows.Scan(&job.Id, &job.Name, &job.Schedule, &job.AgentId, &job.Message, &enabled,
-			&job.CreatedAt, &job.UpdatedAt, &lastFireAt, &nextFireAt); err != nil {
-			return nil, fmt.Errorf("ListCronJobs scan: %w", err)
-		}
-		job.Enabled = enabled
-		if lastFireAt.Valid {
-			job.LastFireAt = lastFireAt.Int64
-		}
-		if nextFireAt.Valid {
-			job.NextFireAt = nextFireAt.Int64
-		}
-		jobs = append(jobs, &job)
-	}
-	return jobs, rows.Err()
+	return scanCronJobs(rows, "ListCronJobs")
 }
 
 // UpdateCronJob updates specific fields of a cron job, scoped to owner (Phase 28).
@@ -206,6 +187,22 @@ func (s *Store) GetDueCronJobs(now int64) ([]*pb.CronJob, error) {
 	}
 	defer func() { _ = rows.Close() }()
 
+	return scanCronJobs(rows, "GetDueCronJobs")
+}
+
+// joinSetClauses joins SET clause fragments with commas.
+func joinSetClauses(clauses []string) string {
+	result := clauses[0]
+	for _, c := range clauses[1:] {
+		result += ", " + c
+	}
+	return result
+}
+
+// scanCronJobs reads the ten columns both cron queries select. Written twice, the two copies
+// were two places to reorder a scan list — and a scan list is positional: swap two columns and
+// every job comes back with its message in its schedule, with no error to notice.
+func scanCronJobs(rows *sql.Rows, op string) ([]*pb.CronJob, error) {
 	var jobs []*pb.CronJob
 	for rows.Next() {
 		var job pb.CronJob
@@ -214,7 +211,7 @@ func (s *Store) GetDueCronJobs(now int64) ([]*pb.CronJob, error) {
 		var nextFireAt sql.NullInt64
 		if err := rows.Scan(&job.Id, &job.Name, &job.Schedule, &job.AgentId, &job.Message, &enabled,
 			&job.CreatedAt, &job.UpdatedAt, &lastFireAt, &nextFireAt); err != nil {
-			return nil, fmt.Errorf("GetDueCronJobs scan: %w", err)
+			return nil, fmt.Errorf("%s scan: %w", op, err)
 		}
 		job.Enabled = enabled
 		if lastFireAt.Valid {
@@ -226,13 +223,4 @@ func (s *Store) GetDueCronJobs(now int64) ([]*pb.CronJob, error) {
 		jobs = append(jobs, &job)
 	}
 	return jobs, rows.Err()
-}
-
-// joinSetClauses joins SET clause fragments with commas.
-func joinSetClauses(clauses []string) string {
-	result := clauses[0]
-	for _, c := range clauses[1:] {
-		result += ", " + c
-	}
-	return result
 }
