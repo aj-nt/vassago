@@ -63,20 +63,7 @@ func UnaryInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, 
 	resp, err := handler(ctx, req)
 	duration := time.Since(start)
 
-	if err != nil {
-		st, _ := status.FromError(err)
-		slog.Info("gRPC call",
-			"method", info.FullMethod,
-			"duration", formatDuration(duration),
-			"code", st.Code(),
-			"error", st.Message(),
-		)
-	} else {
-		slog.Debug("gRPC call",
-			"method", info.FullMethod,
-			"duration", formatDuration(duration),
-		)
-	}
+	logCall("gRPC call", info.FullMethod, duration, err)
 
 	return resp, err
 }
@@ -87,20 +74,7 @@ func StreamInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInf
 	err := handler(srv, ss)
 	duration := time.Since(start)
 
-	if err != nil {
-		st, _ := status.FromError(err)
-		slog.Info("gRPC stream",
-			"method", info.FullMethod,
-			"duration", formatDuration(duration),
-			"code", st.Code(),
-			"error", st.Message(),
-		)
-	} else {
-		slog.Debug("gRPC stream",
-			"method", info.FullMethod,
-			"duration", formatDuration(duration),
-		)
-	}
+	logCall("gRPC stream", info.FullMethod, duration, err)
 
 	return err
 }
@@ -121,4 +95,21 @@ func formatDuration(d time.Duration) string {
 		return time.Duration(d.Milliseconds()).String() + "ms"
 	}
 	return d.Round(time.Millisecond).String()
+}
+
+// logCall is the one place a completed call is logged. Unary and stream handlers were each
+// carrying their own copy of it, which is how a field added to one kind of call — a trace id, a
+// peer — goes missing from exactly half the logs.
+func logCall(kind, method string, duration time.Duration, err error) {
+	if err != nil {
+		st, _ := status.FromError(err)
+		slog.Info(kind,
+			"method", method,
+			"duration", formatDuration(duration),
+			"code", st.Code(),
+			"error", st.Message(),
+		)
+		return
+	}
+	slog.Debug(kind, "method", method, "duration", formatDuration(duration))
 }

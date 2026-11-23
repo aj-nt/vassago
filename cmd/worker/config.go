@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/aj-nt/vassago/internal/ollama"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,22 +15,13 @@ import (
 
 // Config holds the worker configuration.
 type Config struct {
-	DaemonAddr string      `yaml:"daemon_addr"`
-	AgentID    string      `yaml:"agent_id"`
-	AgentName  string      `yaml:"agent_name"`
-	AgentTypes []string    `yaml:"agent_types"`
-	PollSec    int         `yaml:"poll_sec"`
-	MaxTurns   int         `yaml:"max_turns"`
-	Ollama     OllamaConfig `yaml:"ollama"`
-}
-
-// OllamaConfig holds the LLM backend configuration.
-type OllamaConfig struct {
-	BaseURL     string `yaml:"base_url"`
-	Model       string `yaml:"model"`
-	MaxTokens   int    `yaml:"max_tokens"`
-	Temperature float64 `yaml:"temperature"`
-	TimeoutSec  int    `yaml:"timeout_sec"`
+	DaemonAddr string        `yaml:"daemon_addr"`
+	AgentID    string        `yaml:"agent_id"`
+	AgentName  string        `yaml:"agent_name"`
+	AgentTypes []string      `yaml:"agent_types"`
+	PollSec    int           `yaml:"poll_sec"`
+	MaxTurns   int           `yaml:"max_turns"`
+	Ollama     ollama.Config `yaml:"ollama"`
 }
 
 // loadConfig loads configuration from file.
